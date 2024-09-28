@@ -1,0 +1,31 @@
+services:
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672" # Puerto del Broker
+      - "15672:15672" # Puerto de la UI de manejo
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  entrypoint:
+    image: entrypoint:latest
+    container_name: entrypoint
+    entrypoint: /entrypoint
+    depends_on:
+      - rabbitmq
+
+  examplenode:
+    image: examplenode:latest
+    container_name: examplenode
+    entrypoint: /examplenode
+    depends_on:
+      - rabbitmq
+
+  client:
+    image: client:latest
+    container_name: client
+    entrypoint: /client
+    depends_on:
+      - entrypoint
