@@ -1,28 +1,49 @@
 package main
 
 import (
+	"bufio"
 	cp "distribuidos-tp/internal/clientprotocol"
-	"fmt"
 	"net"
+	"os"
+
+	"github.com/op/go-logging"
 )
 
 const SERVER_IP = "entrypoint:3000"
 
+var log = logging.MustGetLogger("log")
+
 func main() {
 	conn, err := net.Dial("tcp", SERVER_IP)
 	if err != nil {
-		fmt.Println("Error connecting:", err)
+		log.Errorf("Error connecting:", err)
 		return
 	}
 	defer conn.Close()
 
-	message_to_write := cp.GetMessageToSend()
-	message_to_write += "\n"
-	_, err = conn.Write([]byte(message_to_write))
+	file, err := os.Open("./client_data/games.csv")
 	if err != nil {
-		fmt.Println("Error sending data:", err)
+		log.Errorf("Error opening file:", err)
 		return
 	}
+	defer file.Close()
 
-	fmt.Println("Message sent")
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		serializedBatch, err := cp.SerializeGameBatch(scanner, 10)
+		if err != nil {
+			log.Errorf("Error reading csv file: ", err)
+			return
+		}
+
+		_, err = conn.Write(serializedBatch)
+
+		if err != nil {
+			log.Errorf("Error sending game batch to entrypoint: ", err)
+			return
+		}
+		log.Debug("Sent game batch")
+		break
+	}
 }

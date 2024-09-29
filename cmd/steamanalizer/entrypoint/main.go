@@ -1,14 +1,9 @@
 package main
 
 import (
-	"bufio"
-	"context"
+	cp "distribuidos-tp/internal/clientprotocol"
 	"fmt"
-	"log"
 	"net"
-	"time"
-
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func main() {
@@ -35,63 +30,20 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	reader := bufio.NewReader(conn)
-	message, err := reader.ReadString('\n')
+	// Receive the batch of serialized data
+	data, err := cp.ReceiveGameBatch(conn)
 	if err != nil {
-		fmt.Println("Error reading from connection:", err)
+		fmt.Println("Error receiving game batch:", err)
 		return
 	}
 
-	fmt.Println("Received message:", message)
-
-	var amqpConn *amqp.Connection
-	for i := 0; i < 10; i++ {
-		amqpConn, err = amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
-		if err == nil {
-			break
-		}
-		fmt.Println("Retrying connection to RabbitMQ...")
-		time.Sleep(5 * time.Second)
-	}
-	defer amqpConn.Close()
-
-	ch, err := amqpConn.Channel()
+	lines, err := cp.DeserializeGameBatch(data)
 	if err != nil {
-		fmt.Println("Error creating channel:", err)
-		return
-	}
-	defer ch.Close()
-
-	err = ch.ExchangeDeclare(
-		"first_exchange", // name. Nombre del exchange
-		"direct",         // type. Tipo del exchange. Manda mensajes a las colas que matchee la routing key.
-		true,             // durable
-		false,            // auto-deleted
-		false,            // internal
-		false,            // no-wait
-		nil,              // arguments
-	)
-	if err != nil {
-		fmt.Println("Error declaring exchange:", err)
+		fmt.Println("Error deserializing game batch:", err)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	err = ch.PublishWithContext(ctx,
-		"first_exchange", // exchange
-		"example",        // routing key. Se ignora para el fanout exchange.
-		false,            // mandatory
-		false,            // immediate
-		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(message),
-		})
-	if err != nil {
-		fmt.Println("Error publishing message:", err)
-		return
+	for _, line := range lines {
+		fmt.Println(line)
 	}
-
-	log.Printf(" [x] Sent %s", message)
 }

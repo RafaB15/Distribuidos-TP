@@ -22,10 +22,13 @@ services:
     entrypoint: /examplenode
     depends_on:
       - rabbitmq
+      - entrypoint
 
   client:
     image: client:latest
     container_name: client
     entrypoint: /client
+    volumes:
+      - ./cmd/client/client_data:/client_data
     depends_on:
       - entrypoint
