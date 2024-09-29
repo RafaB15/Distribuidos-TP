@@ -2,11 +2,7 @@ default: build
 
 all:
 
-vendor:
-	go mod vendor
-.PHONY: vendor
-
-docker-image: vendor
+docker-image:
 	docker build -f ./cmd/client/Dockerfile -t "client:latest" .
 	docker build -f ./cmd/steamanalizer/entrypoint/Dockerfile -t "entrypoint:latest" .
 	docker build -f ./cmd/steamanalizer/examplenode/Dockerfile -t "examplenode:latest" .

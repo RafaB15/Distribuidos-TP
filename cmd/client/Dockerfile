@@ -3,9 +3,15 @@ LABEL intermediateStageToBeDeleted=true
 
 RUN mkdir -p /build
 WORKDIR /build/
-COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o bin/client ./cmd/client
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY cmd/client ./cmd/client
+COPY internal/clientprotocol ./internal/clientprotocol
+COPY internal/utils ./internal/utils
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/client ./cmd/client
 
 # Stage 2
 FROM busybox:latest

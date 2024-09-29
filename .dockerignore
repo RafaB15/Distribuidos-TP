@@ -1,0 +1,5 @@
+cmd/client/client_data/*
+**/Dockerfile
+.git
+.gitignore
+Makefile

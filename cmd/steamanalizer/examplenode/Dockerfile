@@ -3,9 +3,17 @@ LABEL intermediateStageToBeDeleted=true
 
 RUN mkdir -p /build
 WORKDIR /build/
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY cmd/steamanalizer/examplenode ./cmd/steamanalizer/examplenode
+COPY internal/clientprotocol ./internal/clientprotocol
+COPY internal/utils ./internal/utils
+
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o bin/examplenode ./cmd/steamanalizer/examplenode
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/examplenode ./cmd/steamanalizer/examplenode
 
 # Stage 2
 FROM busybox:latest
