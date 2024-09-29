@@ -10,6 +10,7 @@ RUN go mod download
 COPY cmd/steamanalizer/entrypoint ./cmd/steamanalizer/entrypoint
 COPY internal/clientprotocol ./internal/clientprotocol
 COPY internal/utils ./internal/utils
+COPY internal/mom ./internal/mom
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/entrypoint ./cmd/steamanalizer/entrypoint
 

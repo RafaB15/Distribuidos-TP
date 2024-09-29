@@ -10,8 +10,7 @@ RUN go mod download
 COPY cmd/steamanalizer/examplenode ./cmd/steamanalizer/examplenode
 COPY internal/clientprotocol ./internal/clientprotocol
 COPY internal/utils ./internal/utils
-
-COPY . .
+COPY internal/mom ./internal/mom
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/examplenode ./cmd/steamanalizer/examplenode
 

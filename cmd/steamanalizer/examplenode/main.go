@@ -1,76 +1,47 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"time"
+	"distribuidos-tp/internal/mom"
 
-	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/op/go-logging"
 )
 
+const (
+	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+	exchangeName  = "game_exchange"
+	exchangeType  = "direct"
+	queueName     = "game_queue"
+	routingKey    = "game_key"
+)
+
+var log = logging.MustGetLogger("log")
+
 func main() {
-	var amqpConn *amqp.Connection
-	var err error
-	for i := 0; i < 10; i++ {
-		amqpConn, err = amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
-		if err == nil {
-			break
-		}
-		fmt.Println("Retrying connection to RabbitMQ...")
-		time.Sleep(5 * time.Second)
-	}
-	defer amqpConn.Close()
-
-	ch, err := amqpConn.Channel()
+	manager, err := mom.NewMiddlewareManager(middlewareURI, 5, 2)
 	if err != nil {
-		log.Fatalf("Failed to open a channel: %v", err)
+		log.Errorf("Failed to create middleware manager: %v", err)
+		return
 	}
-	defer ch.Close()
+	defer manager.CloseConnection()
 
-	q, err := ch.QueueDeclare(
-		"example_queue", // name
-		true,            // durable
-		false,           // delete when unused
-		false,           // exclusive
-		false,           // no-wait
-		nil,             // arguments
-	)
+	queue, err := manager.CreateQueue(queueName, exchangeName, routingKey)
 	if err != nil {
-		log.Fatalf("Failed to declare a queue: %v", err)
+		log.Errorf("Failed to declare queue: %v", err)
 	}
 
-	err = ch.QueueBind(
-		q.Name,           // queue name
-		"example",        // routing key
-		"first_exchange", // exchange
-		false,
-		nil,
-	)
+	msgs, err := queue.Consume(true)
 	if err != nil {
-		log.Fatalf("Failed to bind a queue: %v", err)
-	}
-
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		true,   // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	if err != nil {
-		log.Fatalf("Failed to register a consumer: %v", err)
+		log.Errorf("Failed to consume messages: %v", err)
 	}
 
 	forever := make(chan bool)
 
 	go func() {
 		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
+			log.Info("Received a message: %s\n", d.Body)
 		}
 	}()
 
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
