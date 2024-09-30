@@ -38,7 +38,7 @@ func main() {
 
 	go func() {
 		for d := range msgs {
-			log.Info("Received a message: %s\n", d.Body)
+			log.Infof("Received a message: %s\n", string(d.Body))
 		}
 	}()
 

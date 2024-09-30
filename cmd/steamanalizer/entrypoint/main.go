@@ -19,6 +19,20 @@ const (
 var log = logging.MustGetLogger("log")
 
 func main() {
+	manager, err := mom.NewMiddlewareManager(middlewareURI, 5, 2)
+	if err != nil {
+		log.Errorf("Failed to create middleware manager: %v", err)
+		return
+	}
+	defer manager.CloseConnection()
+
+	exchange, err := manager.CreateExchange(exchangeName, exchangeType)
+	if err != nil {
+		log.Errorf("Failed to declare exchange: %v", err)
+		return
+	}
+	defer exchange.CloseExchange()
+
 	listener, err := net.Listen("tcp", ":3000")
 	if err != nil {
 		fmt.Println("Error starting TCP server:", err)
@@ -35,25 +49,12 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn)
+		go handleConnection(conn, exchange)
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, exchange *mom.Exchange) {
 	defer conn.Close()
-
-	manager, err := mom.NewMiddlewareManager(middlewareURI, 5, 2)
-	if err != nil {
-		log.Errorf("Failed to create middleware manager: %v", err)
-		return
-	}
-	defer manager.CloseConnection()
-
-	exchange, err := manager.CreateExchange(exchangeName, exchangeType)
-	if err != nil {
-		log.Errorf("Failed to declare exchange: %v", err)
-	}
-	defer exchange.CloseExchange()
 
 	data, err := cp.ReceiveGameBatch(conn)
 	if err != nil {

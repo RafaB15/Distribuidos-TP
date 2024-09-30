@@ -8,27 +8,39 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - distributed_network
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status" ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
   entrypoint:
     image: entrypoint:latest
     container_name: entrypoint
     entrypoint: /entrypoint
+    networks:
+      - distributed_network
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
 
   examplenode:
     image: examplenode:latest
     container_name: examplenode
     entrypoint: /examplenode
+    networks:
+      - distributed_network
     depends_on:
-      - rabbitmq
-      - entrypoint
+      entrypoint:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
-  client:
-    image: client:latest
-    container_name: client
-    entrypoint: /client
-    volumes:
-      - ./cmd/client/client_data:/client_data
-    depends_on:
-      - entrypoint
+networks:
+  distributed_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.24.125.0/24
