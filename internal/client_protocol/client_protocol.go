@@ -1,4 +1,4 @@
-package clientprotocol
+package client_protocol
 
 import (
 	"bufio"

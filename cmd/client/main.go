@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	cp "distribuidos-tp/internal/clientprotocol"
+	cp "distribuidos-tp/internal/client_protocol"
 	"net"
 	"os"
 

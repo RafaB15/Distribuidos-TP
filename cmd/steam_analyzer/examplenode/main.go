@@ -8,23 +8,20 @@ import (
 
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
-	exchangeName  = "game_exchange"
-	exchangeType  = "direct"
 	queueName     = "game_queue"
-	routingKey    = "game_key"
 )
 
 var log = logging.MustGetLogger("log")
 
 func main() {
-	manager, err := mom.NewMiddlewareManager(middlewareURI, 5, 2)
+	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
 		return
 	}
 	defer manager.CloseConnection()
 
-	queue, err := manager.CreateQueue(queueName, exchangeName, routingKey)
+	queue, err := manager.CreateQueue(queueName)
 	if err != nil {
 		log.Errorf("Failed to declare queue: %v", err)
 	}

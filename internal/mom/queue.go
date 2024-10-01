@@ -1,8 +1,6 @@
 package mom
 
 import (
-	"time"
-
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -31,26 +29,17 @@ func NewQueue(ch *amqp.Channel, name string) (*Queue, error) {
 	}, nil
 }
 
-func (q *Queue) Bind(exchange string, routingKey string, retries int, delaySeconds int) error {
-	delay := time.Duration(delaySeconds) * time.Second
-	var err error = nil
-	for i := 0; i < retries; i++ {
-		err = q.channel.QueueBind(
-			q.data.Name, // queue name
-			routingKey,  // routing key
-			exchange,    // exchange
-			false,
-			nil,
-		)
-		if err == nil {
-			break
-		}
-		if i == retries-1 {
-			return err
-		}
-		time.Sleep(delay)
-	}
-	return nil
+func (q *Queue) Bind(exchange string, routingKey string) error {
+
+	err := q.channel.QueueBind(
+		q.data.Name, // queue name
+		routingKey,  // routing key
+		exchange,    // exchange
+		false,
+		nil,
+	)
+
+	return err
 }
 
 func (q *Queue) Consume(autoAck bool) (<-chan amqp.Delivery, error) {

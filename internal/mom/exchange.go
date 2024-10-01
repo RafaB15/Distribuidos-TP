@@ -4,7 +4,7 @@ import amqp "github.com/rabbitmq/amqp091-go"
 
 type Exchange struct {
 	channel *amqp.Channel
-	name    string
+	Name    string
 	kind    string
 }
 
@@ -24,14 +24,14 @@ func NewExchange(ch *amqp.Channel, name string, kind string) (*Exchange, error) 
 
 	return &Exchange{
 		channel: ch,
-		name:    name,
+		Name:    name,
 		kind:    kind,
 	}, nil
 }
 
 func (e *Exchange) Publish(routingKey string, body []byte) error {
 	err := e.channel.Publish(
-		e.name,     // exchange
+		e.Name,     // exchange
 		routingKey, // routing key
 		false,      // mandatory
 		false,      // immediate

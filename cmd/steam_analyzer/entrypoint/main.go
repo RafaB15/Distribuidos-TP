@@ -1,7 +1,7 @@
 package main
 
 import (
-	cp "distribuidos-tp/internal/clientprotocol"
+	cp "distribuidos-tp/internal/client_protocol"
 	"distribuidos-tp/internal/mom"
 	"fmt"
 	"net"
@@ -14,23 +14,37 @@ const (
 	exchangeName  = "game_exchange"
 	exchangeType  = "direct"
 	routingKey    = "game_key"
+	queueName     = "game_queue"
 )
 
 var log = logging.MustGetLogger("log")
 
 func main() {
-	manager, err := mom.NewMiddlewareManager(middlewareURI, 5, 2)
+	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
 		return
 	}
 	defer manager.CloseConnection()
 
+	queue, err := manager.CreateQueue(queueName)
+	if err != nil {
+		log.Errorf("Failed to declare queue: %v", err)
+	}
+
 	exchange, err := manager.CreateExchange(exchangeName, exchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
 		return
 	}
+
+	err = queue.Bind(exchange.Name, routingKey)
+
+	if err != nil {
+		log.Errorf("Failed to bind queue: %v", err)
+		return
+	}
+
 	defer exchange.CloseExchange()
 
 	listener, err := net.Listen("tcp", ":3000")

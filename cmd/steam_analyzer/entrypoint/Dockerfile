@@ -1,4 +1,4 @@
-FROM golang:1.22 AS builder
+FROM golang:1.23 AS builder
 LABEL intermediateStageToBeDeleted=true
 
 RUN mkdir -p /build
@@ -7,12 +7,12 @@ WORKDIR /build/
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY cmd/steamanalizer/entrypoint ./cmd/steamanalizer/entrypoint
-COPY internal/clientprotocol ./internal/clientprotocol
+COPY cmd/steam_analyzer/entrypoint ./cmd/steam_analyzer/entrypoint
+COPY internal/client_protocol ./internal/client_protocol
 COPY internal/utils ./internal/utils
 COPY internal/mom ./internal/mom
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/entrypoint ./cmd/steamanalizer/entrypoint
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/entrypoint ./cmd/steam_analyzer/entrypoint
 
 # Stage 2
 FROM busybox:latest
