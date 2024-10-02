@@ -26,14 +26,26 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  examplenode:
-    image: examplenode:latest
-    container_name: examplenode
-    entrypoint: /examplenode
+  game_mapper:
+    image: game_mapper:latest
+    container_name: game_mapper
+    entrypoint: /mappers/game_mapper
     networks:
       - distributed_network
     depends_on:
       entrypoint:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  os_accumulator:
+    image: os_accumulator:latest
+    container_name: os_accumulator
+    entrypoint: /accumulators/os_accumulator
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
         condition: service_started
       rabbitmq:
         condition: service_healthy

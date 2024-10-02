@@ -8,7 +8,8 @@ docker-compose-rabbit:
 
 docker-image-system:
 	docker build -f ./cmd/steam_analyzer/entrypoint/Dockerfile -t "entrypoint:latest" .
-	docker build -f ./cmd/steam_analyzer/examplenode/Dockerfile -t "examplenode:latest" .
+	docker build -f ./cmd/steam_analyzer/mappers/game_mapper/Dockerfile -t "game_mapper:latest" .
+	docker build -f ./cmd/steam_analyzer/accumulators/os_accumulator/Dockerfile -t "os_accumulator:latest" .
 .PHONY: docker-image-system
 
 docker-compose-up: docker-image-system
