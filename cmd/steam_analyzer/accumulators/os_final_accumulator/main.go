@@ -2,6 +2,7 @@ package main
 
 import (
 	"distribuidos-tp/internal/mom"
+	"sync"
 
 	"github.com/op/go-logging"
 )
@@ -55,10 +56,23 @@ func main() {
 		return
 	}
 
+	var (
+		finalMetrics = oa.NewGameOsMetrics()
+		mu           sync.Mutex
+		received     = 0
+	)
+
+	done := make(chan bool) //para el final de procesamiento
+
 	forever := make(chan bool)
 
 	go func() error {
 		// Acá tenemos que recibir los mensajes de final accumulator. Una vez que recibamos tantos como nodos anteriores, mandamos al writer.
+		for d := range msgs {
+			messageBody := d.Body
+
+			messageType, body, err := sp.DeserializeMessageType(messageBody)
+		}
 	}()
 
 	log.Info("Waiting for messages. To exit press CTRL+C")

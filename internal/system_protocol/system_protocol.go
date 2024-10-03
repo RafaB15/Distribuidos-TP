@@ -70,3 +70,24 @@ func DeserializeMessageGameOsInformation(message []byte) ([]*oa.GameOS, error) {
 
 	return gameOSList, nil
 }
+
+func SerializeMessageAccumulatedGameOsInformacion(metrics *oa.GameOSMetrics) ([]byte, error) {
+	message := make([]byte, 3+3)
+	message[0] = byte(MessageAccumulatedGameOsInformation)
+	serializedMetrics := oa.SerializeGameOsMetrics(metrics)
+	copy(message[1:], serializedMetrics)
+	return message, nil
+}
+
+func DeserializeMessageAccumulatedGameOsInformacion(message []byte) (*oa.GameOSMetrics, error) {
+	if len(message) < 3 {
+		return nil, errors.New("message too short to contain metrics")
+	}
+
+	metrics, err := oa.DeserializeGameOsMetrics(message[1:])
+	if err != nil {
+		return nil, err
+	}
+
+	return metrics, nil
+}
