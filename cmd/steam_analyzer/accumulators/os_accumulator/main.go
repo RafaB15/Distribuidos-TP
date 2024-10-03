@@ -2,14 +2,18 @@ package main
 
 import (
 	"distribuidos-tp/internal/mom"
+	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	"fmt"
 
 	"github.com/op/go-logging"
 )
 
 const (
-	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
-	queueName     = "os_game_queue"
+	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
+	queueToReceiveName = "os_game_queue"
+	exchangeName       = "os_accumulator_exchange"
+	queueToSendName    = "os_accumulator_queue"
 )
 
 var log = logging.MustGetLogger("log")
@@ -22,27 +26,66 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queue, err := manager.CreateQueue(queueName)
+	queueToReceive, err := manager.CreateQueue(queueToReceiveName)
+	if err != nil {
+		log.Errorf("Failed to declare game mapper: %v", err)
+		return
+	}
+
+	exchange, err := manager.CreateExchange(exchangeName, "direct")
+	if err != nil {
+		log.Errorf("Failed to declare exchange: %v", err)
+		return
+	}
+
+	queueToSend, err := manager.CreateQueue(queueToSendName)
 	if err != nil {
 		log.Errorf("Failed to declare queue: %v", err)
+		return
 	}
 
-	msgs, err := queue.Consume(true)
+	err = queueToSend.Bind(exchange.Name, "final_accumulator")
+	if err != nil {
+		log.Errorf("Failed to bind accumulator queue: %v", err)
+		return
+	}
+
+	msgs, err := queueToReceive.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
+		return
 	}
-
 	forever := make(chan bool)
 
-	go func() {
+	go func() error {
+		osMetrics := oa.NewGameOsMetrics()
 		for d := range msgs {
-			gameOs, err := oa.DeserializeGameOS(d.Body)
+			messageBody := d.Body
+			messageType, messageBody, err := sp.DeserializeMessageType(messageBody)
+
 			if err != nil {
-				log.Error("Error deserializing GameOS")
+				return err
 			}
 
-			log.Debugf("Got game of id %d", gameOs.AppId)
+			if messageType == sp.MessageEndOfFile {
+				break
+			} else if messageType == sp.MessageGameOsInformation {
+				gamesOs, err := sp.DeserializeMessageGameOsInformation(messageBody)
+				if err != nil {
+					return err
+				}
+
+				for _, gameOs := range gamesOs {
+					osMetrics.AddGameOS(gameOs)
+				}
+			} else {
+				return fmt.Errorf("Unexpected message type")
+			}
 		}
+
+		// Acá tenemos que serializar y mandar el Os Metrics a la cola siguiente
+
+		return nil
 	}()
 
 	log.Info("Waiting for messages. To exit press CTRL+C")

@@ -21,7 +21,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	file, err := os.Open("./client_data/games.csv")
+	file, err := os.Open("./client_data/games_reduced.csv")
 	if err != nil {
 		log.Errorf("Error opening file:", err)
 		return

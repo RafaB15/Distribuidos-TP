@@ -2,6 +2,7 @@ package main
 
 import (
 	"distribuidos-tp/internal/mom"
+	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	"encoding/csv"
 	"errors"
@@ -68,13 +69,13 @@ func mapLines(queue *mom.Queue, game_os_exchange *mom.Exchange) error {
 		if len(records) < 20 {
 			return errors.New("input CSV does not have enough fields")
 		}
-
-		gameOs, err := oa.NewGameOs(records[0], records[17], records[18], records[19])
+		gameOs, err := oa.NewGameOs(records[17], records[18], records[19])
 		if err != nil {
 			return err
 		}
+		gameOsSlice := []*oa.GameOS{gameOs}
+		serializedGameOs := sp.SerializeMessageGameOsInformation(gameOsSlice)
 
-		serializedGameOs := oa.SerializeGameOs(gameOs)
 		err = game_os_exchange.Publish("os", serializedGameOs)
 		if err != nil {
 			log.Error("Error publishing game")
