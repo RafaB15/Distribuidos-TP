@@ -58,32 +58,39 @@ func main() {
 	forever := make(chan bool)
 
 	go func() error {
-		osMetrics := oa.NewGameOsMetrics()
+		osMetrics := oa.NewGameOSMetrics()
+	loop:
 		for d := range msgs {
 			messageBody := d.Body
-			messageType, messageBody, err := sp.DeserializeMessageType(messageBody)
+			messageType, err := sp.DeserializeMessageType(messageBody)
 
 			if err != nil {
 				return err
 			}
 
-			if messageType == sp.MessageEndOfFile {
-				break
-			} else if messageType == sp.MessageGameOsInformation {
-				gamesOs, err := sp.DeserializeMessageGameOsInformation(messageBody)
+			switch messageType {
+			case sp.MsgEndOfFile:
+				break loop
+			case sp.MsgGameOSInformation:
+				gamesOs, err := sp.DeserializeMsgGameOSInformation(messageBody)
 				if err != nil {
 					return err
 				}
-
 				for _, gameOs := range gamesOs {
 					osMetrics.AddGameOS(gameOs)
 				}
-			} else {
+			default:
 				return fmt.Errorf("Unexpected message type")
+
 			}
 		}
 
 		// Acá tenemos que serializar y mandar el Os Metrics a la cola siguiente
+		msg, err := sp.SerializeMsgAccumulatedGameOSInfo(osMetrics)
+		if err != nil {
+			log.Errorf("Failed to serialize message: %v", err)
+		}
+		err = exchange.Publish("final_accumulator", msg)
 
 		return nil
 	}()

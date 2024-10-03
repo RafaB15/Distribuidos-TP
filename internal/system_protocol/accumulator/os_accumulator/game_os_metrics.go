@@ -11,7 +11,7 @@ type GameOSMetrics struct {
 	Mac     uint32
 }
 
-func NewGameOsMetrics() *GameOSMetrics {
+func NewGameOSMetrics() *GameOSMetrics {
 
 	return &GameOSMetrics{
 		Linux:   0,
@@ -20,7 +20,7 @@ func NewGameOsMetrics() *GameOSMetrics {
 	}
 }
 
-func SerializeGameOsMetrics(gameOsMetrics *GameOSMetrics) []byte {
+func SerializeGameOSMetrics(gameOsMetrics *GameOSMetrics) []byte {
 	buf := make([]byte, 12)
 	binary.BigEndian.PutUint32(buf[0:4], gameOsMetrics.Linux)
 	binary.BigEndian.PutUint32(buf[4:8], gameOsMetrics.Windows)

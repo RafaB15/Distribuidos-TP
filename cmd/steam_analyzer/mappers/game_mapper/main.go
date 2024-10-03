@@ -69,14 +69,14 @@ func mapLines(queue *mom.Queue, game_os_exchange *mom.Exchange) error {
 		if len(records) < 20 {
 			return errors.New("input CSV does not have enough fields")
 		}
-		gameOs, err := oa.NewGameOs(records[17], records[18], records[19])
+		gameOs, err := oa.NewGameOS(records[17], records[18], records[19])
 		if err != nil {
 			return err
 		}
 		gameOsSlice := []*oa.GameOS{gameOs}
-		serializedGameOs := sp.SerializeMessageGameOsInformation(gameOsSlice)
+		serializedGameOS := sp.SerializeMsgGameOSInformation(gameOsSlice)
 
-		err = game_os_exchange.Publish("os", serializedGameOs)
+		err = game_os_exchange.Publish("os", serializedGameOS)
 		if err != nil {
 			log.Error("Error publishing game")
 			return err

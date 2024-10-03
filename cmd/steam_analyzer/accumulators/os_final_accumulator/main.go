@@ -2,7 +2,6 @@ package main
 
 import (
 	"distribuidos-tp/internal/mom"
-	"sync"
 
 	"github.com/op/go-logging"
 )
@@ -32,12 +31,6 @@ func main() {
 		return
 	}
 
-	exchange, err := manager.CreateExchange(exchangeName, "direct")
-	if err != nil {
-		log.Errorf("Failed to declare exchange: %v", err)
-		return
-	}
-
 	msgs, err := queue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
@@ -50,28 +43,27 @@ func main() {
 		return
 	}
 
-	err = queueToSend.Bind(exchange.Name, routingKey)
-	if err != nil {
-		log.Errorf("Failed to bind queue to exchange: %v", err)
-		return
-	}
-
-	var (
-		finalMetrics = oa.NewGameOsMetrics()
-		mu           sync.Mutex
-		received     = 0
-	)
-
-	done := make(chan bool) //para el final de procesamiento
-
 	forever := make(chan bool)
 
 	go func() error {
 		// Acá tenemos que recibir los mensajes de final accumulator. Una vez que recibamos tantos como nodos anteriores, mandamos al writer.
+	loop:
 		for d := range msgs {
 			messageBody := d.Body
 
 			messageType, body, err := sp.DeserializeMessageType(messageBody)
+			if err != nil {
+				return err
+			}
+
+			switch messageType {
+			case sp.MsgAccumulatedGameOSInformation:
+
+			default:
+				log.Errorf("Unexpected message type: %d", messageType)
+				break loop
+
+			}
 		}
 	}()
 

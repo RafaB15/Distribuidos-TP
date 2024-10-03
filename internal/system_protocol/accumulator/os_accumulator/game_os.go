@@ -12,7 +12,7 @@ type GameOS struct {
 	Mac     bool
 }
 
-func NewGameOs(linux string, mac string, windows string) (*GameOS, error) {
+func NewGameOS(linux string, mac string, windows string) (*GameOS, error) {
 	boolLinux, err := strconv.ParseBool(linux)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func NewGameOs(linux string, mac string, windows string) (*GameOS, error) {
 	}, nil
 }
 
-func SerializeGameOs(gameOs *GameOS) []byte {
+func SerializeGameOS(gameOs *GameOS) []byte {
 	return []byte{
 		u.ParseBoolByte(gameOs.Linux),
 		u.ParseBoolByte(gameOs.Windows),
