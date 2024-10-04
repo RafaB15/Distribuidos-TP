@@ -76,9 +76,11 @@ func main() {
 				if err != nil {
 					return err
 				}
+
 				for _, gameOs := range gamesOs {
 					osMetrics.AddGameOS(gameOs)
 				}
+				log.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
 			default:
 				return fmt.Errorf("Unexpected message type")
 

@@ -50,6 +50,18 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  os_final_accumulator:
+    image: os_final_accumulator:latest
+    container_name: os_final_accumulator
+    entrypoint: /accumulators/os_final_accumulator
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
 networks:
   distributed_network:
     name: distributed_network

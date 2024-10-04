@@ -70,22 +70,24 @@ func main() {
 func handleConnection(conn net.Conn, exchange *mom.Exchange) {
 	defer conn.Close()
 
-	data, err := cp.ReceiveGameBatch(conn)
-	if err != nil {
-		log.Errorf("Error receiving game batch:", err)
-		return
-	}
-
-	lines, err := cp.DeserializeGameBatch(data)
-	if err != nil {
-		fmt.Println("Error deserializing game batch:", err)
-		return
-	}
-
-	for _, line := range lines {
-		err := exchange.Publish(routingKey, []byte(line))
+	for {
+		data, err := cp.ReceiveGameBatch(conn)
 		if err != nil {
-			fmt.Println("Error publishing message:", err)
+			log.Errorf("Error receiving game batch:", err)
+			return
+		}
+
+		lines, err := cp.DeserializeGameBatch(data)
+		if err != nil {
+			fmt.Println("Error deserializing game batch:", err)
+			return
+		}
+
+		for _, line := range lines {
+			err := exchange.Publish(routingKey, []byte(line))
+			if err != nil {
+				fmt.Println("Error publishing message:", err)
+			}
 		}
 	}
 }

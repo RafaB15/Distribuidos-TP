@@ -44,6 +44,5 @@ func main() {
 			return
 		}
 		log.Debug("Sent game batch")
-		break
 	}
 }

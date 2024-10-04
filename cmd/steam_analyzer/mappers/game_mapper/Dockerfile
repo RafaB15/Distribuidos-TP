@@ -8,10 +8,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY cmd/steam_analyzer/mappers/game_mapper ./cmd/steam_analyzer/mappers/game_mapper
-COPY internal/system_protocol/accumulator/os_accumulator ./internal/system_protocol/accumulator/os_accumulator
-COPY internal/client_protocol ./internal/client_protocol
+COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils
 COPY internal/mom ./internal/mom
+COPY internal/utils ./internal/utils
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/mappers/game_mapper ./cmd/steam_analyzer/mappers/game_mapper
 
