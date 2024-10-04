@@ -3,6 +3,7 @@ package os_accumulator
 import (
 	u "distribuidos-tp/internal/utils"
 	"errors"
+	"log"
 	"strconv"
 )
 
@@ -15,14 +16,17 @@ type GameOS struct {
 func NewGameOS(linux string, mac string, windows string) (*GameOS, error) {
 	boolLinux, err := strconv.ParseBool(linux)
 	if err != nil {
+		log.Printf("Error parsing Linux value: %v", err)
 		return nil, err
 	}
 	boolMac, err := strconv.ParseBool(mac)
 	if err != nil {
+		log.Printf("Error parsing Mac value: %v", err)
 		return nil, err
 	}
 	boolWindows, err := strconv.ParseBool(windows)
 	if err != nil {
+		log.Printf("Error parsing Windows value: %v", err)
 		return nil, err
 	}
 
