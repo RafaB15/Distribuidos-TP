@@ -26,19 +26,28 @@ func SerializeGame(line string) []byte {
 	return result
 }
 
-func SerializeGameBatch(fileScanner *bufio.Scanner, numLines int) ([]byte, error) {
+func SerializeGameBatch(fileScanner *bufio.Scanner, numLines int) ([]byte, bool, error) {
 	var serializedLines []byte
 	var actualNumLines int = 0
+	var eof bool = false
 
-	for i := 0; i < numLines && fileScanner.Scan(); i++ {
+	for actualNumLines < numLines {
+		if !fileScanner.Scan() {
+			eof = true
+			break
+		}
 		line := fileScanner.Text()
 		serializedLine := SerializeGame(line)
 		serializedLines = append(serializedLines, serializedLine...)
-		actualNumLines += 1
+		actualNumLines++
 	}
 
 	if err := fileScanner.Err(); err != nil {
-		return nil, err
+		return nil, eof, err
+	}
+
+	if actualNumLines == 0 {
+		return nil, eof, nil
 	}
 
 	result := make([]byte, 0, len(serializedLines)+LineLengthBytesAmount+LinesNumberBytesAmount)
@@ -53,7 +62,7 @@ func SerializeGameBatch(fileScanner *bufio.Scanner, numLines int) ([]byte, error
 
 	result = append(result, serializedLines...)
 
-	return result, nil
+	return result, eof, nil
 }
 
 func ReceiveGameBatch(connection net.Conn) ([]byte, error) {

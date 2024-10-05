@@ -21,7 +21,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	file, err := os.Open("./client_data/games_reduced.csv")
+	file, err := os.Open("./client_data/games_reduced_cleaned.csv")
 	if err != nil {
 		log.Errorf("Error opening file:", err)
 		return
@@ -30,18 +30,28 @@ func main() {
 
 	scanner := bufio.NewScanner(file)
 
-	for scanner.Scan() {
-		serializedBatch, err := cp.SerializeGameBatch(scanner, 10)
+	// Skip the first line (headers)
+	if scanner.Scan() {
+		log.Debug("Skipped header line")
+	}
+
+	for {
+		serializedBatch, eof, err := cp.SerializeGameBatch(scanner, 10)
 		if err != nil {
 			log.Errorf("Error reading csv file: ", err)
 			return
 		}
+		if serializedBatch != nil {
+			_, err = conn.Write(serializedBatch)
 
-		_, err = conn.Write(serializedBatch)
-
-		if err != nil {
-			log.Errorf("Error sending game batch to entrypoint: ", err)
-			return
+			if err != nil {
+				log.Errorf("Error sending game batch to entrypoint: ", err)
+				return
+			}
+		}
+		if eof {
+			log.Debug("End of file")
+			break
 		}
 		log.Debug("Sent game batch")
 	}

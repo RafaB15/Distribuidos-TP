@@ -84,6 +84,7 @@ func handleConnection(conn net.Conn, exchange *mom.Exchange) {
 		}
 
 		for _, line := range lines {
+			fmt.Println(line)
 			err := exchange.Publish(routingKey, []byte(line))
 			if err != nil {
 				fmt.Println("Error publishing message:", err)

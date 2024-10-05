@@ -13,7 +13,7 @@ type GameOS struct {
 	Mac     bool
 }
 
-func NewGameOS(linux string, mac string, windows string) (*GameOS, error) {
+func NewGameOS(windows string, mac string, linux string) (*GameOS, error) {
 	boolLinux, err := strconv.ParseBool(linux)
 	if err != nil {
 		log.Printf("Error parsing Linux value: %v", err)

@@ -5,7 +5,6 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	"encoding/csv"
-	"errors"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -65,12 +64,8 @@ func mapLines(queue *mom.Queue, game_os_exchange *mom.Exchange) error {
 		if err != nil {
 			return err
 		}
-
-		if len(records) < 20 {
-			return errors.New("input CSV does not have enough fields")
-		}
-		log.Debugf("Printing fields: 15 : %v, 16 : %v, 17 : %v, 18 : %v, 19 : %v, 20 : %v", records[15], records[16], records[17], records[18], records[19], records[20])
-		gameOs, err := oa.NewGameOS(records[19], records[18], records[17])
+		log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v, 3 : %v, 4 : %v", records[0], records[1], records[2], records[3], records[4])
+		gameOs, err := oa.NewGameOS(records[2], records[3], records[4])
 		if err != nil {
 			log.Error("Hubo errorcito")
 			return err
@@ -84,7 +79,7 @@ func mapLines(queue *mom.Queue, game_os_exchange *mom.Exchange) error {
 			return err
 		}
 
-		// log.Infof("Received a message (after attempted send): %s\n", string(d.Body))
+		log.Infof("Received a message (after attempted send): %s\n", string(d.Body))
 	}
 
 	return nil
