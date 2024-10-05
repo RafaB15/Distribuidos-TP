@@ -70,6 +70,7 @@ func main() {
 
 			switch messageType {
 			case sp.MsgEndOfFile:
+				log.Info("End of file arrived")
 				break loop
 			case sp.MsgGameOSInformation:
 				gamesOs, err := sp.DeserializeMsgGameOSInformation(messageBody)

@@ -3,6 +3,7 @@ package main
 import (
 	cp "distribuidos-tp/internal/client_protocol"
 	"distribuidos-tp/internal/mom"
+	sp "distribuidos-tp/internal/system_protocol"
 	"fmt"
 	"net"
 
@@ -71,21 +72,30 @@ func handleConnection(conn net.Conn, exchange *mom.Exchange) {
 	defer conn.Close()
 
 	for {
-		data, err := cp.ReceiveGameBatch(conn)
+		data, _, eofFlag, err := cp.ReceiveBatch(conn)
 		if err != nil {
 			log.Errorf("Error receiving game batch:", err)
 			return
 		}
 
-		lines, err := cp.DeserializeGameBatch(data)
+		lines, err := cp.DeserializeBatch(data)
 		if err != nil {
 			fmt.Println("Error deserializing game batch:", err)
 			return
 		}
 
 		for _, line := range lines {
-			fmt.Println(line)
-			err := exchange.Publish(routingKey, []byte(line))
+			log.Infof("About to publish message: %s", line)
+			batch := sp.SerializeBatchMsg(line)
+			err := exchange.Publish(routingKey, batch)
+			if err != nil {
+				fmt.Println("Error publishing message:", err)
+			}
+		}
+
+		if eofFlag {
+			err := exchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
+			log.Infof("End of file message published")
 			if err != nil {
 				fmt.Println("Error publishing message:", err)
 			}

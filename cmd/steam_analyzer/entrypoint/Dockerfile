@@ -9,6 +9,7 @@ RUN go mod download
 
 COPY cmd/steam_analyzer/entrypoint ./cmd/steam_analyzer/entrypoint
 COPY internal/client_protocol ./internal/client_protocol
+COPY internal/system_protocol ./internal/system_protocol    
 COPY internal/utils ./internal/utils
 COPY internal/mom ./internal/mom
 

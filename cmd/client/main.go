@@ -10,10 +10,12 @@ import (
 )
 
 const SERVER_IP = "entrypoint:3000"
+const GameFile = 1
 
 var log = logging.MustGetLogger("log")
 
 func main() {
+
 	conn, err := net.Dial("tcp", SERVER_IP)
 	if err != nil {
 		log.Errorf("Error connecting:", err)
@@ -36,7 +38,7 @@ func main() {
 	}
 
 	for {
-		serializedBatch, eof, err := cp.SerializeGameBatch(scanner, 10)
+		serializedBatch, eof, err := cp.SerializeBatch(scanner, 10, GameFile)
 		if err != nil {
 			log.Errorf("Error reading csv file: ", err)
 			return
@@ -55,4 +57,5 @@ func main() {
 		}
 		log.Debug("Sent game batch")
 	}
+
 }

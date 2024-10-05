@@ -13,6 +13,7 @@ const (
 	MsgEndOfFile MessageType = iota
 	MsgGameOSInformation
 	MsgAccumulatedGameOSInformation
+	MsgBatch
 )
 
 func DeserializeMessageType(message []byte) (MessageType, error) {
@@ -22,11 +23,26 @@ func DeserializeMessageType(message []byte) (MessageType, error) {
 
 	msgType := MessageType(message[0])
 	switch msgType {
-	case MsgEndOfFile, MsgGameOSInformation, MsgAccumulatedGameOSInformation:
+	case MsgEndOfFile, MsgGameOSInformation, MsgAccumulatedGameOSInformation, MsgBatch:
 		return msgType, nil
 	default:
 		return 0, fmt.Errorf("unknown message type: %d", msgType)
 	}
+}
+
+func SerializeBatchMsg(batch string) []byte {
+	message := make([]byte, 1+len(batch))
+	message[0] = byte(MsgBatch)
+	copy(message[1:], batch)
+	return message
+}
+
+func DeserializeBatchMsg(message []byte) (string, error) {
+	if len(message) == 0 {
+		return "", errors.New("empty message")
+	}
+
+	return string(message[1:]), nil
 }
 
 func SerializeMsgGameOSInformation(gameOSList []*oa.GameOS) []byte {
@@ -90,4 +106,8 @@ func DeserializeMsgAccumulatedGameOSInformation(message []byte) (*oa.GameOSMetri
 	}
 
 	return metrics, nil
+}
+
+func SerializeMsgEndOfFile() []byte {
+	return []byte{byte(MsgEndOfFile)}
 }

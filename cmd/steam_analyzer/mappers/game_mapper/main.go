@@ -57,29 +57,46 @@ func mapLines(queue *mom.Queue, game_os_exchange *mom.Exchange) error {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
 	for d := range msgs {
-		var input string = string(d.Body)
 
-		reader := csv.NewReader(strings.NewReader(input))
-		records, err := reader.Read()
+		msgType, err := sp.DeserializeMessageType(d.Body)
 		if err != nil {
 			return err
 		}
-		log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v, 3 : %v, 4 : %v", records[0], records[1], records[2], records[3], records[4])
-		gameOs, err := oa.NewGameOS(records[2], records[3], records[4])
-		if err != nil {
-			log.Error("Hubo errorcito")
-			return err
-		}
-		gameOsSlice := []*oa.GameOS{gameOs}
-		serializedGameOS := sp.SerializeMsgGameOSInformation(gameOsSlice)
 
-		err = game_os_exchange.Publish("os", serializedGameOS)
-		if err != nil {
-			log.Error("Error publishing game")
-			return err
+		switch msgType {
+
+		case sp.MsgEndOfFile:
+			game_os_exchange.Publish("os", sp.SerializeMsgEndOfFile())
+			log.Info("End of file received")
+		case sp.MsgBatch:
+			input, err := sp.DeserializeBatchMsg(d.Body)
+			if err != nil {
+				return err
+			}
+			reader := csv.NewReader(strings.NewReader(input))
+			records, err := reader.Read()
+			if err != nil {
+				return err
+			}
+			log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v, 3 : %v, 4 : %v", records[0], records[1], records[2], records[3], records[4])
+			gameOs, err := oa.NewGameOS(records[2], records[3], records[4])
+			if err != nil {
+				log.Error("Hubo errorcito")
+				return err
+			}
+			gameOsSlice := []*oa.GameOS{gameOs}
+			serializedGameOS := sp.SerializeMsgGameOSInformation(gameOsSlice)
+
+			err = game_os_exchange.Publish("os", serializedGameOS)
+			if err != nil {
+				log.Error("Error publishing game")
+				return err
+			}
+
+			log.Infof("Received a message (after attempted send): %s\n", string(d.Body))
+
 		}
 
-		log.Infof("Received a message (after attempted send): %s\n", string(d.Body))
 	}
 
 	return nil
