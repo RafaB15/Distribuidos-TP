@@ -16,7 +16,6 @@ const (
 	queueToReceiveName = "reviews_queue"
 	queueToSendName    = "english_reviews_queue"
 	exchangeName       = "english_reviews_exchange"
-	reviewQueueName    = "reviews_queue"
 )
 
 var log = logging.MustGetLogger("log")
