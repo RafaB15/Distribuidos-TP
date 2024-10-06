@@ -69,7 +69,7 @@ loop:
 
 		switch messageType {
 		case sp.MsgEndOfFile:
-			log.Info("End Of File for Accumulate Reviews received")
+			log.Info("End Of File for accumulated reviews received")
 			break loop
 		case sp.MsgReviewInformation:
 			reviews, err := sp.DeserializeMsgReviewInformation(messageBody)

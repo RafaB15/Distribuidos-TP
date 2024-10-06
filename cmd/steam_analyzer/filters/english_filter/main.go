@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/csv"
 	"fmt"
+	"io"
 	"strconv"
 
 	"strings"
@@ -67,7 +68,7 @@ func filterEnglishReviews(reviewsQueue *mom.Queue, englishReviewsExchange *mom.E
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
-
+loop:
 	for d := range msgs {
 
 		msgType, err := sp.DeserializeMessageType(d.Body)
@@ -80,43 +81,57 @@ func filterEnglishReviews(reviewsQueue *mom.Queue, englishReviewsExchange *mom.E
 			englishReviewsExchange.Publish("english_reviews_exchange_1", sp.SerializeMsgEndOfFile())
 			//englishReviewsExchange.Publish("english_reviews_exchange_2", sp.SerializeMsgEndOfFile())
 			log.Info("End of file received")
-			break
+			break loop
 		case sp.MsgBatch:
-			// Por el momento Msgbatch está mandando una sola línea. Debería mandar muchas.
-			input, err := sp.DeserializeBatchMsg(d.Body)
+
+			lines, err := sp.DeserializeBatch(d.Body)
 			if err != nil {
-				return err
-			}
-			reader := csv.NewReader(strings.NewReader(input))
-			records, err := reader.Read()
-			if err != nil {
-				return err
-			}
-			log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v", records[0], records[1], records[2])
-			review, err := r.NewReviewFromStrings(records[0], records[2])
-			if err != nil {
-				log.Error("Problema creando review con texto")
+				log.Error("Error deserializing batch")
 				return err
 			}
 
-			appID, err := strconv.Atoi(records[0]) //el appID esta en el records 0
-			if err != nil {
-				log.Errorf("Failed to convert AppID: %v", err)
-				return err
+			for _, line := range lines {
+				log.Debugf("Printing lines: %v", lines)
+				reader := csv.NewReader(strings.NewReader(line))
+				records, err := reader.Read()
+
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					return err
+				}
+				log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v", records[0], records[1], records[2])
+
+				review, err := r.NewReviewFromStrings(records[0], records[2])
+				if err != nil {
+					log.Error("Problema creando review con texto")
+					return err
+				}
+
+				if languageIdentifier.IsEnglish(records[1]) {
+					log.Debugf("I am the english language")
+					appID, err := strconv.Atoi(records[0]) //el appID esta en el records 0
+					if err != nil {
+						log.Errorf("Failed to convert AppID: %v", err)
+						return err
+					}
+
+					shardingKey := calculateShardingKey(appID, numNextNodes)
+					log.Infof("Sharding key: %d", shardingKey)
+
+					//reviews = append(reviews, review)
+					reviewSlice := []*r.Review{review}
+					serializedReview := sp.SerializeMsgReviewInformation(reviewSlice)
+					routingKey := fmt.Sprintf("english_reviews_exchange_%d", shardingKey)
+					log.Debugf("Routing key: %s", routingKey)
+					err = englishReviewsExchange.Publish(routingKey, serializedReview)
+
+				}
+
+				log.Debugf("Received review: %v", records[1])
 			}
 
-			shardingKey := calculateShardingKey(appID, numNextNodes)
-			log.Infof("Sharding key: %d", shardingKey)
-			if languageIdentifier.IsEnglish(records[1]) {
-				log.Debugf("I am the english language")
-				reviewSlice := []*r.Review{review}
-				serializedReviews := sp.SerializeMsgReviewInformation(reviewSlice)
-
-				routingKey := fmt.Sprintf("english_reviews_exchange_%d", shardingKey)
-				log.Debugf("Routing key: %s", routingKey)
-				err = englishReviewsExchange.Publish(routingKey, serializedReviews)
-			}
-			log.Debugf("Received review: %v", records[1])
 		}
 	}
 	return nil
@@ -127,5 +142,5 @@ func calculateShardingKey(appID int, numShards int) int {
 	appIDStr := fmt.Sprintf("%d", appID)
 	hash := sha256.Sum256([]byte(appIDStr))
 	hashInt := binary.BigEndian.Uint64(hash[:8])
-	return int(hashInt%uint64(numShards)) + 1
+	return int(hashInt%uint64(numShards)) + 1 // oo=jo con el +1. Hay que cambiarlo cuando escalemos el sistema. Modulo de algo con 1 siempre es 0.
 }

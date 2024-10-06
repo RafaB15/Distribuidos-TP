@@ -5,6 +5,7 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	"encoding/csv"
+	"io"
 	"strings"
 
 	"github.com/op/go-logging"
@@ -72,30 +73,44 @@ func mapLines(queue *mom.Queue, gameOSExchange *mom.Exchange) error {
 		switch msgType {
 
 		case sp.MsgEndOfFile:
+			log.Info("End of file received")
 
 			for i := 0; i < numNextNodes; i++ {
 				gameOSExchange.Publish("os", sp.SerializeMsgEndOfFile())
 			}
 
-			log.Info("End of file received")
 		case sp.MsgBatch:
-			input, err := sp.DeserializeBatchMsg(d.Body)
+
+			lines, err := sp.DeserializeBatch(d.Body)
 			if err != nil {
+				log.Error("Error deserializing batch")
 				return err
 			}
-			reader := csv.NewReader(strings.NewReader(input))
-			records, err := reader.Read()
-			if err != nil {
-				return err
+
+			var gameOsSlice []*oa.GameOS
+			for _, line := range lines {
+				log.Debugf("Printing lines: %v", lines)
+				reader := csv.NewReader(strings.NewReader(line))
+				records, err := reader.Read()
+
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					return err
+				}
+				log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v, 3 : %v, 4 : %v", records[0], records[1], records[2], records[3], records[4])
+
+				gameOs, err := oa.NewGameOS(records[2], records[3], records[4])
+				if err != nil {
+					log.Error("error creating game os struct")
+					return err
+				}
+
+				gameOsSlice = append(gameOsSlice, gameOs)
+
 			}
-			log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v, 3 : %v, 4 : %v", records[0], records[1], records[2], records[3], records[4])
-			gameOs, err := oa.NewGameOS(records[2], records[3], records[4])
-			if err != nil {
-				log.Error("Hubo errorcito")
-				return err
-			}
-			// En realidad se deberían mandar muchos juegos por mensajes
-			gameOsSlice := []*oa.GameOS{gameOs}
+
 			serializedGameOS := sp.SerializeMsgGameOSInformation(gameOsSlice)
 
 			err = gameOSExchange.Publish("os", serializedGameOS)
