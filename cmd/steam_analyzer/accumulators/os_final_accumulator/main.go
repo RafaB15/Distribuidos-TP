@@ -42,7 +42,6 @@ func main() {
 	forever := make(chan bool)
 
 	go func() error {
-		// Acá tenemos que recibir los mensajes de final accumulator. Una vez que recibamos tantos como nodos anteriores, mandamos al writer.
 		nodesLeft := numPreviousNodes
 		finalGameMetrics := oa.NewGameOSMetrics()
 	loop:

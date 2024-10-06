@@ -32,26 +32,26 @@ func main() {
 		log.Errorf("Failed to declare queue: %v", err)
 	}
 
-	game_os_queue, err := manager.CreateQueue(queueToSendName)
+	gameOSQueue, err := manager.CreateQueue(queueToSendName)
 	if err != nil {
 		log.Errorf("Failed to declare queue: %v", err)
 	}
 
-	game_os_exchange, err := manager.CreateExchange(exchangeName, "direct")
+	gameOSExchange, err := manager.CreateExchange(exchangeName, "direct")
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
 	}
 
-	err = game_os_queue.Bind(game_os_exchange.Name, "os")
+	err = gameOSQueue.Bind(gameOSExchange.Name, "os")
 
 	forever := make(chan bool)
 
-	go mapLines(queue, game_os_exchange)
+	go mapLines(queue, gameOSExchange)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func mapLines(queue *mom.Queue, game_os_exchange *mom.Exchange) error {
+func mapLines(queue *mom.Queue, gameOSExchange *mom.Exchange) error {
 	msgs, err := queue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
@@ -66,8 +66,10 @@ func mapLines(queue *mom.Queue, game_os_exchange *mom.Exchange) error {
 		switch msgType {
 
 		case sp.MsgEndOfFile:
-			game_os_exchange.Publish("os", sp.SerializeMsgEndOfFile())
-			game_os_exchange.Publish("os", sp.SerializeMsgEndOfFile())
+
+			gameOSExchange.Publish("os", sp.SerializeMsgEndOfFile())
+			gameOSExchange.Publish("os", sp.SerializeMsgEndOfFile())
+
 			log.Info("End of file received")
 		case sp.MsgBatch:
 			input, err := sp.DeserializeBatchMsg(d.Body)
@@ -85,10 +87,11 @@ func mapLines(queue *mom.Queue, game_os_exchange *mom.Exchange) error {
 				log.Error("Hubo errorcito")
 				return err
 			}
+			// En realidad se deberían mandar muchos juegos por mensajes
 			gameOsSlice := []*oa.GameOS{gameOs}
 			serializedGameOS := sp.SerializeMsgGameOSInformation(gameOsSlice)
 
-			err = game_os_exchange.Publish("os", serializedGameOS)
+			err = gameOSExchange.Publish("os", serializedGameOS)
 			if err != nil {
 				log.Error("Error publishing game")
 				return err

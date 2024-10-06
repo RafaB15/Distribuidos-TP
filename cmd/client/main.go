@@ -11,6 +11,7 @@ import (
 
 const SERVER_IP = "entrypoint:3000"
 const GameFile = 1
+const ReviewFile = 0
 
 var log = logging.MustGetLogger("log")
 
@@ -52,10 +53,45 @@ func main() {
 			}
 		}
 		if eof {
-			log.Debug("End of file")
+			log.Debug("End of games file")
 			break
 		}
 		log.Debug("Sent game batch")
+	}
+
+	file, err = os.Open("./client_data/steam_reviews_reduced_cleaned.csv")
+	if err != nil {
+		log.Errorf("Error opening file:", err)
+		return
+	}
+	defer file.Close()
+
+	scanner = bufio.NewScanner(file)
+
+	// Skip the first line (headers)
+	if scanner.Scan() {
+		log.Debug("Skipped header line")
+	}
+
+	for {
+		serializedBatch, eof, err := cp.SerializeBatch(scanner, 10, ReviewFile)
+		if err != nil {
+			log.Errorf("Error reading csv file: ", err)
+			return
+		}
+		if serializedBatch != nil {
+			_, err = conn.Write(serializedBatch)
+
+			if err != nil {
+				log.Errorf("Error sending review batch to entrypoint: ", err)
+				return
+			}
+		}
+		if eof {
+			log.Debug("End of reviews file")
+			break
+		}
+		log.Debug("Sent reviews batch")
 	}
 
 }

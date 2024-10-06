@@ -11,12 +11,19 @@ import (
 )
 
 const (
-	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
-	exchangeName  = "game_exchange"
-	exchangeType  = "direct"
-	routingKey    = "game_key"
-	queueName     = "game_queue"
+	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
+	gameExchangeName   = "game_exchange"
+	gameExchangeType   = "direct"
+	reviewExchangeType = "fanout"
+	gameRoutingKey     = "game_key"
+	reviewRoutingKey   = "review_key"
+	gameQueueName      = "game_queue"
+	reviewQueueName    = "reviews_queue"
+	reviewExchangeName = "review_exchange"
 )
+
+const GameFile = 1
+const ReviewFile = 0
 
 var log = logging.MustGetLogger("log")
 
@@ -28,25 +35,45 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queue, err := manager.CreateQueue(queueName)
+	gameQueue, err := manager.CreateQueue(gameQueueName)
 	if err != nil {
 		log.Errorf("Failed to declare queue: %v", err)
 	}
 
-	exchange, err := manager.CreateExchange(exchangeName, exchangeType)
+	gameExchange, err := manager.CreateExchange(gameExchangeName, gameExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
 		return
 	}
 
-	err = queue.Bind(exchange.Name, routingKey)
+	err = gameQueue.Bind(gameExchange.Name, gameRoutingKey)
 
 	if err != nil {
 		log.Errorf("Failed to bind queue: %v", err)
 		return
 	}
 
-	defer exchange.CloseExchange()
+	defer gameExchange.CloseExchange()
+
+	reviewQueue, err := manager.CreateQueue(reviewQueueName)
+	if err != nil {
+		log.Errorf("Failed to declare queue: %v", err)
+	}
+
+	reviewExchange, err := manager.CreateExchange(reviewExchangeName, reviewExchangeType)
+	if err != nil {
+		log.Errorf("Failed to declare exchange: %v", err)
+		return
+	}
+
+	err = reviewQueue.Bind(reviewExchange.Name, reviewRoutingKey)
+
+	if err != nil {
+		log.Errorf("Failed to bind queue: %v", err)
+		return
+	}
+
+	defer reviewExchange.CloseExchange()
 
 	listener, err := net.Listen("tcp", ":3000")
 	if err != nil {
@@ -64,15 +91,15 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn, exchange)
+		go handleConnection(conn, gameExchange, reviewExchange)
 	}
 }
 
-func handleConnection(conn net.Conn, exchange *mom.Exchange) {
+func handleConnection(conn net.Conn, gameExchange *mom.Exchange, reviewExchange *mom.Exchange) {
 	defer conn.Close()
 
 	for {
-		data, _, eofFlag, err := cp.ReceiveBatch(conn)
+		data, fileOrigin, eofFlag, err := cp.ReceiveBatch(conn)
 		if err != nil {
 			log.Errorf("Error receiving game batch:", err)
 			return
@@ -84,18 +111,28 @@ func handleConnection(conn net.Conn, exchange *mom.Exchange) {
 			return
 		}
 
+		// Se deberían mandar varios por paquete
 		for _, line := range lines {
 			log.Infof("About to publish message: %s", line)
 			batch := sp.SerializeBatchMsg(line)
-			err := exchange.Publish(routingKey, batch)
+			if fileOrigin == GameFile {
+				err = gameExchange.Publish(gameRoutingKey, batch)
+			} else {
+				err = reviewExchange.Publish(reviewRoutingKey, batch)
+			}
 			if err != nil {
 				fmt.Println("Error publishing message:", err)
 			}
 		}
 
 		if eofFlag {
-			err := exchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
-			log.Infof("End of file message published")
+			if fileOrigin == GameFile {
+				err = gameExchange.Publish(gameRoutingKey, sp.SerializeMsgEndOfFile())
+				log.Infof("End of file message published for games")
+			} else {
+				err = reviewExchange.Publish(reviewRoutingKey, sp.SerializeMsgEndOfFile())
+				log.Infof("End of file message published for reviews")
+			}
 			if err != nil {
 				fmt.Println("Error publishing message:", err)
 			}

@@ -2,6 +2,7 @@ package system_protocol
 
 import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ const (
 	MsgGameOSInformation
 	MsgAccumulatedGameOSInformation
 	MsgBatch
+	MsgReviewInformation
 )
 
 func DeserializeMessageType(message []byte) (MessageType, error) {
@@ -110,4 +112,19 @@ func DeserializeMsgAccumulatedGameOSInformation(message []byte) (*oa.GameOSMetri
 
 func SerializeMsgEndOfFile() []byte {
 	return []byte{byte(MsgEndOfFile)}
+}
+
+func SerializeMsgReviewInformation(reviews []*r.Review) []byte {
+	count := len(reviews)
+	message := make([]byte, 3+count*5)
+	message[0] = byte(MsgReviewInformation)
+	binary.BigEndian.PutUint16(message[1:3], uint16(count))
+
+	offset := 3
+	for i, review := range reviews {
+		serializedReview := review.Serialize()
+		copy(message[offset+i*5:], serializedReview)
+	}
+
+	return message
 }

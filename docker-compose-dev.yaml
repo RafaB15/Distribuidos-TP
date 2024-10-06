@@ -74,6 +74,18 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  english_filter:
+    image: english_filter:latest
+    container_name: english_filter
+    entrypoint: /filters/english_filter
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
 networks:
   distributed_network:
     name: distributed_network
