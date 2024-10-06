@@ -14,7 +14,7 @@ const (
 	exchangeName       = "os_accumulator_exchange"
 	queueToSendName    = "write_queue"
 	routingKey         = "os_final_accumulator"
-	numPreviousNodes   = 1
+	numPreviousNodes   = 2
 )
 
 var log = logging.MustGetLogger("log")
@@ -62,7 +62,10 @@ func main() {
 				}
 				finalGameMetrics.Merge(gameMetrics)
 				nodesLeft -= 1
-				log.Infof("Successfully merged new game OS metrics information accumulated deserialized. Nodes left: ", nodesLeft)
+				log.Infof("Successfully merged new game OS metrics information accumulated deserialized. Nodes left: %v", nodesLeft)
+				log.Infof("Windows Metrics: %v", finalGameMetrics.Windows)
+				log.Infof("Linux Metrics: %v", finalGameMetrics.Linux)
+				log.Infof("Mac Metrics: %v", finalGameMetrics.Mac)
 			default:
 				log.Errorf("Unexpected message type: %d", messageType)
 				break loop

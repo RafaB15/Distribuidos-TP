@@ -71,9 +71,27 @@ func main() {
 			switch messageType {
 			case sp.MsgEndOfFile:
 				log.Info("End of file arrived")
+				metrics, err := oa.LoadGameOsMetricsFromFile("os_metrics")
+				if err != nil {
+					log.Errorf("Failed to load game os metrics from file: %v", err)
+					return err
+				}
+				data, err := sp.SerializeMsgAccumulatedGameOSInfo(metrics)
+
+				if err != nil {
+					log.Errorf("Failed to serialize message: %v", err)
+					return err
+				}
+
+				err = exchange.Publish("final_accumulator", data)
+				if err != nil {
+					log.Errorf("Failed to publish message: %v", err)
+					return err
+				}
 				break loop
 			case sp.MsgGameOSInformation:
 				gamesOs, err := sp.DeserializeMsgGameOSInformation(messageBody)
+
 				if err != nil {
 					return err
 				}
@@ -81,19 +99,20 @@ func main() {
 				for _, gameOs := range gamesOs {
 					osMetrics.AddGameOS(gameOs)
 				}
+
 				log.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
+
+				if err != nil {
+					log.Errorf("Failed to serialize message: %v", err)
+				}
+
+				osMetrics.UpdateAndSaveGameOSMetricsToFile("os_metrics")
+
 			default:
-				return fmt.Errorf("Unexpected message type")
+				return fmt.Errorf("unexpected message type")
 
 			}
 		}
-
-		// Acá tenemos que serializar y mandar el Os Metrics a la cola siguiente
-		msg, err := sp.SerializeMsgAccumulatedGameOSInfo(osMetrics)
-		if err != nil {
-			log.Errorf("Failed to serialize message: %v", err)
-		}
-		err = exchange.Publish("final_accumulator", msg)
 
 		return nil
 	}()

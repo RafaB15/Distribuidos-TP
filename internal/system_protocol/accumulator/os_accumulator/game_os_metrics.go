@@ -3,6 +3,7 @@ package os_accumulator
 import (
 	"encoding/binary"
 	"errors"
+	"os"
 )
 
 type GameOSMetrics struct {
@@ -18,6 +19,45 @@ func NewGameOSMetrics() *GameOSMetrics {
 		Windows: 0,
 		Mac:     0,
 	}
+}
+
+const filePermission = 0644
+
+func (g *GameOSMetrics) UpdateAndSaveGameOSMetricsToFile(filePath string) error {
+
+	existingData, err := os.ReadFile(filePath) // This ReadFile reads the whole file (avoiding short reads)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	var existingMetrics *GameOSMetrics
+	if len(existingData) > 0 {
+		existingMetrics, err = DeserializeGameOSMetrics(existingData)
+		if err != nil {
+			return err
+		}
+	} else {
+		existingMetrics = NewGameOSMetrics()
+	}
+
+	existingMetrics.Merge(g)
+
+	data := SerializeGameOSMetrics(g)
+	return os.WriteFile(filePath, data, filePermission)
+}
+
+func LoadGameOsMetricsFromFile(filePath string) (*GameOSMetrics, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	metrics, err := DeserializeGameOSMetrics(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return metrics, nil
 }
 
 func SerializeGameOSMetrics(gameOsMetrics *GameOSMetrics) []byte {

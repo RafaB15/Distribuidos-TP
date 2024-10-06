@@ -67,6 +67,7 @@ func mapLines(queue *mom.Queue, game_os_exchange *mom.Exchange) error {
 
 		case sp.MsgEndOfFile:
 			game_os_exchange.Publish("os", sp.SerializeMsgEndOfFile())
+			game_os_exchange.Publish("os", sp.SerializeMsgEndOfFile())
 			log.Info("End of file received")
 		case sp.MsgBatch:
 			input, err := sp.DeserializeBatchMsg(d.Body)
