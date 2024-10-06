@@ -38,8 +38,11 @@ func main() {
 		log.Debug("Skipped header line")
 	}
 
+	var pendingBytes []byte
+
 	for {
-		serializedBatch, eof, err := cp.SerializeBatch(scanner, 10, GameFile)
+		serializedBatch, pendingBytesFor, eof, err := cp.SerializeBatch(scanner, pendingBytes, 8000, GameFile)
+		pendingBytes = pendingBytesFor
 		if err != nil {
 			log.Errorf("Error reading csv file: ", err)
 			return
@@ -52,7 +55,7 @@ func main() {
 				return
 			}
 		}
-		if eof {
+		if eof && pendingBytes == nil {
 			log.Debug("End of games file")
 			break
 		}
@@ -73,8 +76,10 @@ func main() {
 		log.Debug("Skipped header line")
 	}
 
+	pendingBytes = nil
+
 	for {
-		serializedBatch, eof, err := cp.SerializeBatch(scanner, 10, ReviewFile)
+		serializedBatch, pendingBytes, eof, err := cp.SerializeBatch(scanner, pendingBytes, 9000, ReviewFile)
 		if err != nil {
 			log.Errorf("Error reading csv file: ", err)
 			return
@@ -87,7 +92,7 @@ func main() {
 				return
 			}
 		}
-		if eof {
+		if eof && pendingBytes == nil {
 			log.Debug("End of reviews file")
 			break
 		}

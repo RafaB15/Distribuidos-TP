@@ -28,13 +28,18 @@ const EOFBytesAmount = 1
 const GameFile = 1
 const ReviewFile = 0
 
-func SerializeBatch(fileScanner *bufio.Scanner, numLines int, fileOrigin int) ([]byte, bool, error) {
+func SerializeBatch(fileScanner *bufio.Scanner, pendingBytes []byte, maxBytes int, fileOrigin int) ([]byte, []byte, bool, error) {
 	var serializedLines []byte
 	var actualNumLines int = 0
+	if pendingBytes != nil {
+		serializedLines = append(serializedLines, pendingBytes...)
+		actualNumLines += 1
+	}
 	var eof bool = false
 	var eofFlag = byte(0)
+	var currentPendingBytes []byte
 
-	for actualNumLines < numLines {
+	for {
 		if !fileScanner.Scan() {
 			eofFlag = 1
 			eof = true
@@ -42,12 +47,16 @@ func SerializeBatch(fileScanner *bufio.Scanner, numLines int, fileOrigin int) ([
 		}
 		line := fileScanner.Text()
 		serializedLine := SerializeLine(line)
+		if len(serializedLines)+len(serializedLine) > maxBytes {
+			currentPendingBytes = serializedLine
+			break
+		}
 		serializedLines = append(serializedLines, serializedLine...)
 		actualNumLines++
 	}
 
 	if fileScanner.Err() != nil && fileScanner.Err() != io.EOF && eof {
-		return nil, false, fileScanner.Err()
+		return nil, currentPendingBytes, false, fileScanner.Err()
 	}
 
 	result := make([]byte, 0, len(serializedLines)+LineLengthBytesAmount+LinesNumberBytesAmount+FileOriginBytesAmount+EOFBytesAmount)
@@ -65,7 +74,7 @@ func SerializeBatch(fileScanner *bufio.Scanner, numLines int, fileOrigin int) ([
 
 	result = append(result, serializedLines...)
 
-	return result, eof, nil
+	return result, currentPendingBytes, eof, nil
 }
 
 func ReceiveBatch(connection net.Conn) ([]byte, int, bool, error) {
