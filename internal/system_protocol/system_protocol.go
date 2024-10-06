@@ -128,3 +128,30 @@ func SerializeMsgReviewInformation(reviews []*r.Review) []byte {
 
 	return message
 }
+
+func DeserializeMsgReviewInformation(message []byte) ([]*r.Review, error) {
+	if len(message) < 3 {
+		return nil, errors.New("message too short to contain count")
+	}
+
+	count := binary.BigEndian.Uint16(message[1:3])
+	offset := 3
+
+	expectedLength := int(count) * 5
+	if len(message[offset:]) < expectedLength {
+		return nil, errors.New("message length does not match expected count")
+	}
+
+	var reviews []*r.Review
+	for i := 0; i < int(count); i++ {
+		start := offset + i*5
+		end := start + 5
+		review, err := r.DeserializeReview(message[start:end])
+		if err != nil {
+			return nil, err
+		}
+		reviews = append(reviews, review)
+	}
+
+	return reviews, nil
+}

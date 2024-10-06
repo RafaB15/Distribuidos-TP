@@ -2,6 +2,8 @@ package main
 
 import (
 	"distribuidos-tp/internal/mom"
+	sp "distribuidos-tp/internal/system_protocol"
+	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 
 	"github.com/op/go-logging"
 )
@@ -48,8 +50,11 @@ func main() {
 }
 
 func accumulateEnglishReviewsMetrics(reviewsQueue *mom.Queue, ReviewsExchange *mom.Exchange) error {
-	// deberia saber si ya estoy acumulando las reviews del id recibido. si no, entonces creo un nuevo reviewMetrics
-
+	accumulatedReviews := make(map[uint32]*ra.GameReviewsMetrics)
+	msgs, err := reviewsQueue.Consume(true)
+	if err != nil {
+		return err
+	}
 loop:
 	for d := range msgs {
 		messageBody := d.Body
@@ -59,11 +64,25 @@ loop:
 		}
 
 		switch messageType {
-		case sp.MessageEndOfFile:
-			log.Info("End Of File for Accumulate Reviews rceived")
+		case sp.MsgEndOfFile:
+			log.Info("End Of File for Accumulate Reviews received")
+			break loop
 		case sp.MsgReviewInformation:
-			// revisar si existe ya el id o deberiamos crear uno nuevo
-
+			reviews, err := sp.DeserializeMsgReviewInformation(messageBody)
+			if err != nil {
+				return err
+			}
+			for _, review := range reviews {
+				if metrics, exists := accumulatedReviews[review.AppId]; exists {
+					// Update existing metrics
+					metrics.UpdateWithReview(review)
+				} else {
+					// Create new metrics
+					newMetrics := ra.NewReviewsMetrics(review.AppId)
+					newMetrics.UpdateWithReview(review)
+					accumulatedReviews[review.AppId] = newMetrics
+				}
+			}
 		}
 	}
 	return nil

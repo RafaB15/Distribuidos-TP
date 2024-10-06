@@ -2,6 +2,7 @@ package reviews
 
 import (
 	"encoding/binary"
+	"fmt"
 	"strconv"
 )
 
@@ -40,4 +41,18 @@ func (r *Review) Serialize() []byte {
 		buf[4] = 0
 	}
 	return buf
+}
+
+func DeserializeReview(data []byte) (*Review, error) {
+	if len(data) != 5 {
+		return nil, fmt.Errorf("invalid data length: %d", len(data))
+	}
+
+	appId := binary.LittleEndian.Uint32(data[:4])
+	positive := data[4] == 1
+
+	return &Review{
+		AppId:    appId,
+		Positive: positive,
+	}, nil
 }
