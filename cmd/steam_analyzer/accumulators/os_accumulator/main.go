@@ -69,26 +69,29 @@ func main() {
 			}
 
 			switch messageType {
+
 			case sp.MsgEndOfFile:
 				log.Info("End of file arrived")
-				metrics, err := oa.LoadGameOsMetricsFromFile("os_metrics")
+				data, err := oa.LoadGameOsMetricsFromFile("os_metrics")
 				if err != nil {
 					log.Errorf("Failed to load game os metrics from file: %v", err)
 					return err
 				}
-				data, err := sp.SerializeMsgAccumulatedGameOSInfo(metrics)
+				msg, err := sp.SerializeMsgAccumulatedGameOSInfo(data)
 
 				if err != nil {
 					log.Errorf("Failed to serialize message: %v", err)
 					return err
 				}
 
-				err = exchange.Publish("final_accumulator", data)
+				err = exchange.Publish("final_accumulator", msg)
+
 				if err != nil {
 					log.Errorf("Failed to publish message: %v", err)
 					return err
 				}
 				break loop
+
 			case sp.MsgGameOSInformation:
 				gamesOs, err := sp.DeserializeMsgGameOSInformation(messageBody)
 

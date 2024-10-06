@@ -16,6 +16,7 @@ const (
 	MsgAccumulatedGameOSInformation
 	MsgBatch
 	MsgReviewInformation
+	MsgQueryResolved
 )
 
 func DeserializeMessageType(message []byte) (MessageType, error) {
@@ -25,7 +26,7 @@ func DeserializeMessageType(message []byte) (MessageType, error) {
 
 	msgType := MessageType(message[0])
 	switch msgType {
-	case MsgEndOfFile, MsgGameOSInformation, MsgAccumulatedGameOSInformation, MsgBatch:
+	case MsgEndOfFile, MsgGameOSInformation, MsgAccumulatedGameOSInformation, MsgBatch, MsgQueryResolved:
 		return msgType, nil
 	default:
 		return 0, fmt.Errorf("unknown message type: %d", msgType)
@@ -89,11 +90,10 @@ func DeserializeMsgGameOSInformation(message []byte) ([]*oa.GameOS, error) {
 	return gameOSList, nil
 }
 
-func SerializeMsgAccumulatedGameOSInfo(metrics *oa.GameOSMetrics) ([]byte, error) {
+func SerializeMsgAccumulatedGameOSInfo(data []byte) ([]byte, error) {
 	message := make([]byte, 1+12)
 	message[0] = byte(MsgAccumulatedGameOSInformation)
-	serializedMetrics := oa.SerializeGameOSMetrics(metrics)
-	copy(message[1:], serializedMetrics)
+	copy(message[1:], data)
 	return message, nil
 }
 

@@ -15,6 +15,7 @@ const (
 	queueName       = "game_queue"
 	queueToSendName = "os_game_queue"
 	exchangeName    = "os_game_exchange"
+	numNextNodes    = 2
 )
 
 var log = logging.MustGetLogger("log")
@@ -44,6 +45,11 @@ func main() {
 
 	err = gameOSQueue.Bind(gameOSExchange.Name, "os")
 
+	if err != nil {
+		log.Errorf("Failed to bind accumulator queue: %v", err)
+		return
+	}
+
 	forever := make(chan bool)
 
 	go mapLines(queue, gameOSExchange)
@@ -67,8 +73,9 @@ func mapLines(queue *mom.Queue, gameOSExchange *mom.Exchange) error {
 
 		case sp.MsgEndOfFile:
 
-			gameOSExchange.Publish("os", sp.SerializeMsgEndOfFile())
-			gameOSExchange.Publish("os", sp.SerializeMsgEndOfFile())
+			for i := 0; i < numNextNodes; i++ {
+				gameOSExchange.Publish("os", sp.SerializeMsgEndOfFile())
+			}
 
 			log.Info("End of file received")
 		case sp.MsgBatch:

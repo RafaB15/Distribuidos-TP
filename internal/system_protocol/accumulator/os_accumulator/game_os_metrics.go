@@ -46,18 +46,13 @@ func (g *GameOSMetrics) UpdateAndSaveGameOSMetricsToFile(filePath string) error 
 	return os.WriteFile(filePath, data, filePermission)
 }
 
-func LoadGameOsMetricsFromFile(filePath string) (*GameOSMetrics, error) {
+func LoadGameOsMetricsFromFile(filePath string) ([]byte, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	metrics, err := DeserializeGameOSMetrics(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return metrics, nil
+	return data, nil
 }
 
 func SerializeGameOSMetrics(gameOsMetrics *GameOSMetrics) []byte {

@@ -74,6 +74,7 @@ services:
       rabbitmq:
         condition: service_healthy
 
+
   english_filter:
     image: english_filter:latest
     container_name: english_filter
@@ -83,6 +84,16 @@ services:
     depends_on:
       game_mapper:
         condition: service_started
+
+  writer:
+    image: writer:latest
+    container_name: writer
+    entrypoint: /writer
+    networks:
+      - distributed_network
+    depends_on:
+      entrypoint:
+        condition: service_started      
       rabbitmq:
         condition: service_healthy
 

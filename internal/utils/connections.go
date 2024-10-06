@@ -3,7 +3,6 @@ package utils
 import (
 	"errors"
 	"net"
-	"os"
 )
 
 func WriteExact(conn net.Conn, data []byte) error {
@@ -29,24 +28,6 @@ func ReadExact(conn net.Conn, length int) ([]byte, error) {
 		}
 		if n == 0 {
 			return nil, errors.New("connection closed before reading expected amount of data")
-		}
-		readBytes += n
-	}
-
-	return data, nil
-}
-
-func ReadExactFromFile(file *os.File, length int) ([]byte, error) {
-	data := make([]byte, length)
-	readBytes := 0
-
-	for readBytes < length {
-		n, err := file.Read(data[readBytes:])
-		if err != nil {
-			return nil, err
-		}
-		if n == 0 {
-			return nil, errors.New("file closed before reading expected amount of data")
 		}
 		readBytes += n
 	}
