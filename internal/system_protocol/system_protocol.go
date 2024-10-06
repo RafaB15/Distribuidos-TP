@@ -24,13 +24,8 @@ func DeserializeMessageType(message []byte) (MessageType, error) {
 		return 0, fmt.Errorf("empty message")
 	}
 
-	msgType := MessageType(message[0])
-	switch msgType {
-	case MsgEndOfFile, MsgGameOSInformation, MsgAccumulatedGameOSInformation, MsgBatch, MsgQueryResolved:
-		return msgType, nil
-	default:
-		return 0, fmt.Errorf("unknown message type: %d", msgType)
-	}
+	return MessageType(message[0]), nil
+
 }
 
 func SerializeBatchMsg(batch string) []byte {

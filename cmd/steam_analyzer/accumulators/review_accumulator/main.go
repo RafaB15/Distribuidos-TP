@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
-	queueToReceiveName = "english_reviews_queue_1"
-	exchangeName       = "accumulated_english_reviews_exchange"
-	queueToSendName    = "accumulated_english reviews_queue"
+	middlewareURI       = "amqp://guest:guest@rabbitmq:5672/"
+	queueToReceiveName  = "english_reviews_queue_1"
+	queueToReceiveName2 = "english_reviews_queue_2"
+	exchangeName        = "accumulated_english_reviews_exchange"
+	queueToSendName     = "accumulated_english reviews_queue"
 )
 
 var log = logging.MustGetLogger("log")
@@ -40,7 +41,7 @@ func main() {
 		log.Errorf("Failed to declare exchange: %v", err)
 	}
 
-	err = queueToSend.Bind(exchangeName, "review_accumulator_exchange")
+	err = queueToSend.Bind(ReviewsExchange.Name, "review_accumulator_exchange")
 
 	forever := make(chan bool)
 
@@ -51,6 +52,7 @@ func main() {
 
 func accumulateEnglishReviewsMetrics(reviewsQueue *mom.Queue, ReviewsExchange *mom.Exchange) error {
 	accumulatedReviews := make(map[uint32]*ra.GameReviewsMetrics)
+	log.Info("Creating Accumulating reviews metrics")
 	msgs, err := reviewsQueue.Consume(true)
 	if err != nil {
 		return err
@@ -60,8 +62,10 @@ loop:
 		messageBody := d.Body
 		messageType, err := sp.DeserializeMessageType(messageBody)
 		if err != nil {
+			log.Errorf("Failed to deserialize message type: %v", err)
 			return err
 		}
+		log.Infof("Received message type: %d", messageType)
 
 		switch messageType {
 		case sp.MsgEndOfFile:
@@ -74,15 +78,19 @@ loop:
 			}
 			for _, review := range reviews {
 				if metrics, exists := accumulatedReviews[review.AppId]; exists {
+					log.Info("Updating metrics for appID: ", review.AppId)
 					// Update existing metrics
 					metrics.UpdateWithReview(review)
 				} else {
 					// Create new metrics
+					log.Info("Creating new metrics for appID: ", review.AppId)
 					newMetrics := ra.NewReviewsMetrics(review.AppId)
 					newMetrics.UpdateWithReview(review)
 					accumulatedReviews[review.AppId] = newMetrics
 				}
 			}
+		default:
+			log.Errorf("Unexpected message type: %d", messageType)
 		}
 	}
 	return nil

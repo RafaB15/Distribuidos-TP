@@ -1,10 +1,14 @@
 package main
 
 import (
+	"crypto/sha256"
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	r "distribuidos-tp/internal/system_protocol/reviews"
+	"encoding/binary"
 	"encoding/csv"
+	"fmt"
+	"strconv"
 
 	"strings"
 
@@ -14,8 +18,11 @@ import (
 const (
 	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
 	queueToReceiveName = "reviews_queue"
-	queueToSendName    = "english_reviews_queue"
-	exchangeName       = "english_reviews_exchange"
+	//queueToSendName        = "english_reviews_queue_1"
+	queueToSendNameReview1 = "english_reviews_queue_1"
+	//queueToSendNameReview2 = "english_reviews_queue_2"
+	exchangeName = "english_reviews_exchange"
+	numNextNodes = 1
 )
 
 var log = logging.MustGetLogger("log")
@@ -33,17 +40,18 @@ func main() {
 		log.Errorf("Failed to declare queue: %v", err)
 	}
 
-	queueToSend, err := manager.CreateQueue(queueToSendName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-	}
-
 	englishReviewsExchange, err := manager.CreateExchange(exchangeName, "direct")
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
 	}
 
-	err = queueToSend.Bind(exchangeName, "english_exchange")
+	queueToSend1, err := manager.CreateQueue(queueToSendNameReview1)
+	if err != nil {
+		log.Errorf("Failed to declare queue: %v", err)
+	}
+	err = queueToSend1.Bind(englishReviewsExchange.Name, "english_reviews_exchange_1")
+	//err = queueToSend2.Bind(englishReviewsExchange.Name, "english_reviews_exchange_2")
+	//bindear todos los demas
 
 	forever := make(chan bool)
 
@@ -69,7 +77,8 @@ func filterEnglishReviews(reviewsQueue *mom.Queue, englishReviewsExchange *mom.E
 
 		switch msgType {
 		case sp.MsgEndOfFile:
-			englishReviewsExchange.Publish("english_exchange", sp.SerializeMsgEndOfFile())
+			englishReviewsExchange.Publish("english_reviews_exchange_1", sp.SerializeMsgEndOfFile())
+			//englishReviewsExchange.Publish("english_reviews_exchange_2", sp.SerializeMsgEndOfFile())
 			log.Info("End of file received")
 			break
 		case sp.MsgBatch:
@@ -89,15 +98,34 @@ func filterEnglishReviews(reviewsQueue *mom.Queue, englishReviewsExchange *mom.E
 				log.Error("Problema creando review con texto")
 				return err
 			}
+
+			appID, err := strconv.Atoi(records[0]) //el appID esta en el records 0
+			if err != nil {
+				log.Errorf("Failed to convert AppID: %v", err)
+				return err
+			}
+
+			shardingKey := calculateShardingKey(appID, numNextNodes)
+			log.Infof("Sharding key: %d", shardingKey)
 			if languageIdentifier.IsEnglish(records[1]) {
 				log.Debugf("I am the english language")
 				reviewSlice := []*r.Review{review}
 				serializedReviews := sp.SerializeMsgReviewInformation(reviewSlice)
 
-				err = englishReviewsExchange.Publish("english_exchange", serializedReviews)
+				routingKey := fmt.Sprintf("english_reviews_exchange_%d", shardingKey)
+				log.Debugf("Routing key: %s", routingKey)
+				err = englishReviewsExchange.Publish(routingKey, serializedReviews)
 			}
 			log.Debugf("Received review: %v", records[1])
 		}
 	}
 	return nil
+}
+
+func calculateShardingKey(appID int, numShards int) int {
+	// hash function xa dist mejor
+	appIDStr := fmt.Sprintf("%d", appID)
+	hash := sha256.Sum256([]byte(appIDStr))
+	hashInt := binary.BigEndian.Uint64(hash[:8])
+	return int(hashInt%uint64(numShards)) + 1
 }

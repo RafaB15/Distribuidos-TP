@@ -11,7 +11,7 @@ services:
     networks:
       - distributed_network
     healthcheck:
-      test: [ "CMD", "rabbitmqctl", "status" ]
+      test: ["CMD", "rabbitmqctl", "status"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -74,7 +74,6 @@ services:
       rabbitmq:
         condition: service_healthy
 
-
   english_filter:
     image: english_filter:latest
     container_name: english_filter
@@ -85,6 +84,18 @@ services:
       game_mapper:
         condition: service_started
 
+  review_accumulator:
+    image: review_accumulator:latest
+    container_name: review_accumulator
+    entrypoint: /accumulators/review_accumulator
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
   writer:
     image: writer:latest
     container_name: writer
@@ -93,7 +104,7 @@ services:
       - distributed_network
     depends_on:
       entrypoint:
-        condition: service_started      
+        condition: service_started
       rabbitmq:
         condition: service_healthy
 
