@@ -6,9 +6,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+
+	"github.com/op/go-logging"
 )
 
 type MessageType byte
+
+var log = logging.MustGetLogger("log")
 
 const (
 	MsgEndOfFile MessageType = iota
@@ -18,6 +22,15 @@ const (
 	MsgReviewInformation
 	MsgQueryResolved
 )
+
+// Size of the bytes to store the length of the payload
+const LineLengthBytesAmount = 4
+
+// Size of the bytes to store the number of lines in the payload
+const LinesNumberBytesAmount = 1
+
+// Size of the bytes to store the origin of the file
+const FileOriginBytesAmount = 1
 
 func DeserializeMessageType(message []byte) (MessageType, error) {
 	if len(message) == 0 {
@@ -33,7 +46,7 @@ func DeserializeMessageType(message []byte) (MessageType, error) {
 	}
 }
 
-func SerializeBatchMsg(batch string) []byte {
+func SerializeBatchMsg(batch []byte) []byte {
 	message := make([]byte, 1+len(batch))
 	message[0] = byte(MsgBatch)
 	copy(message[1:], batch)
@@ -154,4 +167,43 @@ func DeserializeMsgReviewInformation(message []byte) ([]*r.Review, error) {
 	}
 
 	return reviews, nil
+}
+
+func DeserializeBatch(data []byte) ([]string, error) {
+
+	if len(data) == 0 {
+		return []string{}, nil
+	}
+
+	numLines := int(data[1])
+
+	serializedLines := data[2:]
+	var lines []string
+
+	offset := 0
+
+	for i := 0; i < numLines; i++ {
+		line, newOffset, _ := DeserializeLine(serializedLines, offset)
+		lines = append(lines, line)
+		log.Infof("Deserialized game line: %s", line)
+		offset = newOffset
+	}
+
+	return lines, nil
+}
+
+func DeserializeLine(data []byte, offset int) (string, int, error) {
+	if offset+LineLengthBytesAmount > len(data) {
+		return "", 0, errors.New("data too short to contain line length information")
+	}
+
+	lineLength := binary.BigEndian.Uint32(data[offset : offset+LineLengthBytesAmount])
+	if int(lineLength) > len(data)-offset-LineLengthBytesAmount {
+		return "", 0, errors.New("invalid line length information")
+	}
+
+	line := string(data[offset+LineLengthBytesAmount : offset+LineLengthBytesAmount+int(lineLength)])
+	newOffset := offset + LineLengthBytesAmount + int(lineLength)
+
+	return line, newOffset, nil
 }

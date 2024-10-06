@@ -105,24 +105,15 @@ func handleConnection(conn net.Conn, gameExchange *mom.Exchange, reviewExchange 
 			return
 		}
 
-		lines, err := cp.DeserializeBatch(data)
-		if err != nil {
-			fmt.Println("Error deserializing game batch:", err)
-			return
-		}
-
 		// Se deberían mandar varios por paquete
-		for _, line := range lines {
-			log.Infof("About to publish message: %s", line)
-			batch := sp.SerializeBatchMsg(line)
-			if fileOrigin == GameFile {
-				err = gameExchange.Publish(gameRoutingKey, batch)
-			} else {
-				err = reviewExchange.Publish(reviewRoutingKey, batch)
-			}
-			if err != nil {
-				fmt.Println("Error publishing message:", err)
-			}
+		batch := sp.SerializeBatchMsg(data)
+		if fileOrigin == GameFile {
+			err = gameExchange.Publish(gameRoutingKey, batch)
+		} else {
+			err = reviewExchange.Publish(reviewRoutingKey, batch)
+		}
+		if err != nil {
+			fmt.Println("Error publishing message:", err)
 		}
 
 		if eofFlag {

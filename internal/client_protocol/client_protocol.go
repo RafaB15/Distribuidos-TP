@@ -4,7 +4,6 @@ import (
 	"bufio"
 	u "distribuidos-tp/internal/utils"
 	"encoding/binary"
-	"errors"
 	"io"
 	"net"
 
@@ -99,45 +98,6 @@ func ReceiveBatch(connection net.Conn) ([]byte, int, bool, error) {
 	log.Infof("EOF flag: %d", eofFlag)
 
 	return data[2:], fileType, eofFlag == 1, nil
-}
-
-func DeserializeBatch(data []byte) ([]string, error) {
-
-	if len(data) == 0 {
-		return []string{}, nil
-	}
-
-	numLines := int(data[0])
-
-	serializedLines := data[1:]
-	var lines []string
-
-	offset := 0
-
-	for i := 0; i < numLines; i++ {
-		line, newOffset, _ := DeserializeLine(serializedLines, offset)
-		lines = append(lines, line)
-		log.Infof("Deserialized game line: %s", line)
-		offset = newOffset
-	}
-
-	return lines, nil
-}
-
-func DeserializeLine(data []byte, offset int) (string, int, error) {
-	if offset+LineLengthBytesAmount > len(data) {
-		return "", 0, errors.New("data too short to contain line length information")
-	}
-
-	lineLength := binary.BigEndian.Uint32(data[offset : offset+LineLengthBytesAmount])
-	if int(lineLength) > len(data)-offset-LineLengthBytesAmount {
-		return "", 0, errors.New("invalid line length information")
-	}
-
-	line := string(data[offset+LineLengthBytesAmount : offset+LineLengthBytesAmount+int(lineLength)])
-	newOffset := offset + LineLengthBytesAmount + int(lineLength)
-
-	return line, newOffset, nil
 }
 
 func SerializeLine(line string) []byte {

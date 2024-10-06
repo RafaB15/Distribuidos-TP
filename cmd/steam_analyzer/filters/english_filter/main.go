@@ -5,6 +5,7 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/csv"
+	"io"
 
 	"strings"
 
@@ -59,7 +60,7 @@ func filterEnglishReviews(reviewsQueue *mom.Queue, englishReviewsExchange *mom.E
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
-
+loop:
 	for d := range msgs {
 
 		msgType, err := sp.DeserializeMessageType(d.Body)
@@ -71,32 +72,50 @@ func filterEnglishReviews(reviewsQueue *mom.Queue, englishReviewsExchange *mom.E
 		case sp.MsgEndOfFile:
 			englishReviewsExchange.Publish("english_exchange", sp.SerializeMsgEndOfFile())
 			log.Info("End of file received")
-			break
+			break loop
 		case sp.MsgBatch:
-			// Por el momento Msgbatch está mandando una sola línea. Debería mandar muchas.
-			input, err := sp.DeserializeBatchMsg(d.Body)
-			if err != nil {
-				return err
-			}
-			reader := csv.NewReader(strings.NewReader(input))
-			records, err := reader.Read()
-			if err != nil {
-				return err
-			}
-			log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v", records[0], records[1], records[2])
-			review, err := r.NewReviewFromStrings(records[0], records[2])
-			if err != nil {
-				log.Error("Problema creando review con texto")
-				return err
-			}
-			if languageIdentifier.IsEnglish(records[1]) {
-				log.Debugf("I am the english language")
-				reviewSlice := []*r.Review{review}
-				serializedReviews := sp.SerializeMsgReviewInformation(reviewSlice)
 
-				err = englishReviewsExchange.Publish("english_exchange", serializedReviews)
+			lines, err := sp.DeserializeBatch(d.Body)
+			if err != nil {
+				log.Error("Error deserializing batch")
+				return err
 			}
-			log.Debugf("Received review: %v", records[1])
+
+			var reviews []*r.Review
+			for _, line := range lines {
+				log.Debugf("Printing lines: %v", lines)
+				reader := csv.NewReader(strings.NewReader(line))
+				records, err := reader.Read()
+
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					return err
+				}
+				log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v", records[0], records[1], records[2])
+
+				review, err := r.NewReviewFromStrings(records[0], records[2])
+				if err != nil {
+					log.Error("Problema creando review con texto")
+					return err
+				}
+
+				if languageIdentifier.IsEnglish(records[1]) {
+					log.Debugf("I am the english language")
+
+					reviews = append(reviews, review)
+
+				}
+
+				log.Debugf("Received review: %v", records[1])
+			}
+			serializedReviews := sp.SerializeMsgReviewInformation(reviews)
+			err = englishReviewsExchange.Publish("english_exchange", serializedReviews)
+			if err != nil {
+				log.Error("Error publishing game")
+				return err
+			}
 		}
 	}
 	return nil
