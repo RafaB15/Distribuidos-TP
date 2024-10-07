@@ -23,6 +23,7 @@ const (
 	MsgBatch
 	MsgReviewInformation
 	MsgQueryResolved
+	MsgGameReviewsMetrics
 )
 
 // Size of the bytes to store the length of the payload

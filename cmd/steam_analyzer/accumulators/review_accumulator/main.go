@@ -3,6 +3,7 @@ package main
 import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
+	r "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 
 	"github.com/op/go-logging"
@@ -14,6 +15,7 @@ const (
 	queueToReceiveName2 = "english_reviews_queue_2"
 	exchangeName        = "accumulated_english_reviews_exchange"
 	queueToSendName     = "accumulated_english_reviews_queue"
+	numNextNodes        = 1
 )
 
 var log = logging.MustGetLogger("log")
@@ -70,7 +72,33 @@ loop:
 		switch messageType {
 		case sp.MsgEndOfFile:
 			log.Info("End Of File for accumulated reviews received")
+
+			// solo hacer esto si recibi todos los mensajes de end of file
+			for _, metrics := range accumulatedReviews {
+				log.Info("Serializing accumulated reviews")
+
+				serializedMetrics, err := r.SerializeGameReviewsMetrics(metrics)
+				if err != nil {
+					log.Errorf("Failed to serialize accumulated reviews: %v", err)
+					return err
+				}
+
+				err = ReviewsExchange.Publish("review_accumulator_exchange", serializedMetrics)
+				if err != nil {
+					log.Errorf("Failed to publish metrics: %v", err)
+					return err
+				}
+
+			}
+
+			//serialize msg de metrics
+			// hay que mandarselo a todos los nodos de filtro de 5k. tipo fanout.
+			err = ReviewsExchange.Publish("review_accumulator_exchange", sp.SerializeMsgEndOfFile())
+			if err != nil {
+				log.Errorf("Failed to publish end of file in review accumulator: %v", err)
+			}
 			break loop
+
 		case sp.MsgReviewInformation:
 			reviews, err := sp.DeserializeMsgReviewInformation(messageBody)
 			if err != nil {
