@@ -3,7 +3,6 @@ package main
 import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
-	r "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 
 	"github.com/op/go-logging"
@@ -67,17 +66,16 @@ loop:
 			log.Errorf("Failed to deserialize message type: %v", err)
 			return err
 		}
-		log.Infof("Received message type: %d", messageType)
 
 		switch messageType {
 		case sp.MsgEndOfFile:
 			log.Info("End Of File for accumulated reviews received")
 
 			// solo hacer esto si recibi todos los mensajes de end of file
-			for _, metrics := range accumulatedReviews {
-				log.Info("Serializing accumulated reviews")
+			for AppID, metrics := range accumulatedReviews {
+				//og.Info("Serializing accumulated reviews")
 
-				serializedMetrics, err := r.SerializeGameReviewsMetrics(metrics)
+				serializedMetrics, err := sp.SerializeMsgGameReviewsMetrics(metrics)
 				if err != nil {
 					log.Errorf("Failed to serialize accumulated reviews: %v", err)
 					return err
@@ -88,6 +86,7 @@ loop:
 					log.Errorf("Failed to publish metrics: %v", err)
 					return err
 				}
+				log.Infof("Published accumulated reviews for appID: %d", AppID)
 
 			}
 
@@ -97,9 +96,11 @@ loop:
 			if err != nil {
 				log.Errorf("Failed to publish end of file in review accumulator: %v", err)
 			}
+			log.Info("Published end of file in review accumulator")
 			break loop
 
 		case sp.MsgReviewInformation:
+			log.Infof("Received review information")
 			reviews, err := sp.DeserializeMsgReviewInformation(messageBody)
 			if err != nil {
 				return err
