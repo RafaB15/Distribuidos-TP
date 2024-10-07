@@ -19,7 +19,8 @@ const (
 	reviewRoutingKey   = "review_key"
 	gameQueueName      = "game_queue"
 	reviewQueueName    = "reviews_queue"
-	reviewExchangeName = "review_exchange"
+	rawReviewQueueName = "raw_reviews_queue"
+	reviewExchangeName = "raw_reviews_exchange"
 )
 
 const GameFile = 1
@@ -60,6 +61,11 @@ func main() {
 		log.Errorf("Failed to declare queue: %v", err)
 	}
 
+	rawReviewQueue, err := manager.CreateQueue(rawReviewQueueName)
+	if err != nil {
+		log.Errorf("Failed to declare queue: %v", err)
+	}
+
 	reviewExchange, err := manager.CreateExchange(reviewExchangeName, reviewExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
@@ -67,6 +73,13 @@ func main() {
 	}
 
 	err = reviewQueue.Bind(reviewExchange.Name, reviewRoutingKey)
+
+	if err != nil {
+		log.Errorf("Failed to bind queue: %v", err)
+		return
+	}
+
+	err = rawReviewQueue.Bind(reviewExchange.Name, reviewRoutingKey)
 
 	if err != nil {
 		log.Errorf("Failed to bind queue: %v", err)

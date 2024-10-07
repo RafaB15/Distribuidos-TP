@@ -9,11 +9,12 @@ docker-compose-rabbit:
 docker-image-system:
 	docker build -f ./cmd/steam_analyzer/entrypoint/Dockerfile -t "entrypoint:latest" .
 	docker build -f ./cmd/steam_analyzer/mappers/game_mapper/Dockerfile -t "game_mapper:latest" .
+	docker build -f ./cmd/steam_analyzer/mappers/review_mapper/Dockerfile -t "review_mapper:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/os_accumulator/Dockerfile -t "os_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/os_final_accumulator/Dockerfile -t "os_final_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/filters/english_filter/Dockerfile -t "english_filter:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/review_accumulator/Dockerfile -t "review_accumulator:latest" .
-	docker build -f ./cmd/steam_analyzer/filters/positive_reviews_filter/Dockerfile -t "positive_filter:latest" .
+	docker build -f ./cmd/steam_analyzer/filters/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:latest" .
 	docker build -f ./cmd/steam_analyzer/writer/Dockerfile -t "writer:latest" .
 .PHONY: docker-image-system
 
