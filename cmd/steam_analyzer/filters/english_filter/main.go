@@ -126,6 +126,10 @@ loop:
 					routingKey := fmt.Sprintf("english_reviews_exchange_%d", shardingKey)
 					log.Debugf("Routing key: %s", routingKey)
 					err = englishReviewsExchange.Publish(routingKey, serializedReview)
+					if err != nil {
+						log.Errorf("Failed to publish message: %v", err)
+						return err
+					}
 
 				}
 

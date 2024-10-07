@@ -86,6 +86,18 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  decade_filter:
+    image: decade_filter:latest
+    container_name: decade_filter
+    entrypoint: /filters/decade_filter
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
   english_filter:
     image: english_filter:latest
     container_name: english_filter
@@ -108,17 +120,18 @@ services:
       rabbitmq:
         condition: service_healthy
 
-    positive_reviews_filter:
-      image: positive_reviews_filter:latest
-      container_name: positive_reviews_filter
-      entrypoint: /filters/positive_reviews_filter
-      networks:
-        - distributed_network
-      depends_on:
-        game_mapper:
-          condition: service_started
-        rabbitmq:
-          condition: service_healthy
+  positive_reviews_filter:
+    image: positive_reviews_filter:latest
+    container_name: positive_reviews_filter
+    entrypoint: /filters/positive_reviews_filter
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
 
   writer:
     image: writer:latest

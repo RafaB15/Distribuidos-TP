@@ -2,6 +2,7 @@ package system_protocol
 
 import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/binary"
 	"errors"
@@ -18,6 +19,7 @@ const (
 	MsgEndOfFile MessageType = iota
 	MsgGameOSInformation
 	MsgAccumulatedGameOSInformation
+	MsgGameYearAndAvgPtfInformation
 	MsgBatch
 	MsgReviewInformation
 	MsgQueryResolved
@@ -54,6 +56,48 @@ func DeserializeBatchMsg(message []byte) (string, error) {
 	}
 
 	return string(message[1:]), nil
+}
+
+func SerializeMsgGameYearAndAvgPtf(gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []byte {
+	count := len(gameYearAndAvgPtf)
+	message := make([]byte, 3+count*10)
+	message[0] = byte(MsgGameYearAndAvgPtfInformation)
+	binary.BigEndian.PutUint16(message[1:3], uint16(count))
+
+	offset := 3
+	for i, game := range gameYearAndAvgPtf {
+		serializedGame := df.SerializeGameYearAndAvgPtf(game)
+		copy(message[offset+i*10:], serializedGame)
+	}
+
+	return message
+}
+
+func DeserializeMsgGameYearAndAvgPtf(message []byte) ([]*df.GameYearAndAvgPtf, error) {
+	if len(message) < 3 {
+		return nil, errors.New("message too short to contain count")
+	}
+
+	count := binary.BigEndian.Uint16(message[1:3])
+	offset := 3
+
+	expectedLength := int(count) * 10
+	if len(message[offset:]) < expectedLength {
+		return nil, errors.New("message length does not match expected count")
+	}
+
+	var gameYearAndAvgPtfList []*df.GameYearAndAvgPtf
+	for i := 0; i < int(count); i++ {
+		start := offset + i*10
+		end := start + 10
+		game, err := df.DeserializeGameYearAndAvgPtf(message[start:end])
+		if err != nil {
+			return nil, err
+		}
+		gameYearAndAvgPtfList = append(gameYearAndAvgPtfList, game)
+	}
+
+	return gameYearAndAvgPtfList, nil
 }
 
 func SerializeMsgGameOSInformation(gameOSList []*oa.GameOS) []byte {
