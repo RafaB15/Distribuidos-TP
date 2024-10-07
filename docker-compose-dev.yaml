@@ -96,6 +96,18 @@ services:
       rabbitmq:
         condition: service_healthy
 
+    positive_reviews_filter:
+    image: positive_reviews_filter:latest
+    container_name: positive_reviews_filter
+    entrypoint: /filters/positive_reviews_filter
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
   writer:
     image: writer:latest
     container_name: writer

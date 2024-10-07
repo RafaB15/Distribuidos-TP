@@ -13,7 +13,7 @@ const (
 	queueToReceiveName  = "english_reviews_queue_1"
 	queueToReceiveName2 = "english_reviews_queue_2"
 	exchangeName        = "accumulated_english_reviews_exchange"
-	queueToSendName     = "accumulated_english reviews_queue"
+	queueToSendName     = "accumulated_english_reviews_queue"
 )
 
 var log = logging.MustGetLogger("log")
