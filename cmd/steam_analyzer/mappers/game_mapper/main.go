@@ -13,47 +13,47 @@ import (
 )
 
 const (
-	middlewareURI             = "amqp://guest:guest@rabbitmq:5672/"
-	queueName                 = "game_queue"
-	osQueueName               = "os_game_queue"
-	yearAndAvgPtfQueueName    = "year_and_avg_ptf_queue"
-	osExchangeName            = "os_game_exchange"
-	yearAndAvgPtfExchangeName = "year_and_avg_ptf_exchange"
-	numNextNodes              = 2
+	MiddlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	RawGamesExchangeName = "raw_games_exchange"
+	RawGamesRoutingKey   = "raw_games_key"
+	RawGamesExchangeType = "direct"
+	RawGamesQueueName    = "raw_games_queue"
+
+	OSGamesExchangeName = "os_games_exchange"
+	OSGamesRoutingKey   = "os_games_key"
+	OSGamesExchangeType = "direct"
+
+	YearAndAvgPtfExchangeName = "year_and_avg_ptf_exchange"
+	YearAndAvgPtfExchangeType = "direct"
+	YearAndAvgPtfRoutingKey   = "year_and_avg_ptf_key"
+
+	numNextNodes = 2
 )
 
 var log = logging.MustGetLogger("log")
 
 func main() {
-	manager, err := mom.NewMiddlewareManager(middlewareURI)
+	manager, err := mom.NewMiddlewareManager(MiddlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
 		return
 	}
 	defer manager.CloseConnection()
 
-	queue, err := manager.CreateQueue(queueName)
+	rawGamesQueue, err := manager.CreateBoundQueue(RawGamesQueueName, RawGamesExchangeName, RawGamesExchangeType, RawGamesRoutingKey)
 	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-	}
-
-	//
-	gameOSQueue, err := manager.CreateQueue(osQueueName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
+		log.Errorf("Failed to create queue: %v", err)
 		return
 	}
 
-	gameOSExchange, err := manager.CreateExchange(osExchangeName, "direct")
+	osGamesExchange, err := manager.CreateExchange(OSGamesExchangeName, OSGamesExchangeType)
 	if err != nil {
-		log.Errorf("Failed to declare exchange: %v", err)
+		log.Errorf("Failed to create middleware manager: %v", err)
 		return
 	}
 
-	err = gameOSQueue.Bind(gameOSExchange.Name, "os")
-	//
-
-	gameYearAndAvgPtfExchange, err := setUpYearAndAvgPtfMiddleware(manager)
+	gameYearAndAvgPtfExchange, err := manager.CreateExchange(YearAndAvgPtfExchangeName, YearAndAvgPtfExchangeType)
 	if err != nil {
 		log.Errorf("Failed to bind accumulator queue: %v", err)
 		return
@@ -61,13 +61,13 @@ func main() {
 
 	forever := make(chan bool)
 
-	go mapLines(queue, gameOSExchange, gameYearAndAvgPtfExchange)
+	go mapLines(rawGamesQueue, osGamesExchange, gameYearAndAvgPtfExchange)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func mapLines(queue *mom.Queue, gameOSExchange *mom.Exchange, gameYearAndAvgPtfExchange *mom.Exchange) error {
-	msgs, err := queue.Consume(true)
+func mapLines(rawGamesQueue *mom.Queue, osGamesExchange *mom.Exchange, gameYearAndAvgPtfExchange *mom.Exchange) error {
+	msgs, err := rawGamesQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
@@ -84,7 +84,7 @@ func mapLines(queue *mom.Queue, gameOSExchange *mom.Exchange, gameYearAndAvgPtfE
 			log.Info("End of file received")
 
 			for i := 0; i < numNextNodes; i++ {
-				gameOSExchange.Publish("os", sp.SerializeMsgEndOfFile())
+				osGamesExchange.Publish(OSGamesRoutingKey, sp.SerializeMsgEndOfFile())
 			}
 
 		case sp.MsgBatch:
@@ -127,13 +127,13 @@ func mapLines(queue *mom.Queue, gameOSExchange *mom.Exchange, gameYearAndAvgPtfE
 			serializedGameOS := sp.SerializeMsgGameOSInformation(gameOsSlice)
 			serializedGameYearAndAvgPtf := sp.SerializeMsgGameYearAndAvgPtf(gameYearAndAvgPtfSlice)
 
-			err = gameOSExchange.Publish("os", serializedGameOS)
+			err = osGamesExchange.Publish(OSGamesRoutingKey, serializedGameOS)
 			if err != nil {
 				log.Error("Error publishing game")
 				return err
 			}
 
-			err = gameYearAndAvgPtfExchange.Publish("year_avg_ptf", serializedGameYearAndAvgPtf)
+			err = gameYearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, serializedGameYearAndAvgPtf)
 			if err != nil {
 				log.Error("Error publishing game")
 				return err
@@ -168,44 +168,4 @@ func createAndAppendGameYearAndAvgPtf(records []string, gameYearAndAvgPtfSlice [
 
 	gameYearAndAvgPtfSlice = append(gameYearAndAvgPtfSlice, gameYearAndAvgPtf)
 	return gameYearAndAvgPtfSlice, nil
-}
-
-// func setUpOsMiddleware(manager *mom.MiddlewareManager) (*mom.Exchange, error) {
-
-// 	gameOSQueue, err := manager.CreateQueue(osQueueName)
-// 	if err != nil {
-// 		log.Errorf("Failed to declare queue: %v", err)
-// 		return nil, err
-// 	}
-
-// 	gameOSExchange, err := manager.CreateExchange(osExchangeName, "direct")
-// 	if err != nil {
-// 		log.Errorf("Failed to declare exchange: %v", err)
-// 		return nil, err
-// 	}
-
-// 	err = gameOSQueue.Bind(gameOSExchange.Name, osQueueName)
-
-// 	return gameOSExchange, err
-
-// }
-
-func setUpYearAndAvgPtfMiddleware(manager *mom.MiddlewareManager) (*mom.Exchange, error) {
-
-	gameYearAndAvgPtfQueue, err := manager.CreateQueue(yearAndAvgPtfQueueName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-		return nil, err
-	}
-
-	gameYearAndAvgPtfExchange, err := manager.CreateExchange(yearAndAvgPtfExchangeName, "direct")
-	if err != nil {
-		log.Errorf("Failed to declare exchange: %v", err)
-		return nil, err
-	}
-
-	err = gameYearAndAvgPtfQueue.Bind(gameYearAndAvgPtfExchange.Name, "year_avg_ptf")
-
-	return gameYearAndAvgPtfExchange, err
-
 }

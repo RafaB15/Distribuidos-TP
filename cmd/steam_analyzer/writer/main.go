@@ -11,7 +11,11 @@ import (
 
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
-	queueName     = "writer_queue"
+
+	WriterExchangeName = "writer_exchange"
+	WriterRoutingKey   = "writer_key"
+	WriterExchangeType = "direct"
+	WriterQueueName    = "writer_queue"
 )
 
 var log = logging.MustGetLogger("log")
@@ -24,12 +28,13 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queue, err := manager.CreateQueue(queueName)
+	writerQueue, err := manager.CreateBoundQueue(WriterQueueName, WriterExchangeName, WriterExchangeType, WriterRoutingKey)
 	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
+		log.Errorf("Failed to create queue: %v", err)
+		return
 	}
 
-	msgs, err := queue.Consume(true)
+	msgs, err := writerQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
@@ -83,7 +88,7 @@ func handleOsResolvedQuery(data []byte) error {
 
 	defer file.Close()
 
-	u.WriteAllToFile(file, data)
+	err = u.WriteAllToFile(file, data)
 
 	if err != nil {
 		log.Errorf("Failed to write to file: %v", err)

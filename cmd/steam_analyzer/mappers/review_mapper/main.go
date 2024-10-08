@@ -14,12 +14,17 @@ import (
 )
 
 const (
-	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
-	queueToReceiveName = "raw_reviews_queue"
-	queueToSendName    = "reviews_queue"
-	exchangeName       = "reviews_exchange"
-	routingKeyPrefix   = "reviews_exchange"
-	numNextNodes       = 1
+	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	RawReviewsExchangeName = "raw_reviews_exchange"
+	RawReviewsExchangeType = "fanout"
+	RawReviewsQueueName    = "raw_reviews_queue"
+
+	ReviewsExchangeName     = "reviews_exchange"
+	ReviewsExchangeType     = "direct"
+	ReviewsRoutingKeyPrefix = "reviews_key_"
+
+	numNextNodes = 1
 )
 
 var log = logging.MustGetLogger("log")
@@ -32,32 +37,27 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queueToReceive, err := manager.CreateQueue(queueToReceiveName)
+	rawReviewsQueue, err := manager.CreateBoundQueue(RawReviewsQueueName, RawReviewsExchangeName, RawReviewsExchangeType, "")
 	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
+		log.Errorf("Failed to create queue: %v", err)
+		return
 	}
 
-	queueToSend, err := manager.CreateQueue(queueToSendName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-	}
-
-	exchange, err := manager.CreateExchange(exchangeName, "direct")
+	reviewsExchange, err := manager.CreateExchange(ReviewsExchangeName, ReviewsExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
+		return
 	}
-
-	queueToSend.Bind(exchange.Name, queueToSendName)
 
 	forever := make(chan bool)
 
-	go mapReviews(queueToReceive, exchange)
+	go mapReviews(rawReviewsQueue, reviewsExchange)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func mapReviews(reviewsQueue *mom.Queue, exchange *mom.Exchange) error {
-	msgs, err := reviewsQueue.Consume(true)
+func mapReviews(rawReviewsQueue *mom.Queue, reviewsExchange *mom.Exchange) error {
+	msgs, err := rawReviewsQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
@@ -72,7 +72,9 @@ loop:
 
 		switch msgType {
 		case sp.MsgEndOfFile:
-			exchange.Publish(queueToSendName, sp.SerializeMsgEndOfFile())
+			for i := 1; i < numNextNodes+1; i++ {
+				reviewsExchange.Publish(fmt.Sprintf("%v%d", ReviewsRoutingKeyPrefix, i), sp.SerializeMsgEndOfFile())
+			}
 			log.Info("End of file received")
 			break loop
 		case sp.MsgBatch:
@@ -107,8 +109,8 @@ loop:
 
 				reviewSlice := []*r.Review{review}
 				serializedReview := sp.SerializeMsgReviewInformation(reviewSlice)
-				routingKey := fmt.Sprintf("%d_%d", routingKeyPrefix, shardingKey)
-				err = exchange.Publish(routingKey, serializedReview)
+				routingKey := fmt.Sprintf("%v%d", ReviewsRoutingKeyPrefix, shardingKey)
+				err = reviewsExchange.Publish(routingKey, serializedReview)
 
 				log.Debugf("Received review: %v", records[1])
 			}

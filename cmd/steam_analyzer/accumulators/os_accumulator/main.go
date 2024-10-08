@@ -10,10 +10,16 @@ import (
 )
 
 const (
-	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
-	queueToReceiveName = "os_game_queue"
-	exchangeName       = "os_accumulator_exchange"
-	queueToSendName    = "os_accumulator_queue"
+	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	OSGamesExchangeName = "os_games_exchange"
+	OSGamesRoutingKey   = "os_games_key"
+	OSGamesExchangeType = "direct"
+	OSGamesQueueName    = "os_games_queue"
+
+	OSAccumulatorExchangeName = "os_accumulator_exchange"
+	OSAccumulatorRoutingKey   = "os_accumulator_key"
+	OSAccumulatorExchangeType = "direct"
 )
 
 var log = logging.MustGetLogger("log")
@@ -26,31 +32,19 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queueToReceive, err := manager.CreateQueue(queueToReceiveName)
+	osGamesQueue, err := manager.CreateBoundQueue(OSGamesQueueName, OSGamesExchangeName, OSGamesExchangeType, OSGamesRoutingKey)
 	if err != nil {
-		log.Errorf("Failed to declare game mapper: %v", err)
+		log.Errorf("Failed to create queue: %v", err)
 		return
 	}
 
-	exchange, err := manager.CreateExchange(exchangeName, "direct")
+	osAccumulatorExchange, err := manager.CreateExchange(OSAccumulatorExchangeName, OSAccumulatorExchangeType)
 	if err != nil {
-		log.Errorf("Failed to declare exchange: %v", err)
+		log.Errorf("Failed to create middleware manager: %v", err)
 		return
 	}
 
-	queueToSend, err := manager.CreateQueue(queueToSendName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-		return
-	}
-
-	err = queueToSend.Bind(exchange.Name, "final_accumulator")
-	if err != nil {
-		log.Errorf("Failed to bind accumulator queue: %v", err)
-		return
-	}
-
-	msgs, err := queueToReceive.Consume(true)
+	msgs, err := osGamesQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 		return
@@ -84,7 +78,7 @@ func main() {
 					return err
 				}
 
-				err = exchange.Publish("final_accumulator", msg)
+				err = osAccumulatorExchange.Publish(OSAccumulatorRoutingKey, msg)
 
 				if err != nil {
 					log.Errorf("Failed to publish message: %v", err)
@@ -104,10 +98,6 @@ func main() {
 				}
 
 				log.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
-
-				if err != nil {
-					log.Errorf("Failed to serialize message: %v", err)
-				}
 
 				osMetrics.UpdateAndSaveGameOSMetricsToFile("os_metrics")
 
