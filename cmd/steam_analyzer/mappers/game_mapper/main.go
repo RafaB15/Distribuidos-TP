@@ -131,7 +131,6 @@ func mapLines(rawGamesQueue *mom.Queue, osGamesExchange *mom.Exchange, gameYearA
 			actionGamesNames := make(map[string][]*g.GameName)
 
 			for _, line := range lines {
-				log.Debugf("Printing lines: %v", lines)
 				reader := csv.NewReader(strings.NewReader(line))
 				records, err := reader.Read()
 

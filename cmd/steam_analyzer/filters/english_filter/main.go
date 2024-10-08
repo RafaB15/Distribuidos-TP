@@ -88,7 +88,6 @@ loop:
 			}
 
 			for _, line := range lines {
-				log.Debugf("Printing lines: %v", lines)
 				reader := csv.NewReader(strings.NewReader(line))
 				records, err := reader.Read()
 

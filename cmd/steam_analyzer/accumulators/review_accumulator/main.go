@@ -52,12 +52,12 @@ func main() {
 
 	forever := make(chan bool)
 
-	go accumulateEnglishReviewsMetrics(englishReviewsQueue, accumulatedEnglishReviewsExchange, englishReviewsRoutingKey)
+	go accumulateEnglishReviewsMetrics(englishReviewsQueue, accumulatedEnglishReviewsExchange)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func accumulateEnglishReviewsMetrics(englishReviewsQueue *mom.Queue, accumulatedEnglishReviewsExchange *mom.Exchange, englishReviewsRoutingKey string) error {
+func accumulateEnglishReviewsMetrics(englishReviewsQueue *mom.Queue, accumulatedEnglishReviewsExchange *mom.Exchange) error {
 	accumulatedReviews := make(map[uint32]*ra.GameReviewsMetrics)
 	log.Info("Creating Accumulating reviews metrics")
 	msgs, err := englishReviewsQueue.Consume(true)
@@ -87,7 +87,7 @@ loop:
 					return err
 				}
 
-				err = accumulatedEnglishReviewsExchange.Publish(englishReviewsRoutingKey, serializedMetrics)
+				err = accumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedMetrics)
 				if err != nil {
 					log.Errorf("Failed to publish metrics: %v", err)
 					return err
@@ -98,7 +98,7 @@ loop:
 
 			//serialize msg de metrics
 			// hay que mandarselo a todos los nodos de filtro de 5k. tipo fanout. Por el momento no está pasando
-			err = accumulatedEnglishReviewsExchange.Publish(englishReviewsRoutingKey, sp.SerializeMsgEndOfFile())
+			err = accumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, sp.SerializeMsgEndOfFile())
 			if err != nil {
 				log.Errorf("Failed to publish end of file in review accumulator: %v", err)
 			}
