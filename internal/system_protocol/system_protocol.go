@@ -5,7 +5,9 @@ import (
 	m "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	g "distribuidos-tp/internal/system_protocol/games"
+	j "distribuidos-tp/internal/system_protocol/joiner"
 	r "distribuidos-tp/internal/system_protocol/reviews"
+	a "distribuidos-tp/internal/system_protocol/topic_filters"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -28,6 +30,8 @@ const (
 	MsgQueryResolved
 	MsgGameReviewsMetrics
 	MsgGameNames
+	MsgActionGame
+	MsgJoinedActionGameReviews
 )
 
 // Size of the bytes to store the length of the payload
@@ -235,6 +239,53 @@ func DeserializeMsgReviewInformation(message []byte) ([]*r.Review, error) {
 	}
 
 	return reviews, nil
+}
+
+func SerializeMsgJoinedActionGameReviews(joinedActionGameReview *j.JoinedActionGameReview) ([]byte, error) {
+	messageLen := 4 + 4 + len(joinedActionGameReview.GameName) + 4
+	message := make([]byte, 1+messageLen) //chequear cuando haga el mensaje de ActionGame
+	message[0] = byte(MsgJoinedActionGameReviews)
+	serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
+	if err != nil {
+		return nil, err
+	}
+	copy(message[1:], serializedJoinedActionGameReview)
+	return message, nil
+}
+
+func DeserializeMsgJoinedActionGameReviews(data []byte) (*j.JoinedActionGameReview, error) {
+
+	metrics, err := j.DeserializeJoinedActionGameReview(data[1:])
+	if err != nil {
+		return nil, err
+	}
+
+	return metrics, nil
+}
+
+func SerializeMsgActionGame(game *a.ActionGame) ([]byte, error) {
+	messageLen := 4 + 4 + len(game.GameName) + 4 + len(game.Topic)
+	message := make([]byte, 1+messageLen)
+	message[0] = byte(MsgActionGame)
+	serializedGame, err := a.SerializeActionGame(game)
+	if err != nil {
+		return nil, err
+	}
+	copy(message[1:], serializedGame)
+	return message, nil
+}
+
+func DeserializeMsgActionGame(message []byte) (*a.ActionGame, error) {
+	if len(message) < 1 {
+		return nil, errors.New("message too short to contain game")
+	}
+
+	game, err := a.DeserializeActionGame(message[1:])
+	if err != nil {
+		return nil, err
+	}
+
+	return game, nil
 }
 
 func DeserializeBatch(data []byte) ([]string, error) {

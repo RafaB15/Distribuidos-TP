@@ -11,11 +11,20 @@ import (
 )
 
 const (
-	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
-	queueToReceiveName = "accumulated_english_reviews_queue"
-	//queueToReceiveName2 = "english_reviews_queue_2"
-	exchangeName       = "positive_reviews_exchange"
-	queueToSendName    = "positive_reviews_queue"
+	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	Id = 1
+
+	AccumulatedEnglishReviewsExchangeName = "accumulated_english_reviews_exchange"
+	AccumulatedEnglishReviewsExchangeType = "direct"
+	//AccumulatedReviewsRoutingKeyPrefix = "accumulated_reviews_key"
+	AccumulatedEnglishReviewsRoutingKey = "accumulated_english_reviews_key"
+	AccumulatedEnglishReviewQueueName   = "accumulated_english_reviews_queue"
+
+	PositiveJoinReviewsExchangeName     = "action_review_join_exchange"
+	PositiveJoinReviewsExchangeType     = "direct"
+	PositiveJoinReviewsRoutingKeyPrefix = "positive_reviews_key_"
+
 	numPreviousNodes   = 1
 	numNextNodes       = 1
 	minPositiveReviews = 5
@@ -31,27 +40,23 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queueToReceive, err := manager.CreateQueue(queueToReceiveName)
+	//AccumulatedReviewQueueName := fmt.Sprintf("%s%d", AccumulatedReviewQueueNamePrefix, Id)
+	//accumulatedReviewsRoutingKey := fmt.Sprintf("%s%d", AccumulatedReviewsRoutingKeyPrefix, Id)
+	accumulatedEnglishReviewsQueue, err := manager.CreateBoundQueue(AccumulatedEnglishReviewQueueName, AccumulatedEnglishReviewsExchangeName, AccumulatedEnglishReviewsExchangeType, AccumulatedEnglishReviewsRoutingKey)
 	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
+		log.Errorf("Failed to create queue: %v", err)
+		return
 	}
 
-	queueToSend, err := manager.CreateQueue(queueToSendName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-	}
-
-	ReviewsExchange, err := manager.CreateExchange(exchangeName, "direct")
+	positiveJoinedEnglishReviewsExchange, err := manager.CreateExchange(PositiveJoinReviewsExchangeName, PositiveJoinReviewsExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
+		return
 	}
-
-	err = queueToSend.Bind(ReviewsExchange.Name, "positive_review_exchange")
-	// vamos a estar mandando a varias colas por sharding
 
 	forever := make(chan bool)
 
-	go filterPositiveReviews(queueToReceive, ReviewsExchange)
+	go filterPositiveReviews(accumulatedEnglishReviewsQueue, positiveJoinedEnglishReviewsExchange)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
@@ -61,17 +66,18 @@ func filterPositiveReviews(reviewsQueue *mom.Queue, ReviewsExchange *mom.Exchang
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
-	log.Infof("Consuming messages from %s", queueToReceiveName)
 loop:
 	for d := range msgs {
 		msgType, err := sp.DeserializeMessageType(d.Body)
 		if err != nil {
+			log.Errorf("Failed to deserialize message type: %v", err)
 			return err
 		}
 
 		switch msgType {
 		case sp.MsgEndOfFile:
-			ReviewsExchange.Publish("positive_review_exchange", sp.SerializeMsgEndOfFile())
+			log.Info("End of file received. Sending end of file message.")
+			ReviewsExchange.Publish("positive_reviews_key_1", sp.SerializeMsgEndOfFile())
 			break loop
 		case sp.MsgGameReviewsMetrics:
 			gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetrics(d.Body)
@@ -87,7 +93,7 @@ loop:
 			if gameReviewsMetrics.PositiveReviews > minPositiveReviews {
 				log.Infof("Review metric: appID: %v, with positive reviews: %v", gameReviewsMetrics.AppID, gameReviewsMetrics.PositiveReviews)
 				shardingKey := calculateShardingKey(int(gameReviewsMetrics.AppID), numNextNodes)
-				routingKey := fmt.Sprintf("positive_review_exchange_%d", shardingKey)
+				routingKey := fmt.Sprintf("positive_reviews_key_%d", shardingKey)
 				serializedMetric, err := sp.SerializeMsgGameReviewsMetrics(gameReviewsMetrics)
 				err = ReviewsExchange.Publish(routingKey, serializedMetric)
 				if err != nil {

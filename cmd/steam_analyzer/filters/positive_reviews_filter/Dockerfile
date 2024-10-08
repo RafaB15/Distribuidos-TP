@@ -9,7 +9,6 @@ RUN go mod download
 
 COPY cmd/steam_analyzer/filters/positive_reviews_filter ./cmd/steam_analyzer/filters/positive_reviews_filter
 COPY internal/system_protocol ./internal/system_protocol
-#COPY internal/utils ./internal/utils
 COPY internal/mom ./internal/mom
 COPY internal/utils ./internal/utils
 

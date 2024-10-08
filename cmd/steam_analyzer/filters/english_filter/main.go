@@ -75,7 +75,7 @@ loop:
 
 		switch msgType {
 		case sp.MsgEndOfFile:
-			englishReviewsExchange.Publish("english_reviews_exchange_1", sp.SerializeMsgEndOfFile())
+			englishReviewsExchange.Publish("english_reviews_key_1", sp.SerializeMsgEndOfFile())
 			//englishReviewsExchange.Publish("english_reviews_exchange_2", sp.SerializeMsgEndOfFile())
 			log.Info("End of file received")
 			break loop
@@ -98,7 +98,7 @@ loop:
 					}
 					return err
 				}
-				log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v", records[0], records[1], records[2])
+				log.Debugf("Printing fields: 0 : %v, 2 : %v", records[0], records[2])
 
 				review, err := r.NewReviewFromStrings(records[0], records[2])
 				if err != nil {
