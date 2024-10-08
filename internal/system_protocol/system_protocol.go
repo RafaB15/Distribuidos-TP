@@ -2,6 +2,7 @@ package system_protocol
 
 import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	m "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/binary"
@@ -141,6 +142,30 @@ func DeserializeMsgGameOSInformation(message []byte) ([]*oa.GameOS, error) {
 	}
 
 	return gameOSList, nil
+}
+
+func SerializeMsgGameReviewsMetrics(metrics *m.GameReviewsMetrics) ([]byte, error) {
+	message := make([]byte, 13)
+	message[0] = byte(MsgGameReviewsMetrics)
+	serializedMetrics, err := m.SerializeGameReviewsMetrics(metrics)
+	if err != nil {
+		return nil, err
+	}
+	copy(message[1:], serializedMetrics)
+	return message, nil
+}
+
+func DeserializeMsgGameReviewsMetrics(message []byte) (*m.GameReviewsMetrics, error) {
+	if len(message) < 13 {
+		return nil, errors.New("message too short to contain metrics")
+	}
+
+	metrics, err := m.DeserializeGameReviewsMetrics(message[1:])
+	if err != nil {
+		return nil, err
+	}
+
+	return metrics, nil
 }
 
 func SerializeMsgAccumulatedGameOSInfo(data []byte) ([]byte, error) {

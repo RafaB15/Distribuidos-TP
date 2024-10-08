@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
-	r "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	"encoding/binary"
 	"fmt"
 
@@ -15,10 +14,11 @@ const (
 	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
 	queueToReceiveName = "accumulated_english_reviews_queue"
 	//queueToReceiveName2 = "english_reviews_queue_2"
-	exchangeName     = "positive_reviews_exchange"
-	queueToSendName  = "positive_reviews_queue"
-	numPreviousNodes = 1
-	numNextNodes     = 1
+	exchangeName       = "positive_reviews_exchange"
+	queueToSendName    = "positive_reviews_queue"
+	numPreviousNodes   = 1
+	numNextNodes       = 1
+	minPositiveReviews = 5
 )
 
 var log = logging.MustGetLogger("log")
@@ -61,6 +61,7 @@ func filterPositiveReviews(reviewsQueue *mom.Queue, ReviewsExchange *mom.Exchang
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
+	log.Infof("Consuming messages from %s", queueToReceiveName)
 loop:
 	for d := range msgs {
 		msgType, err := sp.DeserializeMessageType(d.Body)
@@ -73,18 +74,21 @@ loop:
 			ReviewsExchange.Publish("positive_review_exchange", sp.SerializeMsgEndOfFile())
 			break loop
 		case sp.MsgGameReviewsMetrics:
-			gameReviewsMetrics, err := r.DeserializeGameReviewsMetrics(d.Body)
+			gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetrics(d.Body)
 			if err != nil {
 				log.Errorf("Failed to deserialize game reviews metrics: %v", err)
 				return err
 			}
 
 			log.Infof("Received game reviews metrics: %v", gameReviewsMetrics)
+			log.Infof("Positive reviews of appID: %v, %v", gameReviewsMetrics.AppID, gameReviewsMetrics.PositiveReviews)
 
-			if gameReviewsMetrics.PositiveReviews > 5000 {
+			// esta en 5 porque como estamos con un dataset reducido no hay juegos con tantas reviews positivas
+			if gameReviewsMetrics.PositiveReviews > minPositiveReviews {
+				log.Infof("Review metric: appID: %v, with positive reviews: %v", gameReviewsMetrics.AppID, gameReviewsMetrics.PositiveReviews)
 				shardingKey := calculateShardingKey(int(gameReviewsMetrics.AppID), numNextNodes)
 				routingKey := fmt.Sprintf("positive_review_exchange_%d", shardingKey)
-				serializedMetric, err := r.SerializeGameReviewsMetrics(gameReviewsMetrics)
+				serializedMetric, err := sp.SerializeMsgGameReviewsMetrics(gameReviewsMetrics)
 				err = ReviewsExchange.Publish(routingKey, serializedMetric)
 				if err != nil {
 					log.Errorf("Failed to publish game reviews metrics: %v", err)
@@ -92,6 +96,8 @@ loop:
 				}
 
 			}
+		default:
+			log.Infof("Received message type: %d", msgType)
 		}
 
 	}
