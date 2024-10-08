@@ -11,7 +11,7 @@ import (
 const (
 	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
 	queueToReceiveName = "os_accumulator_queue"
-	exchangeName       = "os_accumulator_exchange"
+	exchangeName       = "writer_exchange"
 	queueToSendName    = "writer_queue"
 	routingKey         = "os_final_accumulator"
 	numPreviousNodes   = 2
