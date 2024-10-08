@@ -17,6 +17,10 @@ const (
 	YearAndAvgPtfRoutingKey   = "year_and_avg_ptf_key"
 	YearAndAvgPtfQueueName    = "year_and_avg_ptf_queue"
 
+	TopTenAccumulatorExchangeName = "top_ten_accumulator_exchange"
+	TopTenAccumulatorExchangeType = "direct"
+	TopTenAccumulatorRoutingKey   = "top_ten_accumulator_key"
+
 	decade = 2010
 )
 
@@ -36,21 +40,9 @@ func main() {
 		return
 	}
 
-	exchange, err := manager.CreateExchange(topTenAccumulatorExchangeName, "direct")
+	exchange, err := manager.CreateExchange(TopTenAccumulatorExchangeName, TopTenAccumulatorExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
-		return
-	}
-
-	queueToSend, err := manager.CreateQueue(decadeQueue)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-		return
-	}
-
-	err = queueToSend.Bind(exchange.Name, routingKey)
-	if err != nil {
-		log.Errorf("Failed to bind accumulator queue: %v", err)
 		return
 	}
 
@@ -66,7 +58,7 @@ func main() {
 		for d := range msgs {
 			messageBody := d.Body
 			messageType, err := sp.DeserializeMessageType(messageBody)
-
+			log.Infof("Received message of type: %v", messageType)
 			if err != nil {
 				return err
 			}
@@ -74,11 +66,11 @@ func main() {
 			switch messageType {
 
 			case sp.MsgEndOfFile:
-				log.Info("End of file arrived")
+				log.Infof("End of file arrived")
 				break loop
 
 			case sp.MsgGameYearAndAvgPtfInformation:
-
+				log.Infof("MsgGameYearAndAvgPtfInformation arrived")
 				gamesYearsAvgPtfs, err := sp.DeserializeMsgGameYearAndAvgPtf(messageBody)
 
 				if err != nil {
@@ -92,8 +84,10 @@ func main() {
 				}
 
 				msg := sp.SerializeMsgGameYearAndAvgPtf(gamesYearsAvgPtfsFiltered)
+				// TODO: esto queda harcoded pero hay qe hacer una serialize diferente
+				msg[0] = byte(sp.MsgFilteredYearAndAvgPtfInformation)
 
-				err = exchange.Publish(routingKey, msg)
+				err = exchange.Publish(TopTenAccumulatorRoutingKey, msg)
 				if err != nil {
 					return err
 				}

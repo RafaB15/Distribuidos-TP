@@ -3,6 +3,7 @@ package decade_filter
 import (
 	u "distribuidos-tp/internal/utils"
 	"encoding/binary"
+	"io"
 	"os"
 	"sort"
 	"strconv"
@@ -124,11 +125,14 @@ func SaveTopTenAvgPlaytimeForeverToFile(games []*GameYearAndAvgPtf, filePath str
 	result := make([]byte, 1+amount*10)
 
 	result[0] = byte(amount)
-	// Write the games to the file
-	for _, game := range games {
+
+	// Write the games to the slice without append
+	for i, game := range games {
 		gameBytes := SerializeGameYearAndAvgPtf(game)
-		result = append(result, gameBytes...)
+		copy(result[1+i*10:], gameBytes)
 	}
+
+	// Write the result to the file
 	_, err = file.Write(result)
 	if err != nil {
 		log.Errorf("Error writing game to file: %v", err)
@@ -139,7 +143,17 @@ func SaveTopTenAvgPlaytimeForeverToFile(games []*GameYearAndAvgPtf, filePath str
 }
 
 func UploadTopTenAvgPlaytimeForeverFromFile(filePath string) ([]*GameYearAndAvgPtf, error) {
-	// Read the file
+
+	var games []*GameYearAndAvgPtf
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		file, err := os.Create(filePath)
+		if err != nil {
+			log.Errorf("Error creating file: %v", err)
+			return nil, err
+		}
+		file.Close()
+	}
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Errorf("Error opening file: %v", err)
@@ -149,6 +163,9 @@ func UploadTopTenAvgPlaytimeForeverFromFile(filePath string) ([]*GameYearAndAvgP
 
 	bytesToRead, err := u.ReadExactFromFile(file, 1)
 	if err != nil {
+		if err == io.EOF {
+			return games, nil
+		}
 		log.Errorf("Error reading file: %v", err)
 		return nil, err
 	}
@@ -160,7 +177,6 @@ func UploadTopTenAvgPlaytimeForeverFromFile(filePath string) ([]*GameYearAndAvgP
 	}
 
 	// Deserialize the games
-	var games []*GameYearAndAvgPtf
 	for i := 0; i < int(bytesToRead[0]); i++ {
 		game, err := DeserializeGameYearAndAvgPtf(gamesBytes[i*10 : (i+1)*10])
 		if err != nil {

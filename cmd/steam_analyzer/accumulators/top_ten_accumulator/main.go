@@ -9,11 +9,16 @@ import (
 )
 
 const (
-	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
-	queueToReceiveName = "decade_queue"
-	exchangeName       = "writer_exchange"
-	queueToSendName    = "writer_queue"
-	routingKey         = "top_ten_accumulator"
+	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	TopTenAccumulatorExchangeName = "top_ten_accumulator_exchange"
+	TopTenAccumulatorExchangeType = "direct"
+	TopTenAccumulatorRoutingKey   = "top_ten_accumulator_key"
+	TopTenAccumulatorQueueName    = "top_ten_accumulator_queue"
+
+	WriterExchangeName = "writer_exchange"
+	WriterRoutingKey   = "writer_key"
+	WriterExchangeType = "direct"
 	numPreviousNodes   = 1
 )
 
@@ -27,13 +32,25 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queue, err := manager.CreateQueue(queueToReceiveName)
+	// queue, err := manager.CreateQueue(TopTenAccumulatorQueueName)
+	// if err != nil {
+	// 	log.Errorf("Failed to declare queue: %v", err)
+	// 	return
+	// }
+
+	topTenAccumulatorQueue, err := manager.CreateBoundQueue(TopTenAccumulatorQueueName, TopTenAccumulatorExchangeName, TopTenAccumulatorExchangeType, TopTenAccumulatorRoutingKey)
 	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
+		log.Errorf("Failed to create queue: %v", err)
 		return
 	}
 
-	msgs, err := queue.Consume(true)
+	_, err = manager.CreateExchange(WriterExchangeName, WriterExchangeType)
+	if err != nil {
+		log.Errorf("Failed to declare exchange: %v", err)
+		return
+	}
+
+	msgs, err := topTenAccumulatorQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 		return
@@ -53,6 +70,7 @@ func main() {
 
 			switch messageType {
 			case sp.MsgFilteredYearAndAvgPtfInformation:
+				log.Infof("Filtered games arrived")
 				decadeGames, err := sp.DeserializeMsgGameYearAndAvgPtf(messageBody)
 				if err != nil {
 					return err
@@ -61,12 +79,17 @@ func main() {
 
 				actualTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile("top_ten_games")
 				if err != nil {
+					log.Errorf("Error uploading top ten games from file: %v", err)
 					return err
 				}
 
-				finalTopTenGames := df.TopTenAvgPlaytimeForever(append(topTenGames, actualTopTenGames...))
+				updatedTopTenGames := df.TopTenAvgPlaytimeForever(append(topTenGames, actualTopTenGames...))
 
-				log.Infof("Top ten games: %v", finalTopTenGames)
+				err = df.SaveTopTenAvgPlaytimeForeverToFile(updatedTopTenGames, "top_ten_games")
+				if err != nil {
+					log.Errorf("Error saving top ten games to file: %v", err)
+					return err
+				}
 
 				nodesLeft -= 1
 
@@ -77,6 +100,15 @@ func main() {
 			}
 
 			if nodesLeft <= 0 {
+
+				finalTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile("top_ten_games")
+				if err != nil {
+					log.Errorf("Error uploading top ten games from file: %v", err)
+					return err
+				}
+				for _, game := range finalTopTenGames {
+					log.Infof("To send Game: %v, Year: %v, AvgPtf: %v", game.AppId, game.ReleaseYear, game.AvgPlaytimeForever)
+				}
 
 				break
 			}
