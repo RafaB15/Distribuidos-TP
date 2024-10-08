@@ -4,6 +4,7 @@ import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	m "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
+	g "distribuidos-tp/internal/system_protocol/games"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/binary"
 	"errors"
@@ -26,6 +27,7 @@ const (
 	MsgReviewInformation
 	MsgQueryResolved
 	MsgGameReviewsMetrics
+	MsgGameNames
 )
 
 // Size of the bytes to store the length of the payload
@@ -272,4 +274,46 @@ func DeserializeLine(data []byte, offset int) (string, int, error) {
 	newOffset := offset + LineLengthBytesAmount + int(lineLength)
 
 	return line, newOffset, nil
+}
+
+func SerializeMsgGameNames(gameNames []*g.GameName) ([]byte, error) {
+	count := len(gameNames)
+	headerSize := 3 // 1 byte for message type + 2 bytes for count
+	message := make([]byte, headerSize)
+
+	message[0] = byte(MsgGameNames)
+	binary.BigEndian.PutUint16(message[1:3], uint16(count))
+
+	offset := headerSize
+	for _, gameName := range gameNames {
+		serializedGameName, err := g.SerializeGameName(gameName)
+		if err != nil {
+			return nil, err
+		}
+		message = append(message, serializedGameName...)
+		offset += len(serializedGameName)
+	}
+
+	return message, nil
+}
+
+func DeserializeMsgGameNames(message []byte) ([]*g.GameName, error) {
+	if len(message) < 3 {
+		return nil, errors.New("message too short to contain count")
+	}
+
+	count := binary.BigEndian.Uint16(message[1:3])
+	offset := 3
+
+	var gameNames []*g.GameName
+	for i := 0; i < int(count); i++ {
+		gameName, err := g.DeserializeGameName(message[offset:])
+		if err != nil {
+			return nil, err
+		}
+		gameNames = append(gameNames, gameName)
+		offset += 6 + len(gameName.Name) // 4 bytes for AppId + 2 bytes for name length + name length
+	}
+
+	return gameNames, nil
 }
