@@ -5,17 +5,26 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	r "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	"fmt"
 
 	"github.com/op/go-logging"
 )
 
 const (
-	middlewareURI       = "amqp://guest:guest@rabbitmq:5672/"
-	queueToReceiveName  = "english_reviews_queue_1"
-	queueToReceiveName2 = "english_reviews_queue_2"
-	exchangeName        = "accumulated_english_reviews_exchange"
-	queueToSendName     = "accumulated_english_reviews_queue"
-	numNextNodes        = 1
+	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	Id = 1
+
+	EnglishReviewsExchangeName     = "english_reviews_exchange"
+	EnglishReviewsExchangeType     = "direct"
+	EnglishReviewsRoutingKeyPrefix = "english_reviews_key_"
+	EnglishReviewQueueNamePrefix   = "english_reviews_queue_"
+
+	AccumulatedEnglishReviewsExchangeName = "accumulated_english_reviews_exchange"
+	AccumulatedEnglishReviewsExchangeType = "direct"
+	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews_key"
+
+	numNextNodes = 1
 )
 
 var log = logging.MustGetLogger("log")
@@ -28,34 +37,31 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queueToReceive, err := manager.CreateQueue(queueToReceiveName)
+	englishReviewQueueName := fmt.Sprintf("%s%d", EnglishReviewQueueNamePrefix, Id)
+	englishReviewsRoutingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, Id)
+	englishReviewsQueue, err := manager.CreateBoundQueue(englishReviewQueueName, EnglishReviewsExchangeName, EnglishReviewsExchangeType, englishReviewsRoutingKey)
 	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
+		log.Errorf("Failed to create queue: %v", err)
+		return
 	}
 
-	queueToSend, err := manager.CreateQueue(queueToSendName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-	}
-
-	ReviewsExchange, err := manager.CreateExchange(exchangeName, "direct")
+	accumulatedEnglishReviewsExchange, err := manager.CreateExchange(AccumulatedEnglishReviewsExchangeName, AccumulatedEnglishReviewsExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
+		return
 	}
-
-	err = queueToSend.Bind(ReviewsExchange.Name, "review_accumulator_exchange")
 
 	forever := make(chan bool)
 
-	go accumulateEnglishReviewsMetrics(queueToReceive, ReviewsExchange)
+	go accumulateEnglishReviewsMetrics(englishReviewsQueue, accumulatedEnglishReviewsExchange, englishReviewsRoutingKey)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func accumulateEnglishReviewsMetrics(reviewsQueue *mom.Queue, ReviewsExchange *mom.Exchange) error {
+func accumulateEnglishReviewsMetrics(englishReviewsQueue *mom.Queue, accumulatedEnglishReviewsExchange *mom.Exchange, englishReviewsRoutingKey string) error {
 	accumulatedReviews := make(map[uint32]*ra.GameReviewsMetrics)
 	log.Info("Creating Accumulating reviews metrics")
-	msgs, err := reviewsQueue.Consume(true)
+	msgs, err := englishReviewsQueue.Consume(true)
 	if err != nil {
 		return err
 	}
@@ -83,7 +89,7 @@ loop:
 					return err
 				}
 
-				err = ReviewsExchange.Publish("review_accumulator_exchange", serializedMetrics)
+				err = accumulatedEnglishReviewsExchange.Publish(englishReviewsRoutingKey, serializedMetrics)
 				if err != nil {
 					log.Errorf("Failed to publish metrics: %v", err)
 					return err
@@ -92,8 +98,8 @@ loop:
 			}
 
 			//serialize msg de metrics
-			// hay que mandarselo a todos los nodos de filtro de 5k. tipo fanout.
-			err = ReviewsExchange.Publish("review_accumulator_exchange", sp.SerializeMsgEndOfFile())
+			// hay que mandarselo a todos los nodos de filtro de 5k. tipo fanout. Por el momento no está pasando
+			err = accumulatedEnglishReviewsExchange.Publish(englishReviewsRoutingKey, sp.SerializeMsgEndOfFile())
 			if err != nil {
 				log.Errorf("Failed to publish end of file in review accumulator: %v", err)
 			}

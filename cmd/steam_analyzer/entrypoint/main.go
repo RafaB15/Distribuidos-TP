@@ -11,16 +11,14 @@ import (
 )
 
 const (
-	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
-	gameExchangeName   = "game_exchange"
-	gameExchangeType   = "direct"
-	reviewExchangeType = "fanout"
-	gameRoutingKey     = "game_key"
-	reviewRoutingKey   = "review_key"
-	gameQueueName      = "game_queue"
-	reviewQueueName    = "reviews_queue"
-	rawReviewQueueName = "raw_reviews_queue"
-	reviewExchangeName = "raw_reviews_exchange"
+	MiddlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	RawGamesExchangeName = "raw_games_exchange"
+	RawGamesRoutingKey   = "raw_games_key"
+	RawGamesExchangeType = "direct"
+
+	RawReviewsExchangeName = "raw_reviews_exchange"
+	RawReviewsExchangeType = "fanout"
 )
 
 const GameFile = 1
@@ -29,64 +27,28 @@ const ReviewFile = 0
 var log = logging.MustGetLogger("log")
 
 func main() {
-	manager, err := mom.NewMiddlewareManager(middlewareURI)
+	manager, err := mom.NewMiddlewareManager(MiddlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
 		return
 	}
 	defer manager.CloseConnection()
 
-	gameQueue, err := manager.CreateQueue(gameQueueName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-	}
-
-	gameExchange, err := manager.CreateExchange(gameExchangeName, gameExchangeType)
+	rawGamesExchange, err := manager.CreateExchange(RawGamesExchangeName, RawGamesExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
 		return
 	}
 
-	err = gameQueue.Bind(gameExchange.Name, gameRoutingKey)
+	defer rawGamesExchange.CloseExchange()
 
-	if err != nil {
-		log.Errorf("Failed to bind queue: %v", err)
-		return
-	}
-
-	defer gameExchange.CloseExchange()
-
-	reviewQueue, err := manager.CreateQueue(reviewQueueName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-	}
-
-	rawReviewQueue, err := manager.CreateQueue(rawReviewQueueName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-	}
-
-	reviewExchange, err := manager.CreateExchange(reviewExchangeName, reviewExchangeType)
+	rawReviewsExchange, err := manager.CreateExchange(RawReviewsExchangeName, RawReviewsExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
 		return
 	}
 
-	err = reviewQueue.Bind(reviewExchange.Name, reviewRoutingKey)
-
-	if err != nil {
-		log.Errorf("Failed to bind queue: %v", err)
-		return
-	}
-
-	err = rawReviewQueue.Bind(reviewExchange.Name, reviewRoutingKey)
-
-	if err != nil {
-		log.Errorf("Failed to bind queue: %v", err)
-		return
-	}
-
-	defer reviewExchange.CloseExchange()
+	defer rawReviewsExchange.CloseExchange()
 
 	listener, err := net.Listen("tcp", ":3000")
 	if err != nil {
@@ -104,11 +66,11 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn, gameExchange, reviewExchange)
+		go handleConnection(conn, rawGamesExchange, rawReviewsExchange)
 	}
 }
 
-func handleConnection(conn net.Conn, gameExchange *mom.Exchange, reviewExchange *mom.Exchange) {
+func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsExchange *mom.Exchange) {
 	defer conn.Close()
 
 	for {
@@ -121,9 +83,9 @@ func handleConnection(conn net.Conn, gameExchange *mom.Exchange, reviewExchange 
 		// Se deberían mandar varios por paquete
 		batch := sp.SerializeBatchMsg(data)
 		if fileOrigin == GameFile {
-			err = gameExchange.Publish(gameRoutingKey, batch)
+			err = rawGamesExchange.Publish(RawGamesRoutingKey, batch)
 		} else {
-			err = reviewExchange.Publish(reviewRoutingKey, batch)
+			err = rawReviewsExchange.PublishWithoutKey(batch)
 		}
 		if err != nil {
 			fmt.Println("Error publishing message:", err)
@@ -131,10 +93,10 @@ func handleConnection(conn net.Conn, gameExchange *mom.Exchange, reviewExchange 
 
 		if eofFlag {
 			if fileOrigin == GameFile {
-				err = gameExchange.Publish(gameRoutingKey, sp.SerializeMsgEndOfFile())
+				err = rawGamesExchange.Publish(RawGamesRoutingKey, sp.SerializeMsgEndOfFile())
 				log.Infof("End of file message published for games")
 			} else {
-				err = reviewExchange.Publish(reviewRoutingKey, sp.SerializeMsgEndOfFile())
+				err = rawReviewsExchange.PublishWithoutKey(sp.SerializeMsgEndOfFile())
 				log.Infof("End of file message published for reviews")
 			}
 			if err != nil {

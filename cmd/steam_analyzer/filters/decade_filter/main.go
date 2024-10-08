@@ -10,11 +10,14 @@ import (
 )
 
 const (
-	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
-	queueToReceiveName = "year_and_avg_ptf_queue"
-	exchangeName       = "year_and_avg_ptf_exchange"
-	decade             = 2010
-	// queueToSendName    = "os_accumulator_queue"
+	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	YearAndAvgPtfExchangeName = "year_and_avg_ptf_exchange"
+	YearAndAvgPtfExchangeType = "direct"
+	YearAndAvgPtfRoutingKey   = "year_and_avg_ptf_key"
+	YearAndAvgPtfQueueName    = "year_and_avg_ptf_queue"
+
+	decade = 2010
 )
 
 var log = logging.MustGetLogger("log")
@@ -27,9 +30,9 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queueToReceive, err := manager.CreateQueue(queueToReceiveName)
+	yearAndAvgPtfQueue, err := manager.CreateBoundQueue(YearAndAvgPtfQueueName, YearAndAvgPtfExchangeName, YearAndAvgPtfExchangeType, YearAndAvgPtfRoutingKey)
 	if err != nil {
-		log.Errorf("Failed to declare game mapper: %v", err)
+		log.Errorf("Failed to create queue: %v", err)
 		return
 	}
 
@@ -51,7 +54,7 @@ func main() {
 	// 	return
 	// }
 
-	msgs, err := queueToReceive.Consume(true)
+	msgs, err := yearAndAvgPtfQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 		return

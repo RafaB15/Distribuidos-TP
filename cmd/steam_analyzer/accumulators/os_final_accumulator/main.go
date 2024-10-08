@@ -9,12 +9,18 @@ import (
 )
 
 const (
-	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
-	queueToReceiveName = "os_accumulator_queue"
-	exchangeName       = "os_accumulator_exchange"
-	queueToSendName    = "writer_queue"
-	routingKey         = "os_final_accumulator"
-	numPreviousNodes   = 2
+	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	OSAccumulatorExchangeName = "os_accumulator_exchange"
+	OSAccumulatorRoutingKey   = "os_accumulator_key"
+	OSAccumulatorExchangeType = "direct"
+	OSAccumulatorQueueName    = "os_accumulator_queue"
+
+	WriterExchangeName = "writer_exchange"
+	WriterRoutingKey   = "writer_key"
+	WriterExchangeType = "direct"
+
+	numPreviousNodes = 2
 )
 
 var log = logging.MustGetLogger("log")
@@ -27,13 +33,19 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queue, err := manager.CreateQueue(queueToReceiveName)
+	osAccumulatorQueue, err := manager.CreateBoundQueue(OSAccumulatorQueueName, OSAccumulatorExchangeName, OSAccumulatorExchangeType, OSAccumulatorRoutingKey)
 	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
+		log.Errorf("Failed to create queue: %v", err)
 		return
 	}
 
-	msgs, err := queue.Consume(true)
+	writerExchange, err := manager.CreateExchange(WriterExchangeName, WriterExchangeType)
+	if err != nil {
+		log.Errorf("Failed to create middleware manager: %v", err)
+		return
+	}
+
+	msgs, err := osAccumulatorQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 		return
@@ -72,7 +84,7 @@ func main() {
 			}
 
 			if nodesLeft <= 0 {
-				sendToWriter(manager, finalGameMetrics)
+				sendToWriter(writerExchange, finalGameMetrics)
 				break
 			}
 		}
@@ -83,30 +95,12 @@ func main() {
 	<-forever
 }
 
-func sendToWriter(manager *mom.MiddlewareManager, finalGameMetrics *oa.GameOSMetrics) error {
-	queueToSend, err := manager.CreateQueue(queueToSendName)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-		return err
-	}
-
-	exchange, err := manager.CreateExchange(exchangeName, "direct")
-	if err != nil {
-		log.Errorf("Failed to declare exchange: %v", err)
-		return err
-	}
-
-	err = queueToSend.Bind(exchange.Name, routingKey)
-	if err != nil {
-		log.Errorf("Failed to bind accumulator queue: %v", err)
-		return err
-	}
-
+func sendToWriter(writerExchange *mom.Exchange, finalGameMetrics *oa.GameOSMetrics) error {
 	srz_metrics := oa.SerializeGameOSMetrics(finalGameMetrics)
 
 	msg := sp.SerializeOsResolvedQueryMsg(srz_metrics)
 
-	err = exchange.Publish(routingKey, msg)
+	err := writerExchange.Publish(WriterRoutingKey, msg)
 	if err != nil {
 		log.Errorf("Failed to publish message: %v", err)
 		return err

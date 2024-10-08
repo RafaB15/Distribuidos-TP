@@ -17,12 +17,16 @@ import (
 )
 
 const (
-	middlewareURI      = "amqp://guest:guest@rabbitmq:5672/"
-	queueToReceiveName = "reviews_queue"
-	//queueToSendName        = "english_reviews_queue_1"
-	queueToSendNameReview1 = "english_reviews_queue_1"
-	//queueToSendNameReview2 = "english_reviews_queue_2"
-	exchangeName = "english_reviews_exchange"
+	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	RawReviewsExchangeName     = "raw_reviews_exchange"
+	RawReviewsExchangeType     = "fanout"
+	RawEnglishReviewsQueueName = "raw_english_reviews_queue"
+
+	EnglishReviewsExchangeName     = "english_reviews_exchange"
+	EnglishReviewsExchangeType     = "direct"
+	EnglishReviewsRoutingKeyPrefix = "english_reviews_key_"
+
 	numNextNodes = 1
 )
 
@@ -36,35 +40,28 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	queueToReceive, err := manager.CreateQueue(queueToReceiveName)
+	rawEnglishReviewsQueue, err := manager.CreateBoundQueue(RawEnglishReviewsQueueName, RawReviewsExchangeName, RawReviewsExchangeType, "")
 	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
+		log.Errorf("Failed to create queue: %v", err)
+		return
 	}
 
-	englishReviewsExchange, err := manager.CreateExchange(exchangeName, "direct")
+	englishReviewsExchange, err := manager.CreateExchange(EnglishReviewsExchangeName, EnglishReviewsExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
 	}
 
-	queueToSend1, err := manager.CreateQueue(queueToSendNameReview1)
-	if err != nil {
-		log.Errorf("Failed to declare queue: %v", err)
-	}
-	err = queueToSend1.Bind(englishReviewsExchange.Name, "english_reviews_exchange_1")
-	//err = queueToSend2.Bind(englishReviewsExchange.Name, "english_reviews_exchange_2")
-	//bindear todos los demas
-
 	forever := make(chan bool)
 
-	go filterEnglishReviews(queueToReceive, englishReviewsExchange)
+	go filterEnglishReviews(rawEnglishReviewsQueue, englishReviewsExchange)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func filterEnglishReviews(reviewsQueue *mom.Queue, englishReviewsExchange *mom.Exchange) error {
+func filterEnglishReviews(rawEnglishReviewsQueue *mom.Queue, englishReviewsExchange *mom.Exchange) error {
 	languageIdentifier := r.NewLanguageIdentifier()
 
-	msgs, err := reviewsQueue.Consume(true)
+	msgs, err := rawEnglishReviewsQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
@@ -117,13 +114,10 @@ loop:
 						return err
 					}
 
-					shardingKey := calculateShardingKey(appID, numNextNodes)
-					log.Infof("Sharding key: %d", shardingKey)
-
 					//reviews = append(reviews, review)
 					reviewSlice := []*r.Review{review}
 					serializedReview := sp.SerializeMsgReviewInformation(reviewSlice)
-					routingKey := fmt.Sprintf("english_reviews_exchange_%d", shardingKey)
+					routingKey := getRoutingKey(appID, numNextNodes)
 					log.Debugf("Routing key: %s", routingKey)
 					err = englishReviewsExchange.Publish(routingKey, serializedReview)
 					if err != nil {
@@ -147,4 +141,10 @@ func calculateShardingKey(appID int, numShards int) int {
 	hash := sha256.Sum256([]byte(appIDStr))
 	hashInt := binary.BigEndian.Uint64(hash[:8])
 	return int(hashInt%uint64(numShards)) + 1 // oo=jo con el +1. Hay que cambiarlo cuando escalemos el sistema. Modulo de algo con 1 siempre es 0.
+}
+
+func getRoutingKey(appId int, numPartitions int) string {
+	shardingKey := calculateShardingKey(appId, numPartitions) // Note: Adjust the +1 if needed for your sharding logic
+	routingKey := fmt.Sprintf("%v%d", EnglishReviewsRoutingKeyPrefix, shardingKey)
+	return routingKey
 }
