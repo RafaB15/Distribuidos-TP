@@ -1,7 +1,10 @@
 package decade_filter
 
 import (
+	u "distribuidos-tp/internal/utils"
 	"encoding/binary"
+	"os"
+	"sort"
 	"strconv"
 	"time"
 
@@ -26,6 +29,7 @@ func SerializeGameYearAndAvgPtf(gameYearAndAvgPtf *GameYearAndAvgPtf) []byte {
 
 func DeserializeGameYearAndAvgPtf(message []byte) (*GameYearAndAvgPtf, error) {
 	if len(message) != 10 {
+		log.Errorf("Invalid game year ptf length: %d", len(message))
 		return nil, nil
 	}
 
@@ -90,4 +94,80 @@ func FilterByDecade(gameYearAndAvgPtf []*GameYearAndAvgPtf, decade uint16) []*Ga
 		}
 	}
 	return gamesInDecade
+}
+
+func TopTenAvgPlaytimeForever(games []*GameYearAndAvgPtf) []*GameYearAndAvgPtf {
+	// Sort the slice in descending order by AvgPlaytimeForever
+	sort.Slice(games, func(i, j int) bool {
+		return games[i].AvgPlaytimeForever > games[j].AvgPlaytimeForever
+	})
+
+	// If there are less than or exactly 10 games, return the entire list
+	if len(games) <= 10 {
+		return games
+	}
+
+	// Otherwise, return only the top 10
+	return games[:10]
+}
+
+func SaveTopTenAvgPlaytimeForeverToFile(games []*GameYearAndAvgPtf, filePath string) error {
+	// Create the file
+	file, err := os.Create(filePath)
+	if err != nil {
+		log.Errorf("Error creating file: %v", err)
+		return err
+	}
+	defer file.Close()
+
+	amount := len(games)
+	result := make([]byte, 1+amount*10)
+
+	result[0] = byte(amount)
+	// Write the games to the file
+	for _, game := range games {
+		gameBytes := SerializeGameYearAndAvgPtf(game)
+		result = append(result, gameBytes...)
+	}
+	_, err = file.Write(result)
+	if err != nil {
+		log.Errorf("Error writing game to file: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func UploadTopTenAvgPlaytimeForeverFromFile(filePath string) ([]*GameYearAndAvgPtf, error) {
+	// Read the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Errorf("Error opening file: %v", err)
+		return nil, err
+	}
+	defer file.Close()
+
+	bytesToRead, err := u.ReadExactFromFile(file, 1)
+	if err != nil {
+		log.Errorf("Error reading file: %v", err)
+		return nil, err
+	}
+
+	gamesBytes, err := u.ReadExactFromFile(file, int(bytesToRead[0])*10)
+	if err != nil {
+		log.Errorf("Error reading file: %v", err)
+		return nil, err
+	}
+
+	// Deserialize the games
+	var games []*GameYearAndAvgPtf
+	for i := 0; i < int(bytesToRead[0]); i++ {
+		game, err := DeserializeGameYearAndAvgPtf(gamesBytes[i*10 : (i+1)*10])
+		if err != nil {
+			log.Errorf("Error deserializing game: %v", err)
+			return nil, err
+		}
+		games = append(games, game)
+	}
+	return games, nil
 }

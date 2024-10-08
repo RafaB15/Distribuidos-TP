@@ -36,23 +36,23 @@ func main() {
 		return
 	}
 
-	// exchange, err := manager.CreateExchange(exchangeName, "direct")
-	// if err != nil {
-	// 	log.Errorf("Failed to declare exchange: %v", err)
-	// 	return
-	// }
+	exchange, err := manager.CreateExchange(topTenAccumulatorExchangeName, "direct")
+	if err != nil {
+		log.Errorf("Failed to declare exchange: %v", err)
+		return
+	}
 
-	// queueToSend, err := manager.CreateQueue(queueToSendName)
-	// if err != nil {
-	// 	log.Errorf("Failed to declare queue: %v", err)
-	// 	return
-	// }
+	queueToSend, err := manager.CreateQueue(decadeQueue)
+	if err != nil {
+		log.Errorf("Failed to declare queue: %v", err)
+		return
+	}
 
-	// err = queueToSend.Bind(exchange.Name, "final_accumulator")
-	// if err != nil {
-	// 	log.Errorf("Failed to bind accumulator queue: %v", err)
-	// 	return
-	// }
+	err = queueToSend.Bind(exchange.Name, routingKey)
+	if err != nil {
+		log.Errorf("Failed to bind accumulator queue: %v", err)
+		return
+	}
 
 	msgs, err := yearAndAvgPtfQueue.Consume(true)
 	if err != nil {
@@ -89,6 +89,13 @@ func main() {
 
 				for _, game := range gamesYearsAvgPtfsFiltered {
 					log.Infof("Game: %v, Year: %v, AvgPtf: %v", game.AppId, game.ReleaseYear, game.AvgPlaytimeForever)
+				}
+
+				msg := sp.SerializeMsgGameYearAndAvgPtf(gamesYearsAvgPtfsFiltered)
+
+				err = exchange.Publish(routingKey, msg)
+				if err != nil {
+					return err
 				}
 
 			default:

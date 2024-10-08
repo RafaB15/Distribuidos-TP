@@ -15,6 +15,7 @@ docker-image-system:
 	docker build -f ./cmd/steam_analyzer/filters/english_filter/Dockerfile -t "english_filter:latest" .
 	docker build -f ./cmd/steam_analyzer/filters/decade_filter/Dockerfile -t "decade_filter:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/review_accumulator/Dockerfile -t "review_accumulator:latest" .
+	docker build -f ./cmd/steam_analyzer/accumulators/top_ten_accumulator/Dockerfile -t "top_ten_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/filters/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:latest" .
 	docker build -f ./cmd/steam_analyzer/writer/Dockerfile -t "writer:latest" .
 .PHONY: docker-image-system

@@ -74,6 +74,18 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  top_ten_accumulator:
+    image: top_ten_accumulator:latest
+    container_name: top_ten_accumulator
+    entrypoint: /accumulators/top_ten_accumulator
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
   review_mapper:
     image: review_mapper:latest
     container_name: review_mapper

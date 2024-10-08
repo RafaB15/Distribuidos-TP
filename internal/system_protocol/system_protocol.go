@@ -21,6 +21,7 @@ const (
 	MsgGameOSInformation
 	MsgAccumulatedGameOSInformation
 	MsgGameYearAndAvgPtfInformation
+	MsgFilteredYearAndAvgPtfInformation
 	MsgBatch
 	MsgReviewInformation
 	MsgQueryResolved
@@ -63,7 +64,7 @@ func DeserializeBatchMsg(message []byte) (string, error) {
 func SerializeMsgGameYearAndAvgPtf(gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []byte {
 	count := len(gameYearAndAvgPtf)
 	message := make([]byte, 3+count*10)
-	message[0] = byte(MsgGameYearAndAvgPtfInformation)
+	message[0] = byte(MsgFilteredYearAndAvgPtfInformation)
 	binary.BigEndian.PutUint16(message[1:3], uint16(count))
 
 	offset := 3
