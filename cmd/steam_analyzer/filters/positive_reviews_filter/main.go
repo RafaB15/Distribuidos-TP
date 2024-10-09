@@ -1,10 +1,9 @@
 package main
 
 import (
-	"crypto/sha256"
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
-	"encoding/binary"
+	u "distribuidos-tp/internal/utils"
 	"fmt"
 
 	"github.com/op/go-logging"
@@ -17,9 +16,8 @@ const (
 
 	AccumulatedEnglishReviewsExchangeName = "accumulated_english_reviews_exchange"
 	AccumulatedEnglishReviewsExchangeType = "direct"
-	//AccumulatedReviewsRoutingKeyPrefix = "accumulated_reviews_key"
-	AccumulatedEnglishReviewsRoutingKey = "accumulated_english_reviews_key"
-	AccumulatedEnglishReviewQueueName   = "accumulated_english_reviews_queue"
+	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews_key"
+	AccumulatedEnglishReviewQueueName     = "accumulated_english_reviews_queue"
 
 	PositiveJoinReviewsExchangeName     = "action_review_join_exchange"
 	PositiveJoinReviewsExchangeType     = "direct"
@@ -92,9 +90,11 @@ loop:
 			// esta en 5 porque como estamos con un dataset reducido no hay juegos con tantas reviews positivas
 			if gameReviewsMetrics.PositiveReviews > minPositiveReviews {
 				log.Infof("Review metric: appID: %v, with positive reviews: %v", gameReviewsMetrics.AppID, gameReviewsMetrics.PositiveReviews)
-				shardingKey := calculateShardingKey(int(gameReviewsMetrics.AppID), numNextNodes)
-				routingKey := fmt.Sprintf("positive_reviews_key_%d", shardingKey)
+
+				appId := fmt.Sprintf("%d", gameReviewsMetrics.AppID)
+				routingKey := u.GetPartitioningKey(appId, numNextNodes, PositiveJoinReviewsRoutingKeyPrefix)
 				serializedMetric, err := sp.SerializeMsgGameReviewsMetrics(gameReviewsMetrics)
+
 				err = ReviewsExchange.Publish(routingKey, serializedMetric)
 				if err != nil {
 					log.Errorf("Failed to publish game reviews metrics: %v", err)
@@ -108,12 +108,4 @@ loop:
 
 	}
 	return nil
-}
-
-func calculateShardingKey(appID int, numShards int) int {
-	// hash function xa dist mejor
-	appIDStr := fmt.Sprintf("%d", appID)
-	hash := sha256.Sum256([]byte(appIDStr))
-	hashInt := binary.BigEndian.Uint64(hash[:8])
-	return int(hashInt%uint64(numShards)) + 1 // oo=jo con el +1. Hay que cambiarlo cuando escalemos el sistema. Modulo de algo con 1 siempre es 0.
 }
