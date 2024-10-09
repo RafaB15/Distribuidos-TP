@@ -7,7 +7,6 @@ import (
 	g "distribuidos-tp/internal/system_protocol/games"
 	j "distribuidos-tp/internal/system_protocol/joiner"
 	r "distribuidos-tp/internal/system_protocol/reviews"
-	a "distribuidos-tp/internal/system_protocol/topic_filters"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -30,7 +29,6 @@ const (
 	MsgQueryResolved
 	MsgGameReviewsMetrics
 	MsgGameNames
-	MsgActionGame
 	MsgJoinedActionGameReviews
 )
 
@@ -261,31 +259,6 @@ func DeserializeMsgJoinedActionGameReviews(data []byte) (*j.JoinedActionGameRevi
 	}
 
 	return metrics, nil
-}
-
-func SerializeMsgActionGame(game *a.ActionGame) ([]byte, error) {
-	messageLen := 4 + 4 + len(game.GameName) + 4 + len(game.Topic)
-	message := make([]byte, 1+messageLen)
-	message[0] = byte(MsgActionGame)
-	serializedGame, err := a.SerializeActionGame(game)
-	if err != nil {
-		return nil, err
-	}
-	copy(message[1:], serializedGame)
-	return message, nil
-}
-
-func DeserializeMsgActionGame(message []byte) (*a.ActionGame, error) {
-	if len(message) < 1 {
-		return nil, errors.New("message too short to contain game")
-	}
-
-	game, err := a.DeserializeActionGame(message[1:])
-	if err != nil {
-		return nil, err
-	}
-
-	return game, nil
 }
 
 func DeserializeBatch(data []byte) ([]string, error) {

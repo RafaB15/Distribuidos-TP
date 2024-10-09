@@ -1,8 +1,8 @@
 package joiner
 
 import (
-	g "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
-	a "distribuidos-tp/internal/system_protocol/topic_filters"
+	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	g "distribuidos-tp/internal/system_protocol/games"
 	"encoding/binary"
 )
 
@@ -20,12 +20,12 @@ func NewJoinedActionGameReview(appId uint32) *JoinedActionGameReview {
 	}
 }
 
-func (m *JoinedActionGameReview) UpdateWithReview(review *g.GameReviewsMetrics) {
+func (m *JoinedActionGameReview) UpdateWithReview(review *ra.GameReviewsMetrics) {
 	m.PositiveReviews += review.PositiveReviews
 }
 
-func (m *JoinedActionGameReview) UpdateWithGame(game *a.ActionGame) {
-	m.GameName = game.GameName
+func (m *JoinedActionGameReview) UpdateWithGame(game *g.GameName) {
+	m.GameName = game.Name
 }
 
 func SerializeJoinedActionGameReview(metrics *JoinedActionGameReview) ([]byte, error) {
