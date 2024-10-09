@@ -6,6 +6,7 @@ import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	g "distribuidos-tp/internal/system_protocol/games"
+	gf "distribuidos-tp/internal/system_protocol/genre_filter"
 	u "distribuidos-tp/internal/utils"
 	"encoding/csv"
 	"io"
@@ -43,7 +44,7 @@ const (
 	ActionGenre = "action"
 
 	OSAccumulatorNodes    = 2
-	DecadeFilterNodes     = 1
+	DecadeFilterNodes     = 3
 	IndieReviewJoinNodes  = 1
 	ActionReviewJoinNodes = 1
 )
@@ -116,6 +117,10 @@ func mapLines(rawGamesQueue *mom.Queue, osGamesExchange *mom.Exchange, gameYearA
 				osGamesExchange.Publish(OSGamesRoutingKey, sp.SerializeMsgEndOfFile())
 			}
 
+			for i := 0; i < DecadeFilterNodes; i++ {
+				gameYearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, sp.SerializeMsgEndOfFile())
+			}
+
 		case sp.MsgBatch:
 
 			lines, err := sp.DeserializeBatch(d.Body)
@@ -148,10 +153,12 @@ func mapLines(rawGamesQueue *mom.Queue, osGamesExchange *mom.Exchange, gameYearA
 					return err
 				}
 
-				gameYearAndAvgPtfSlice, err = createAndAppendGameYearAndAvgPtf(records, gameYearAndAvgPtfSlice)
-				if err != nil {
-					log.Error("error creating and appending game year and avg ptf struct")
-					return err
+				if gf.BelongsToGenre(IndieGenre, records) {
+					gameYearAndAvgPtfSlice, err = createAndAppendGameYearAndAvgPtf(records, gameYearAndAvgPtfSlice)
+					if err != nil {
+						log.Error("error creating and appending game year and avg ptf struct")
+						return err
+					}
 				}
 
 				err = updateGameNameMaps(records, indieGamesNames, actionGamesNames)

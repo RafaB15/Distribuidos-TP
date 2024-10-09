@@ -187,3 +187,17 @@ func UploadTopTenAvgPlaytimeForeverFromFile(filePath string) ([]*GameYearAndAvgP
 	}
 	return games, nil
 }
+
+func SerializeTopTenAvgPlaytimeForever(games []*GameYearAndAvgPtf) []byte {
+	amount := len(games)
+	result := make([]byte, 1+amount*10)
+
+	result[0] = byte(amount)
+
+	for i, game := range games {
+		gameBytes := SerializeGameYearAndAvgPtf(game)
+		copy(result[1+i*10:], gameBytes)
+	}
+
+	return result
+}

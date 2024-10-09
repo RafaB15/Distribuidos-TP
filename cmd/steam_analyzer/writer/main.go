@@ -52,7 +52,7 @@ func main() {
 			switch msgType {
 			case sp.MsgQueryResolved:
 
-				query, err := sp.DeserializeQueryResolvedMsg(data)
+				query, err := sp.DeserializeQueryResolvedType(data)
 				if err != nil {
 					log.Errorf("Failed to deserialize query resolved message: %v", err)
 					return
@@ -71,6 +71,13 @@ func main() {
 					err := handleActionPositiveReviewsQuery(data[1:])
 					if err != nil {
 						log.Errorf("Failed to handle action positive reviews resolved query: %v", err)
+						return
+					}
+				case sp.MsgTopTenDecadeAvgPtfQuery:
+					log.Info("Received query Top ten decade avg ptf resolved message")
+					err := handleTopTenDecadeAvgPtfQuery(data[1:])
+					if err != nil {
+						log.Errorf("Failed to handle top ten decade avg ptf resolved query: %v", err)
 						return
 					}
 				}
@@ -123,6 +130,26 @@ func handleActionPositiveReviewsQuery(data []byte) error {
 		return err
 	}
 	log.Info("Query saved to action_positive_reviews_query file")
+	return nil
+
+}
+
+func handleTopTenDecadeAvgPtfQuery(data []byte) error {
+
+	file, err := os.OpenFile("top_ten_decade_avg_ptf_query.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Errorf("Failed to open file: %v", err)
+		return err
+	}
+
+	defer file.Close()
+	err = u.WriteAllToFile(file, data)
+
+	if err != nil {
+		log.Errorf("Failed to write to file: %v", err)
+		return err
+	}
+	log.Info("Query saved to top_ten_decade_avg_ptf_query file")
 	return nil
 
 }

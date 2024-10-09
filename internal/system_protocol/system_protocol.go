@@ -79,6 +79,21 @@ func SerializeMsgGameYearAndAvgPtf(gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []
 	return message
 }
 
+func SerializeMsgFilteredGameYearAndAvgPtf(gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []byte {
+	count := len(gameYearAndAvgPtf)
+	message := make([]byte, 3+count*10)
+	message[0] = byte(MsgFilteredYearAndAvgPtfInformation)
+	binary.BigEndian.PutUint16(message[1:3], uint16(count))
+
+	offset := 3
+	for i, game := range gameYearAndAvgPtf {
+		serializedGame := df.SerializeGameYearAndAvgPtf(game)
+		copy(message[offset+i*10:], serializedGame)
+	}
+
+	return message
+}
+
 func DeserializeMsgGameYearAndAvgPtf(message []byte) ([]*df.GameYearAndAvgPtf, error) {
 	if len(message) < 3 {
 		return nil, errors.New("message too short to contain count")

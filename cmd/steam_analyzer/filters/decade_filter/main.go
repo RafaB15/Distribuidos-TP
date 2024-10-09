@@ -67,6 +67,10 @@ func main() {
 
 			case sp.MsgEndOfFile:
 				log.Infof("End of file arrived")
+				err = exchange.Publish(TopTenAccumulatorRoutingKey, sp.SerializeMsgEndOfFile())
+				if err != nil {
+					return err
+				}
 				break loop
 
 			case sp.MsgGameYearAndAvgPtfInformation:
@@ -79,13 +83,7 @@ func main() {
 
 				gamesYearsAvgPtfsFiltered := df.FilterByDecade(gamesYearsAvgPtfs, decade)
 
-				for _, game := range gamesYearsAvgPtfsFiltered {
-					log.Infof("Game: %v, Year: %v, AvgPtf: %v", game.AppId, game.ReleaseYear, game.AvgPlaytimeForever)
-				}
-
-				msg := sp.SerializeMsgGameYearAndAvgPtf(gamesYearsAvgPtfsFiltered)
-				// TODO: esto queda harcoded pero hay qe hacer una serialize diferente
-				msg[0] = byte(sp.MsgFilteredYearAndAvgPtfInformation)
+				msg := sp.SerializeMsgFilteredGameYearAndAvgPtf(gamesYearsAvgPtfsFiltered)
 
 				err = exchange.Publish(TopTenAccumulatorRoutingKey, msg)
 				if err != nil {

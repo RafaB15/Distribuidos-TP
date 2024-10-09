@@ -19,7 +19,7 @@ const (
 	WriterExchangeName = "writer_exchange"
 	WriterRoutingKey   = "writer_key"
 	WriterExchangeType = "direct"
-	numPreviousNodes   = 1
+	numPreviousNodes   = 3
 )
 
 var log = logging.MustGetLogger("log")
@@ -31,12 +31,6 @@ func main() {
 		return
 	}
 	defer manager.CloseConnection()
-
-	// queue, err := manager.CreateQueue(TopTenAccumulatorQueueName)
-	// if err != nil {
-	// 	log.Errorf("Failed to declare queue: %v", err)
-	// 	return
-	// }
 
 	topTenAccumulatorQueue, err := manager.CreateBoundQueue(TopTenAccumulatorQueueName, TopTenAccumulatorExchangeName, TopTenAccumulatorExchangeType, TopTenAccumulatorRoutingKey)
 	if err != nil {
@@ -56,6 +50,12 @@ func main() {
 		return
 	}
 
+	writerExchange, err := manager.CreateExchange(WriterExchangeName, WriterExchangeType)
+	if err != nil {
+		log.Errorf("Failed to create middleware manager: %v", err)
+		return
+	}
+
 	forever := make(chan bool)
 
 	go func() error {
@@ -69,12 +69,14 @@ func main() {
 			}
 
 			switch messageType {
+			case sp.MsgEndOfFile:
+				nodesLeft -= 1
 			case sp.MsgFilteredYearAndAvgPtfInformation:
-				log.Infof("Filtered games arrived")
 				decadeGames, err := sp.DeserializeMsgGameYearAndAvgPtf(messageBody)
 				if err != nil {
 					return err
 				}
+
 				topTenGames := df.TopTenAvgPlaytimeForever(decadeGames)
 
 				actualTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile("top_ten_games")
@@ -91,8 +93,6 @@ func main() {
 					return err
 				}
 
-				nodesLeft -= 1
-
 			default:
 				log.Errorf("Unexpected message type: %d", messageType)
 				break loop
@@ -106,8 +106,19 @@ func main() {
 					log.Errorf("Error uploading top ten games from file: %v", err)
 					return err
 				}
+
 				for _, game := range finalTopTenGames {
 					log.Infof("To send Game: %v, Year: %v, AvgPtf: %v", game.AppId, game.ReleaseYear, game.AvgPlaytimeForever)
+				}
+
+				srzGames := df.SerializeTopTenAvgPlaytimeForever(finalTopTenGames)
+				bytes := sp.SerializeTopTenDecadeAvgPtfQueryMsg(srzGames)
+
+				err = writerExchange.Publish(WriterRoutingKey, bytes)
+
+				if err != nil {
+					log.Errorf("Failed to publish message: %v", err)
+					return err
 				}
 
 				break

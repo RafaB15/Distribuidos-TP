@@ -110,6 +110,30 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  decade_filter2:
+    image: decade_filter:latest
+    container_name: decade_filter2
+    entrypoint: /filters/decade_filter
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+  
+  decade_filter3:
+    image: decade_filter:latest
+    container_name: decade_filter3
+    entrypoint: /filters/decade_filter
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
   english_filter:
     image: english_filter:latest
     container_name: english_filter
