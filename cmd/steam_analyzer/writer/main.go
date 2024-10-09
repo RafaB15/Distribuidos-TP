@@ -57,6 +57,7 @@ func main() {
 					log.Errorf("Failed to deserialize query resolved message: %v", err)
 					return
 				}
+				log.Infof("Received query resolved message: %v", query)
 
 				switch query {
 				case sp.MsgOsResolvedQuery:
@@ -68,7 +69,7 @@ func main() {
 					}
 				case sp.MsgActionPositiveReviewsQuery:
 					log.Info("Received query Action positive reviews resolved message")
-					err := handleActionPositiveReviewsQuery(data[1:])
+					err := handleGenrePositiveReviewsQuery(data[1:], "action_positive_reviews_query.txt")
 					if err != nil {
 						log.Errorf("Failed to handle action positive reviews resolved query: %v", err)
 						return
@@ -78,6 +79,13 @@ func main() {
 					err := handleTopTenDecadeAvgPtfQuery(data[1:])
 					if err != nil {
 						log.Errorf("Failed to handle top ten decade avg ptf resolved query: %v", err)
+						return
+					}
+				case sp.MsgIndiePositiveJoinedReviewsQuery:
+					log.Info("Received query Indie positive joined reviews resolved message")
+					err := handleGenrePositiveReviewsQuery(data[1:], "top_positive_indie_reviews_query.txt")
+					if err != nil {
+						log.Errorf("Failed to handle top positive indie reviews resolved query: %v", err)
 						return
 					}
 				}
@@ -113,9 +121,9 @@ func handleOsResolvedQuery(data []byte) error {
 
 }
 
-func handleActionPositiveReviewsQuery(data []byte) error {
+func handleGenrePositiveReviewsQuery(data []byte, name_file string) error {
 
-	file, err := os.OpenFile("action_positive_reviews_query.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(name_file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Errorf("Failed to open file: %v", err)
 		return err
