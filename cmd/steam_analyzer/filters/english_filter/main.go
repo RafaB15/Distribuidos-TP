@@ -137,6 +137,8 @@ loop:
 }
 
 func handleMsgBatch(lines []string, englishReviewsExchange *mom.Exchange, accumulatorsAmount int, languageIdentifier *r.LanguageIdentifier) error {
+	routingKeyMap := make(map[string][]*r.Review)
+
 	for _, line := range lines {
 		reader := csv.NewReader(strings.NewReader(line))
 		records, err := reader.Read()
@@ -157,25 +159,20 @@ func handleMsgBatch(lines []string, englishReviewsExchange *mom.Exchange, accumu
 
 		if languageIdentifier.IsEnglish(records[1]) {
 			log.Debugf("I am the english language")
-			if err != nil {
-				log.Errorf("Failed to convert AppID: %v", err)
-				return err
-			}
-
-			//reviews = append(reviews, review)
-			reviewSlice := []*r.Review{review}
-			serializedReview := sp.SerializeMsgReviewInformation(reviewSlice)
-			routingKey := u.GetPartitioningKey(records[0], accumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
-			log.Debugf("Routing key: %s", routingKey)
-			err = englishReviewsExchange.Publish(routingKey, serializedReview)
-			if err != nil {
-				log.Errorf("Failed to publish message: %v", err)
-				return err
-			}
-
+			updateEnglishReviewsMap(review, routingKeyMap, accumulatorsAmount)
 		}
 
 		log.Debugf("Received review: %v", records[1])
+	}
+
+	for routingKey, reviews := range routingKeyMap {
+		serializedReviews := sp.SerializeMsgReviewInformation(reviews)
+		log.Debugf("Routing key: %s", routingKey)
+		err := englishReviewsExchange.Publish(routingKey, serializedReviews)
+		if err != nil {
+			log.Errorf("Failed to publish message: %v", err)
+			return err
+		}
 	}
 	return nil
 }
@@ -189,4 +186,9 @@ func handleEof(englishReviewsExchange *mom.Exchange, accumulatorsAmount int) err
 		}
 	}
 	return nil
+}
+
+func updateEnglishReviewsMap(review *r.Review, routingKeyMap map[string][]*r.Review, accumulatorsAmount int) {
+	reoutingKey := u.GetPartitioningKeyFromInt(int(review.AppId), accumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
+	routingKeyMap[reoutingKey] = append(routingKeyMap[reoutingKey], review)
 }

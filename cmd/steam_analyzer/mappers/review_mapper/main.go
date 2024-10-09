@@ -135,6 +135,8 @@ loop:
 }
 
 func handleMsgBatch(lines []string, reviewsExchange *mom.Exchange, accumulatorsAmount int) error {
+	routingKeyMap := make(map[string][]*r.Review)
+
 	for _, line := range lines {
 		reader := csv.NewReader(strings.NewReader(line))
 		records, err := reader.Read()
@@ -152,18 +154,20 @@ func handleMsgBatch(lines []string, reviewsExchange *mom.Exchange, accumulatorsA
 			log.Error("Problema creando review con texto")
 			return err
 		}
+		updateReviewsMap(review, routingKeyMap, accumulatorsAmount)
+		log.Debug("Updated reviews map")
+	}
 
-		reviewSlice := []*r.Review{review}
-		serializedReview := sp.SerializeMsgReviewInformation(reviewSlice)
-		routingKey := u.GetPartitioningKey(records[0], accumulatorsAmount, ReviewsRoutingKeyPrefix)
-		err = reviewsExchange.Publish(routingKey, serializedReview)
+	for routingKey, reviews := range routingKeyMap {
+		serializedReviews := sp.SerializeMsgReviewInformation(reviews)
+		log.Debugf("Routing key: %s", routingKey)
+		err := reviewsExchange.Publish(routingKey, serializedReviews)
 		if err != nil {
 			log.Errorf("Failed to publish message: %v", err)
 			return err
 		}
-
-		log.Debugf("Received review: %v", records[1])
 	}
+
 	return nil
 }
 
@@ -176,4 +180,9 @@ func handleEof(reviewsExchange *mom.Exchange, accumulatorsAmount int) error {
 		}
 	}
 	return nil
+}
+
+func updateReviewsMap(review *r.Review, routingKeyMap map[string][]*r.Review, accumulatorsAmount int) {
+	reoutingKey := u.GetPartitioningKeyFromInt(int(review.AppId), accumulatorsAmount, ReviewsRoutingKeyPrefix)
+	routingKeyMap[reoutingKey] = append(routingKeyMap[reoutingKey], review)
 }
