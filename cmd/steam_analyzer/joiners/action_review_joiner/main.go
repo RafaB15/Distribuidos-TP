@@ -25,11 +25,6 @@ const (
 	WriterExchangeType = "direct"
 
 	Id = 1
-
-	queueToReceiveName = "action_review_queue"
-	//queueToReceiveName2 = "english_reviews_queue_2"
-	exchangeName    = "action_review_exchange"
-	queueToSendName = "writer_queue"
 )
 
 func main() {

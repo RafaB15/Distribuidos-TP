@@ -66,6 +66,13 @@ func main() {
 						log.Errorf("Failed to handle os resolved query: %v", err)
 						return
 					}
+				case sp.MsgActionPositiveReviewsQuery:
+					log.Info("Received query Action positive reviews resolved message")
+					err := handleActionPositiveReviewsQuery(data[1:])
+					if err != nil {
+						log.Errorf("Failed to handle action positive reviews resolved query: %v", err)
+						return
+					}
 				}
 
 			default:
@@ -95,6 +102,27 @@ func handleOsResolvedQuery(data []byte) error {
 		return err
 	}
 	log.Info("Query saved to os_query file")
+	return nil
+
+}
+
+func handleActionPositiveReviewsQuery(data []byte) error {
+
+	file, err := os.OpenFile("action_positive_reviews_query.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Errorf("Failed to open file: %v", err)
+		return err
+	}
+
+	defer file.Close()
+
+	err = u.WriteAllToFile(file, data)
+
+	if err != nil {
+		log.Errorf("Failed to write to file: %v", err)
+		return err
+	}
+	log.Info("Query saved to action_positive_reviews_query file")
 	return nil
 
 }

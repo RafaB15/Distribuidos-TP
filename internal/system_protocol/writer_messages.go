@@ -6,6 +6,7 @@ type Query byte
 
 const (
 	MsgOsResolvedQuery Query = iota
+	MsgActionPositiveReviewsQuery
 )
 
 func DeserializeQueryResolvedMsg(message []byte) (Query, error) {
@@ -15,7 +16,7 @@ func DeserializeQueryResolvedMsg(message []byte) (Query, error) {
 
 	query := Query(message[0])
 	switch query {
-	case Query(MsgOsResolvedQuery):
+	case MsgOsResolvedQuery, MsgActionPositiveReviewsQuery:
 		return query, nil
 	default:
 		return 0, fmt.Errorf("unknown message type: %d", query)
@@ -26,6 +27,14 @@ func SerializeOsResolvedQueryMsg(data []byte) []byte {
 	message := make([]byte, 2+len(data))
 	message[0] = byte(MsgQueryResolved)
 	message[1] = byte(MsgOsResolvedQuery)
+	copy(message[2:], data)
+	return message
+}
+
+func SerializeActionPositiveReviewsQueryMsg(data []byte) []byte {
+	message := make([]byte, 2+len(data))
+	message[0] = byte(MsgQueryResolved)
+	message[1] = byte(MsgActionPositiveReviewsQuery)
 	copy(message[2:], data)
 	return message
 }
