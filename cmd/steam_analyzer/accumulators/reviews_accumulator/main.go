@@ -13,8 +13,6 @@ import (
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
-	Id = 1
-
 	ReviewsExchangeName     = "reviews_exchange"
 	ReviewsExchangeType     = "direct"
 	ReviewsRoutingKeyPrefix = "reviews_key_"
@@ -28,12 +26,28 @@ const (
 	IndieReviewJoinExchangeType             = "direct"
 	IndieReviewJoinExchangeRoutingKeyPrefix = "accumulated_reviews_key_"
 
+	IdEnvironmentVariableName            = "ID"
+	MappersAmountEnvironmentVariableName = "MAPPERS_AMOUNT"
+
 	numNextNodes = 1
 )
 
 var log = logging.MustGetLogger("log")
 
 func main() {
+
+	id, err := u.GetEnv(IdEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	filtersAmount, err := u.GetEnvInt(MappersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
@@ -41,9 +55,9 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	reviewQueueName := fmt.Sprintf("%s%d", ReviewQueueNamePrefix, Id)
-	englishReviewsRoutingKey := fmt.Sprintf("%s%d", ReviewsRoutingKeyPrefix, Id)
-	englishReviewsQueue, err := manager.CreateBoundQueue(reviewQueueName, ReviewsExchangeName, ReviewsExchangeType, englishReviewsRoutingKey)
+	reviewQueueName := fmt.Sprintf("%s%s", ReviewQueueNamePrefix, id)
+	reviewsRoutingKey := fmt.Sprintf("%s%s", ReviewsRoutingKeyPrefix, id)
+	reviewsQueue, err := manager.CreateBoundQueue(reviewQueueName, ReviewsExchangeName, ReviewsExchangeType, reviewsRoutingKey)
 	if err != nil {
 		log.Errorf("Failed to create queue: %v", err)
 		return
@@ -63,15 +77,17 @@ func main() {
 
 	forever := make(chan bool)
 
-	go accumulateReviewsMetrics(englishReviewsQueue, accumulatedReviewsExchange, indieReviewJoinExchange)
+	go accumulateReviewsMetrics(reviewsQueue, accumulatedReviewsExchange, indieReviewJoinExchange, filtersAmount)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func accumulateReviewsMetrics(englishReviewsQueue *mom.Queue, accumulatedReviewsExchange *mom.Exchange, indieReviewJoinExchange *mom.Exchange) error {
+func accumulateReviewsMetrics(reviewsQueue *mom.Queue, accumulatedReviewsExchange *mom.Exchange, indieReviewJoinExchange *mom.Exchange, filtersAmount int) error {
+	remainingEOFs := filtersAmount
+
 	accumulatedReviews := make(map[uint32]*ra.GameReviewsMetrics)
 	log.Info("Creating Accumulating reviews metrics")
-	msgs, err := englishReviewsQueue.Consume(true)
+	msgs, err := reviewsQueue.Consume(true)
 	if err != nil {
 		return err
 	}
@@ -87,6 +103,10 @@ loop:
 		switch messageType {
 		case sp.MsgEndOfFile:
 			log.Info("End Of File for accumulated reviews received")
+			remainingEOFs--
+			if remainingEOFs > 0 {
+				continue
+			}
 
 			// solo hacer esto si recibi todos los mensajes de end of file
 			for AppID, metrics := range accumulatedReviews {
@@ -105,7 +125,7 @@ loop:
 				}
 				log.Infof("Published accumulated reviews for appID: %d", AppID)
 
-				partitioningKey := u.GetPartitioningKey(fmt.Sprintf("%d", AppID), numNextNodes, IndieReviewJoinExchangeRoutingKeyPrefix)
+				partitioningKey := u.GetPartitioningKeyFromInt(int(AppID), numNextNodes, IndieReviewJoinExchangeRoutingKeyPrefix)
 				err = indieReviewJoinExchange.Publish(partitioningKey, serializedMetrics)
 				if err != nil {
 					log.Errorf("Failed to publish metrics: %v", err)

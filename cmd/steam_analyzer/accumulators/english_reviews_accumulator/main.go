@@ -4,6 +4,7 @@ import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	u "distribuidos-tp/internal/utils"
 	"fmt"
 
 	"github.com/op/go-logging"
@@ -11,8 +12,6 @@ import (
 
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
-
-	Id = 1
 
 	EnglishReviewsExchangeName     = "english_reviews_exchange"
 	EnglishReviewsExchangeType     = "direct"
@@ -23,12 +22,25 @@ const (
 	AccumulatedEnglishReviewsExchangeType = "direct"
 	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews_key"
 
-	numNextNodes = 1
+	IdEnvironmentVariableName            = "ID"
+	FiltersAmountEnvironmentVariableName = "FILTERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
 
 func main() {
+	id, err := u.GetEnv(IdEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	filtersAmount, err := u.GetEnvInt(FiltersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
@@ -36,8 +48,8 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	englishReviewQueueName := fmt.Sprintf("%s%d", EnglishReviewQueueNamePrefix, Id)
-	englishReviewsRoutingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, Id)
+	englishReviewQueueName := fmt.Sprintf("%s%s", EnglishReviewQueueNamePrefix, id)
+	englishReviewsRoutingKey := fmt.Sprintf("%s%s", EnglishReviewsRoutingKeyPrefix, id)
 	englishReviewsQueue, err := manager.CreateBoundQueue(englishReviewQueueName, EnglishReviewsExchangeName, EnglishReviewsExchangeType, englishReviewsRoutingKey)
 	if err != nil {
 		log.Errorf("Failed to create queue: %v", err)
@@ -52,12 +64,14 @@ func main() {
 
 	forever := make(chan bool)
 
-	go accumulateEnglishReviewsMetrics(englishReviewsQueue, accumulatedEnglishReviewsExchange)
+	go accumulateEnglishReviewsMetrics(englishReviewsQueue, accumulatedEnglishReviewsExchange, filtersAmount)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func accumulateEnglishReviewsMetrics(englishReviewsQueue *mom.Queue, accumulatedEnglishReviewsExchange *mom.Exchange) error {
+func accumulateEnglishReviewsMetrics(englishReviewsQueue *mom.Queue, accumulatedEnglishReviewsExchange *mom.Exchange, filtersAmount int) error {
+	remainingEOFs := filtersAmount
+
 	accumulatedReviews := make(map[uint32]*ra.GameReviewsMetrics)
 	log.Info("Creating Accumulating reviews metrics")
 	msgs, err := englishReviewsQueue.Consume(true)
@@ -76,6 +90,10 @@ loop:
 		switch messageType {
 		case sp.MsgEndOfFile:
 			log.Info("End Of File for accumulated reviews received")
+			remainingEOFs--
+			if remainingEOFs > 0 {
+				continue
+			}
 
 			// solo hacer esto si recibi todos los mensajes de end of file
 			for AppID, metrics := range accumulatedReviews {

@@ -11,7 +11,7 @@ services:
     networks:
       - distributed_network
     healthcheck:
-      test: ["CMD", "rabbitmqctl", "status"]
+      test: [ "CMD", "rabbitmqctl", "status" ]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -98,12 +98,60 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  review_mapper:
+  review_mapper_1:
     image: review_mapper:latest
-    container_name: review_mapper
+    container_name: review_mapper_1
     entrypoint: /mappers/review_mapper
     networks:
       - distributed_network
+    environment:
+      - ID=1
+      - ACCUMULATORS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  review_mapper_2:
+    image: review_mapper:latest
+    container_name: review_mapper_2
+    entrypoint: /mappers/review_mapper
+    networks:
+      - distributed_network
+    environment:
+      - ID=2
+      - ACCUMULATORS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  reviews_accumulator_1:
+    image: reviews_accumulator:latest
+    container_name: reviews_accumulator_1
+    entrypoint: /accumulators/reviews_accumulator
+    networks:
+      - distributed_network
+    environment:
+      - ID=1
+      - MAPPERS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  reviews_accumulator_2:
+    image: reviews_accumulator:latest
+    container_name: reviews_accumulator_2
+    entrypoint: /accumulators/reviews_accumulator
+    networks:
+      - distributed_network
+    environment:
+      - ID=2
+      - MAPPERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -146,34 +194,56 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  english_filter:
+  english_filter_1:
     image: english_filter:latest
-    container_name: english_filter
+    container_name: english_filter_1
     entrypoint: /filters/english_filter
     networks:
       - distributed_network
+    environment:
+      - ID=1
+      - ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
 
-  english_reviews_accumulator:
+  english_filter_2:
+    image: english_filter:latest
+    container_name: english_filter_2
+    entrypoint: /filters/english_filter
+    networks:
+      - distributed_network
+    environment:
+      - ID=2
+      - ACCUMULATORS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+
+  english_reviews_accumulator_1:
     image: english_reviews_accumulator:latest
-    container_name: english_reviews_accumulator
+    container_name: english_reviews_accumulator_1
     entrypoint: /accumulators/english_reviews_accumulator
     networks:
       - distributed_network
+    environment:
+      - ID=1
+      - FILTERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
       rabbitmq:
         condition: service_healthy
 
-  reviews_accumulator:
-    image: reviews_accumulator:latest
-    container_name: reviews_accumulator
-    entrypoint: /accumulators/reviews_accumulator
+  english_reviews_accumulator_2:
+    image: english_reviews_accumulator:latest
+    container_name: english_reviews_accumulator_2
+    entrypoint: /accumulators/english_reviews_accumulator
     networks:
       - distributed_network
+    environment:
+      - ID=2
+      - FILTERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -199,8 +269,6 @@ services:
     networks:
       - distributed_network
     depends_on:
-      review_mapper:
-        condition: service_started
       game_mapper:
         condition: service_started
       rabbitmq:
@@ -213,8 +281,6 @@ services:
     networks:
       - distributed_network
     depends_on:
-      review_mapper:
-        condition: service_started
       game_mapper:
         condition: service_started
       rabbitmq:

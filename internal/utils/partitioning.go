@@ -17,3 +17,8 @@ func GetPartitioningKey(appId string, numPartitions int, prefix string) string {
 	routingKey := fmt.Sprintf("%v%d", prefix, shardingKey)
 	return routingKey
 }
+
+func GetPartitioningKeyFromInt(appId int, numPartitions int, prefix string) string {
+	appIdStr := fmt.Sprintf("%d", appId)
+	return GetPartitioningKey(appIdStr, numPartitions, prefix)
+}

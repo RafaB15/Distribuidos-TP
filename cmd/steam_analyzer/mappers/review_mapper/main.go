@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/op/go-logging"
 )
@@ -24,12 +25,29 @@ const (
 	ReviewsExchangeType     = "direct"
 	ReviewsRoutingKeyPrefix = "reviews_key_"
 
-	numNextNodes = 1
+	RawReviewsEofExchangeName    = "raw_reviews_eof_exchange"
+	RawReviewsEofExchangeType    = "fanout"
+	RawReviewsEofQueueNamePrefix = "raw_reviews_eof_queue_"
+
+	AccumulatorsAmountEnvironmentVariableName = "ACCUMULATORS_AMOUNT"
+	IdEnvironmentVariableName                 = "ID"
 )
 
 var log = logging.MustGetLogger("log")
 
 func main() {
+	id, err := u.GetEnv(IdEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	accumulatorsAmount, err := u.GetEnvInt(AccumulatorsAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
@@ -43,6 +61,13 @@ func main() {
 		return
 	}
 
+	rawReviewsEofQueueName := fmt.Sprintf("%s%s", RawReviewsEofQueueNamePrefix, id)
+	rawReviewsEofQueue, err := manager.CreateBoundQueue(rawReviewsEofQueueName, RawReviewsEofExchangeName, RawReviewsEofExchangeType, "")
+	if err != nil {
+		log.Errorf("Failed to create queue: %v", err)
+		return
+	}
+
 	reviewsExchange, err := manager.CreateExchange(ReviewsExchangeName, ReviewsExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
@@ -51,71 +76,104 @@ func main() {
 
 	forever := make(chan bool)
 
-	go mapReviews(rawReviewsQueue, reviewsExchange)
+	go mapReviews(rawReviewsQueue, rawReviewsEofQueue, reviewsExchange, accumulatorsAmount)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func mapReviews(rawReviewsQueue *mom.Queue, reviewsExchange *mom.Exchange) error {
+func mapReviews(rawReviewsQueue *mom.Queue, rawReviewsEofQueue *mom.Queue, reviewsExchange *mom.Exchange, accumulatorsAmount int) error {
 	msgs, err := rawReviewsQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
 
+	timeout := time.Second * 1
+
 loop:
-	for d := range msgs {
-
-		msgType, err := sp.DeserializeMessageType(d.Body)
-		if err != nil {
-			return err
-		}
-
-		switch msgType {
-		case sp.MsgEndOfFile:
-			for i := 1; i < numNextNodes+1; i++ {
-				reviewsExchange.Publish(fmt.Sprintf("%v%d", ReviewsRoutingKeyPrefix, i), sp.SerializeMsgEndOfFile())
-			}
-			log.Info("End of file received")
-			break loop
-		case sp.MsgBatch:
-
-			lines, err := sp.DeserializeBatch(d.Body)
+	for {
+		select {
+		case d := <-msgs:
+			msgType, err := sp.DeserializeMessageType(d.Body)
 			if err != nil {
-				log.Error("Error deserializing batch")
 				return err
 			}
 
-			for _, line := range lines {
-				reader := csv.NewReader(strings.NewReader(line))
-				records, err := reader.Read()
-
+			if msgType == sp.MsgBatch {
+				lines, err := sp.DeserializeBatch(d.Body)
 				if err != nil {
-					if err == io.EOF {
-						break
-					}
+					log.Error("Error deserializing batch")
 					return err
 				}
-				log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v", records[0], records[1], records[2])
-
-				review, err := r.NewReviewFromStrings(records[0], records[2])
+				err = handleMsgBatch(lines, reviewsExchange, accumulatorsAmount)
 				if err != nil {
-					log.Error("Problema creando review con texto")
+					log.Errorf("Failed to handle batch: %v", err)
 					return err
 				}
-
-				shardingKey := u.CalculateShardingKey(records[0], numNextNodes)
-				log.Infof("Sharding key: %d", shardingKey)
-
-				reviewSlice := []*r.Review{review}
-				serializedReview := sp.SerializeMsgReviewInformation(reviewSlice)
-				routingKey := fmt.Sprintf("%v%d", ReviewsRoutingKeyPrefix, shardingKey)
-				err = reviewsExchange.Publish(routingKey, serializedReview)
-
-				log.Debugf("Received review: %v", records[1])
 			}
-
+		case <-time.After(timeout):
+			eofMsg, err := rawReviewsEofQueue.GetIfAvailable()
+			if err != nil {
+				timeout = time.Second * 1
+				continue
+			}
+			msgType, err := sp.DeserializeMessageType(eofMsg.Body)
+			if err != nil {
+				log.Error("Error deserializing message type from EOF")
+			}
+			if msgType == sp.MsgEndOfFile {
+				err := handleEof(reviewsExchange, accumulatorsAmount)
+				if err != nil {
+					log.Errorf("Failed to handle EOF: %v", err)
+					return err
+				}
+				log.Info("End of file received")
+				break loop
+			}
 		}
 	}
+	return nil
+}
 
+func handleMsgBatch(lines []string, reviewsExchange *mom.Exchange, accumulatorsAmount int) error {
+	for _, line := range lines {
+		reader := csv.NewReader(strings.NewReader(line))
+		records, err := reader.Read()
+
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v", records[0], records[1], records[2])
+
+		review, err := r.NewReviewFromStrings(records[0], records[2])
+		if err != nil {
+			log.Error("Problema creando review con texto")
+			return err
+		}
+
+		reviewSlice := []*r.Review{review}
+		serializedReview := sp.SerializeMsgReviewInformation(reviewSlice)
+		routingKey := u.GetPartitioningKey(records[0], accumulatorsAmount, ReviewsRoutingKeyPrefix)
+		err = reviewsExchange.Publish(routingKey, serializedReview)
+		if err != nil {
+			log.Errorf("Failed to publish message: %v", err)
+			return err
+		}
+
+		log.Debugf("Received review: %v", records[1])
+	}
+	return nil
+}
+
+func handleEof(reviewsExchange *mom.Exchange, accumulatorsAmount int) error {
+	for i := 1; i <= accumulatorsAmount; i++ {
+		routingKey := fmt.Sprintf("%v%d", ReviewsRoutingKeyPrefix, i)
+		err := reviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

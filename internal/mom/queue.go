@@ -1,6 +1,8 @@
 package mom
 
 import (
+	"fmt"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -56,6 +58,17 @@ func (q *Queue) Consume(autoAck bool) (<-chan amqp.Delivery, error) {
 		return nil, err
 	}
 	return msgs, nil
+}
+
+func (q *Queue) GetIfAvailable() (*amqp.Delivery, error) {
+	msg, ok, err := q.channel.Get(q.data.Name, true)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("no message available")
+	}
+	return &msg, nil
 }
 
 func (q *Queue) CloseQueue() error {

@@ -19,6 +19,9 @@ const (
 
 	RawReviewsExchangeName = "raw_reviews_exchange"
 	RawReviewsExchangeType = "fanout"
+
+	RawReviewsEofExchangeName = "raw_reviews_eof_exchange"
+	RawReviewsEofExchangeType = "fanout"
 )
 
 const GameFile = 1
@@ -48,6 +51,12 @@ func main() {
 		return
 	}
 
+	rawReviewsEofExchange, err := manager.CreateExchange(RawReviewsEofExchangeName, RawReviewsEofExchangeType)
+	if err != nil {
+		log.Errorf("Failed to declare exchange: %v", err)
+		return
+	}
+
 	defer rawReviewsExchange.CloseExchange()
 
 	listener, err := net.Listen("tcp", ":3000")
@@ -66,11 +75,11 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn, rawGamesExchange, rawReviewsExchange)
+		go handleConnection(conn, rawGamesExchange, rawReviewsExchange, rawReviewsEofExchange)
 	}
 }
 
-func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsExchange *mom.Exchange) {
+func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsExchange *mom.Exchange, rawReviewsEofExchange *mom.Exchange) {
 	defer conn.Close()
 
 	for {
@@ -96,7 +105,7 @@ func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsE
 				err = rawGamesExchange.Publish(RawGamesRoutingKey, sp.SerializeMsgEndOfFile())
 				log.Infof("End of file message published for games")
 			} else {
-				err = rawReviewsExchange.PublishWithoutKey(sp.SerializeMsgEndOfFile())
+				err = rawReviewsEofExchange.PublishWithoutKey(sp.SerializeMsgEndOfFile())
 				log.Infof("End of file message published for reviews")
 			}
 			if err != nil {
