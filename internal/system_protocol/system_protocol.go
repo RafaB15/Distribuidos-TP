@@ -167,10 +167,7 @@ func DeserializeMsgGameOSInformation(message []byte) ([]*oa.GameOS, error) {
 func SerializeMsgGameReviewsMetrics(metrics *m.GameReviewsMetrics) ([]byte, error) {
 	message := make([]byte, 13)
 	message[0] = byte(MsgGameReviewsMetrics)
-	serializedMetrics, err := m.SerializeGameReviewsMetrics(metrics)
-	if err != nil {
-		return nil, err
-	}
+	serializedMetrics := m.SerializeGameReviewsMetrics(metrics)
 	copy(message[1:], serializedMetrics)
 	return message, nil
 }
@@ -183,6 +180,45 @@ func DeserializeMsgGameReviewsMetrics(message []byte) (*m.GameReviewsMetrics, er
 	metrics, err := m.DeserializeGameReviewsMetrics(message[1:])
 	if err != nil {
 		return nil, err
+	}
+
+	return metrics, nil
+}
+
+func SerializeMsgGameReviewsMetricsBatch(metrics []*m.GameReviewsMetrics) []byte {
+	count := len(metrics)
+	message := make([]byte, 2+count*12)
+	message[0] = byte(MsgGameReviewsMetrics)
+	message[1] = byte(count)
+
+	offset := 2
+	for i, metric := range metrics {
+		serializedMetrics := m.SerializeGameReviewsMetrics(metric)
+		copy(message[offset+i*12:], serializedMetrics)
+	}
+
+	return message
+}
+
+func DeserializeMsgGameReviewsMetricsBatch(message []byte) ([]*m.GameReviewsMetrics, error) {
+	if len(message) < 2 {
+		return nil, errors.New("message too short to contain count")
+	}
+
+	count := int(message[1])
+	offset := 2
+	metrics := make([]*m.GameReviewsMetrics, count)
+
+	for i := 0; i < count; i++ {
+		if offset+12 > len(message) {
+			return nil, errors.New("message too short to contain all metrics")
+		}
+		metric, err := m.DeserializeGameReviewsMetrics(message[offset : offset+12])
+		if err != nil {
+			return nil, err
+		}
+		metrics[i] = metric
+		offset += 12
 	}
 
 	return metrics, nil
