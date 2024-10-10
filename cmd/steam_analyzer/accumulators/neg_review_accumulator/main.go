@@ -52,7 +52,7 @@ func main() {
 	<-forever
 }
 
-func sortAndSendAccumulatedReviews(reviewsQueue *mom.Queue, PercentileExchange *mom.Exchange) error {
+func sortAndSendAccumulatedReviews(reviewsQueue *mom.Queue, calculatePercentileExchange *mom.Exchange) error {
 	msgs, err := reviewsQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
@@ -82,7 +82,8 @@ loop:
 				log.Infof("Received game review: %v", review.NegativeReviews)
 			}
 
-			PercentileExchange.Publish(CalculatePercentileRoutingKey, sp.SerializeMsgGameReviewsMetricsBatch(gameReviewMetricsToSend))
+			calculatePercentileExchange.Publish(CalculatePercentileRoutingKey, sp.SerializeMsgGameReviewsMetricsBatch(gameReviewMetricsToSend))
+			calculatePercentileExchange.Publish(CalculatePercentileRoutingKey, sp.SerializeMsgEndOfFile())
 			break loop
 
 		case sp.MsgGameReviewsMetrics:

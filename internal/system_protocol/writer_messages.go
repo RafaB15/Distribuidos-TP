@@ -6,9 +6,10 @@ type Query byte
 
 const (
 	MsgOsResolvedQuery Query = iota
-	MsgActionPositiveReviewsQuery
 	MsgTopTenDecadeAvgPtfQuery
 	MsgIndiePositiveJoinedReviewsQuery
+	MsgActionPositiveReviewsQuery
+	MsgActionNegativeReviewsQuery
 )
 
 func DeserializeQueryResolvedType(message []byte) (Query, error) {

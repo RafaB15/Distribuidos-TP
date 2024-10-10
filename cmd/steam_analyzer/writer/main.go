@@ -88,6 +88,13 @@ func main() {
 						log.Errorf("Failed to handle top positive indie reviews resolved query: %v", err)
 						return
 					}
+				case sp.MsgActionNegativeReviewsQuery:
+					log.Info("Received query Action negative reviews resolved message")
+					err := handleGenrePositiveReviewsQuery(data[1:], "percentile_negative_action_reviews_query.txt")
+					if err != nil {
+						log.Errorf("Failed to handle percentile negative action reviews resolved query: %v", err)
+						return
+					}
 				}
 
 			default:
