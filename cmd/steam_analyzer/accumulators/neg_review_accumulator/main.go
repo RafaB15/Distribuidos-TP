@@ -78,12 +78,13 @@ loop:
 				return err
 			}
 			log.Infof("Ordered metrics:")
+			log.Infof("Number of game review metrics to send: %d", len(gameReviewMetricsToSend))
 			for _, review := range gameReviewMetricsToSend {
 				log.Infof("Received game review: %v", review.NegativeReviews)
 			}
 
 			calculatePercentileExchange.Publish(CalculatePercentileRoutingKey, sp.SerializeMsgGameReviewsMetricsBatch(gameReviewMetricsToSend))
-			calculatePercentileExchange.Publish(CalculatePercentileRoutingKey, sp.SerializeMsgEndOfFile())
+			// calculatePercentileExchange.Publish(CalculatePercentileRoutingKey, sp.SerializeMsgEndOfFile())
 			break loop
 
 		case sp.MsgGameReviewsMetrics:

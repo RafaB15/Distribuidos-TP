@@ -4,6 +4,7 @@ import (
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -153,6 +154,9 @@ func GetTop10PercentByNegativeReviews(filename string) ([]*GameReviewsMetrics, e
 	if err != nil {
 		return nil, err
 	}
+
+	// Log the length of the games slice
+	fmt.Printf("Total number of games: %d\n", len(games))
 
 	// Si no hay juegos, devolver error
 	if len(games) == 0 {

@@ -108,6 +108,7 @@ loop:
 		switch messageType {
 		case sp.MsgEndOfFile:
 			log.Info("End Of File for accumulated reviews received")
+
 			remainingEOFs--
 			if remainingEOFs > 0 {
 				continue
@@ -132,8 +133,6 @@ loop:
 				log.Infof("Published accumulated reviews for routing key: %d", routingKey)
 			}
 
-			//serialize msg de metrics
-			// hay que mandarselo a todos los nodos de filtro de 5k. tipo fanout. Por el momento no está pasando
 			err = accumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFile())
 			if err != nil {
 				log.Errorf("Failed to publish end of file in review accumulator: %v", err)
@@ -147,6 +146,9 @@ loop:
 				}
 				log.Infof("Published end of file in review accumulator for node %d", nodeId)
 			}
+
+			// End of file para las neg reviews accumulator
+			// accumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFile())
 
 			break loop
 

@@ -30,8 +30,6 @@ const (
 	NumPreviousAccumulators   = "NUM_PREVIOUS_ACCUMULATORS"
 )
 
-var numPrevNodes = 1
-
 var log = logging.MustGetLogger("log")
 
 func main() {
@@ -74,7 +72,7 @@ func main() {
 }
 
 func calculatePercentile(percentileQueue *mom.Queue, percentileExchange *mom.Exchange, previousAccumulators int, actionNegativeReviewsJoinersAmount int) error {
-	remainingEOFs := previousAccumulators
+
 	accumulatedPercentileKeyMap := make(map[string][]*ra.GameReviewsMetrics)
 	msgs, err := percentileQueue.Consume(true)
 	if err != nil {
@@ -91,44 +89,7 @@ loop:
 
 		switch messageType {
 		case sp.MsgEndOfFile:
-			log.Info("End Of File for accumulated reviews received")
-			remainingEOFs--
-			if remainingEOFs > 0 {
-				continue
-			}
 
-			//obtengo los reviews de percentil en una lista
-			abovePercentile, err := ra.GetTop10PercentByNegativeReviews(StoredReviewsFileName)
-			if err != nil {
-				log.Errorf("Failed to get top 10 percent by negative reviews: %v", err)
-				return err
-			}
-
-			// por cada review le calculo la sharding key y lo inserto
-			for id, review := range abovePercentile {
-				key := u.GetPartitioningKeyFromInt(int(id), actionNegativeReviewsJoinersAmount, AccumulatedPercentileReviewsRoutingKeyPrefix)
-				accumulatedPercentileKeyMap[key] = append(accumulatedPercentileKeyMap[key], review)
-				log.Infof("Metrics above p90: id:%v #:%v", review.AppID, review.NegativeReviews)
-			}
-
-			// por cada key serializo y envio
-			for routingKey, metrics := range accumulatedPercentileKeyMap {
-				serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(metrics)
-
-				err = percentileExchange.Publish(routingKey, serializedMetricsBatch)
-				if err != nil {
-					log.Errorf("Failed to publish metrics: %v", err)
-					return err
-				}
-				log.Info("Published accumulated reviews for join")
-				log.Infof("Published accumulated reviews for routing key: %d", routingKey)
-			}
-
-			// envio a todos los joiners end of file
-			err = handleEof(percentileExchange, actionNegativeReviewsJoinersAmount)
-			if err != nil {
-				log.Errorf("Failed to handle end of file: %v", err)
-			}
 			break loop
 
 		case sp.MsgGameReviewsMetrics:
@@ -138,6 +99,8 @@ loop:
 				log.Errorf("Failed to deserialize game reviews metrics: %v", err)
 				return err
 			}
+
+			log.Infof("Number of game reviews metrics received: %d", len(gameReviewsMetrics))
 			for _, review := range gameReviewsMetrics {
 				log.Infof("Received game review metrics: %v", review.NegativeReviews)
 			}
@@ -148,6 +111,42 @@ loop:
 				return err
 			}
 
+			previousAccumulators--
+			if previousAccumulators == 0 {
+
+				//obtengo los reviews de percentil en una lista
+				abovePercentile, err := ra.GetTop10PercentByNegativeReviews(StoredReviewsFileName)
+				if err != nil {
+					log.Errorf("Failed to get top 10 percent by negative reviews: %v", err)
+					return err
+				}
+
+				// por cada review le calculo la sharding key y lo inserto
+				for id, review := range abovePercentile {
+					key := u.GetPartitioningKeyFromInt(int(id), actionNegativeReviewsJoinersAmount, AccumulatedPercentileReviewsRoutingKeyPrefix)
+					accumulatedPercentileKeyMap[key] = append(accumulatedPercentileKeyMap[key], review)
+					log.Infof("Metrics above p90: id:%v #:%v", review.AppID, review.NegativeReviews)
+				}
+
+				// por cada key serializo y envio
+				for routingKey, metrics := range accumulatedPercentileKeyMap {
+					serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(metrics)
+
+					err = percentileExchange.Publish(routingKey, serializedMetricsBatch)
+					if err != nil {
+						log.Errorf("Failed to publish metrics: %v", err)
+						return err
+					}
+					log.Info("Published accumulated reviews for join")
+					log.Infof("Published accumulated reviews for routing key: %d", routingKey)
+				}
+
+				// envio a todos los joiners end of file
+				err = handleEof(percentileExchange, actionNegativeReviewsJoinersAmount)
+				if err != nil {
+					log.Errorf("Failed to handle end of file: %v", err)
+				}
+			}
 		default:
 			log.Errorf("Unexpected message type: %d", messageType)
 		}
