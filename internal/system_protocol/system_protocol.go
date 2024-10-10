@@ -164,27 +164,6 @@ func DeserializeMsgGameOSInformation(message []byte) ([]*oa.GameOS, error) {
 	return gameOSList, nil
 }
 
-func SerializeMsgGameReviewsMetrics(metrics *m.GameReviewsMetrics) ([]byte, error) {
-	message := make([]byte, 13)
-	message[0] = byte(MsgGameReviewsMetrics)
-	serializedMetrics := m.SerializeGameReviewsMetrics(metrics)
-	copy(message[1:], serializedMetrics)
-	return message, nil
-}
-
-func DeserializeMsgGameReviewsMetrics(message []byte) (*m.GameReviewsMetrics, error) {
-	if len(message) < 13 {
-		return nil, errors.New("message too short to contain metrics")
-	}
-
-	metrics, err := m.DeserializeGameReviewsMetrics(message[1:])
-	if err != nil {
-		return nil, err
-	}
-
-	return metrics, nil
-}
-
 func SerializeMsgGameReviewsMetricsBatch(metrics []*m.GameReviewsMetrics) []byte {
 	count := len(metrics)
 	message := make([]byte, 2+count*12)

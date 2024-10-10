@@ -22,8 +22,9 @@ const (
 	AccumulatedEnglishReviewsExchangeType = "direct"
 	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews_key"
 
-	IdEnvironmentVariableName            = "ID"
-	FiltersAmountEnvironmentVariableName = "FILTERS_AMOUNT"
+	IdEnvironmentVariableName                          = "ID"
+	FiltersAmountEnvironmentVariableName               = "FILTERS_AMOUNT"
+	PositiveReviewsFilterAmountEnvironmentVariableName = "POSITIVE_REVIEWS_FILTER_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -36,6 +37,12 @@ func main() {
 	}
 
 	filtersAmount, err := u.GetEnvInt(FiltersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	positiveReviewsFilterAmount, err := u.GetEnvInt(PositiveReviewsFilterAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -64,12 +71,12 @@ func main() {
 
 	forever := make(chan bool)
 
-	go accumulateEnglishReviewsMetrics(englishReviewsQueue, accumulatedEnglishReviewsExchange, filtersAmount)
+	go accumulateEnglishReviewsMetrics(englishReviewsQueue, accumulatedEnglishReviewsExchange, filtersAmount, positiveReviewsFilterAmount)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func accumulateEnglishReviewsMetrics(englishReviewsQueue *mom.Queue, accumulatedEnglishReviewsExchange *mom.Exchange, filtersAmount int) error {
+func accumulateEnglishReviewsMetrics(englishReviewsQueue *mom.Queue, accumulatedEnglishReviewsExchange *mom.Exchange, filtersAmount int, positiveReviewsFilterAmount int) error {
 	remainingEOFs := filtersAmount
 
 	accumulatedReviews := make(map[uint32]*ra.GameReviewsMetrics)
@@ -95,32 +102,25 @@ loop:
 				continue
 			}
 
-			// solo hacer esto si recibi todos los mensajes de end of file
-			for AppID, metrics := range accumulatedReviews {
-				//og.Info("Serializing accumulated reviews")
+			metrics := idMapToList(accumulatedReviews)
+			serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(metrics)
 
-				serializedMetrics, err := sp.SerializeMsgGameReviewsMetrics(metrics)
-				if err != nil {
-					log.Errorf("Failed to serialize accumulated reviews: %v", err)
-					return err
-				}
-
-				err = accumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedMetrics)
-				if err != nil {
-					log.Errorf("Failed to publish metrics: %v", err)
-					return err
-				}
-				log.Infof("Published accumulated reviews for appID: %d", AppID)
-
+			err = accumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedMetricsBatch)
+			if err != nil {
+				log.Errorf("Failed to publish metrics: %v", err)
+				return err
 			}
+			log.Info("Published accumulated reviews")
 
 			//serialize msg de metrics
 			// hay que mandarselo a todos los nodos de filtro de 5k. tipo fanout. Por el momento no está pasando
-			err = accumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, sp.SerializeMsgEndOfFile())
-			if err != nil {
-				log.Errorf("Failed to publish end of file in review accumulator: %v", err)
+			for i := 0; i < positiveReviewsFilterAmount; i++ {
+				err = accumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, sp.SerializeMsgEndOfFile())
+				if err != nil {
+					log.Errorf("Failed to publish end of file in review accumulator: %v", err)
+				}
+				log.Info("Published end of file in review accumulator")
 			}
-			log.Info("Published end of file in review accumulator")
 			break loop
 
 		case sp.MsgReviewInformation:
@@ -147,4 +147,12 @@ loop:
 		}
 	}
 	return nil
+}
+
+func idMapToList(idMap map[uint32]*ra.GameReviewsMetrics) []*ra.GameReviewsMetrics {
+	var list []*ra.GameReviewsMetrics
+	for _, value := range idMap {
+		list = append(list, value)
+	}
+	return list
 }

@@ -4,6 +4,7 @@ import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	j "distribuidos-tp/internal/system_protocol/joiner"
+	u "distribuidos-tp/internal/utils"
 	"fmt"
 
 	"github.com/op/go-logging"
@@ -18,16 +19,29 @@ const (
 	ActionReviewJoinExchangeType     = "direct"
 	ActionReviewJoinRoutingKeyPrefix = "positive_reviews_key_"
 	ActionGameRoutingKeyPrefix       = "action_key_"
-	ActionReviewJoinQueueName        = "action_review_join_queue"
+	ActionReviewJoinQueueNamePrefix  = "action_review_join_queue_"
 
 	WriterExchangeName = "writer_exchange"
 	WriterRoutingKey   = "writer_key"
 	WriterExchangeType = "direct"
 
-	Id = 1
+	IdEnvironmentVariableName                           = "ID"
+	PositiveReviewsFiltersAmountEnvironmentVariableName = "POSITIVE_REVIEWS_FILTERS_AMOUNT"
 )
 
 func main() {
+	positiveReviewsFiltersAmount, err := u.GetEnvInt(PositiveReviewsFiltersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	id, err := u.GetEnv(IdEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager for action-review joiner: %v", err)
@@ -36,11 +50,12 @@ func main() {
 
 	defer manager.CloseConnection()
 
-	actionReviewJoinRoutingKey := fmt.Sprintf("%s%d", ActionReviewJoinRoutingKeyPrefix, Id)
-	actionGameRoutingKey := fmt.Sprintf("%s%d", ActionGameRoutingKeyPrefix, Id)
+	actionReviewJoinRoutingKey := fmt.Sprintf("%s%s", ActionReviewJoinRoutingKeyPrefix, id)
+	actionGameRoutingKey := fmt.Sprintf("%s%s", ActionGameRoutingKeyPrefix, id)
 
 	routingKeys := []string{actionReviewJoinRoutingKey, actionGameRoutingKey}
-	actionReviewJoinQueue, err := manager.CreateBoundQueueMultipleRoutingKeys(ActionReviewJoinQueueName, ActionReviewJoinExchangeName, ActionReviewJoinExchangeType, routingKeys)
+	actionReviewJoinQueueName := fmt.Sprintf("%s%s", ActionReviewJoinQueueNamePrefix, id)
+	actionReviewJoinQueue, err := manager.CreateBoundQueueMultipleRoutingKeys(actionReviewJoinQueueName, ActionReviewJoinExchangeName, ActionReviewJoinExchangeType, routingKeys)
 	if err != nil {
 		log.Errorf("Failed to create queue for action-review joiner: %v", err)
 		return
@@ -54,12 +69,14 @@ func main() {
 
 	forever := make(chan bool)
 
-	go joinActionReviews(actionReviewJoinQueue, writerExchange)
+	go joinActionReviews(actionReviewJoinQueue, writerExchange, positiveReviewsFiltersAmount)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func joinActionReviews(actionReviewJoinQueue *mom.Queue, writerExchange *mom.Exchange) error {
+func joinActionReviews(actionReviewJoinQueue *mom.Queue, writerExchange *mom.Exchange, positiveReviewsFiltersAmount int) error {
+	remainingEOFs := positiveReviewsFiltersAmount + 1
+
 	accumulatedGameReviews := make(map[uint32]*j.JoinedActionGameReview)
 	log.Info("Creating Accumulating reviews metrics")
 	msgs, err := actionReviewJoinQueue.Consume(true)
@@ -70,6 +87,7 @@ func joinActionReviews(actionReviewJoinQueue *mom.Queue, writerExchange *mom.Exc
 
 loop:
 	for d := range msgs {
+
 		messageBody := d.Body
 		messageType, err := sp.DeserializeMessageType(messageBody)
 		if err != nil {
@@ -79,31 +97,39 @@ loop:
 
 		switch messageType {
 		case sp.MsgEndOfFile:
+			remainingEOFs--
+			if remainingEOFs > 0 {
+				continue
+			}
+
 			log.Info("End of file received in action-review joiner")
 
 			writerExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
 			break loop
 
 		case sp.MsgGameReviewsMetrics:
-			gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetrics(messageBody)
+			gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(messageBody)
 			if err != nil {
 				log.Errorf("Failed to deserialize game reviews metrics: %v", err)
 				return err
 			}
-			if joinedGameReviewsMsg, exists := accumulatedGameReviews[gameReviewsMetrics.AppID]; exists {
-				log.Infof("Joining review into action game with ID: %v", gameReviewsMetrics.AppID)
-				joinedGameReviewsMsg.UpdateWithReview(gameReviewsMetrics)
 
-				serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviews(joinedGameReviewsMsg)
-				if err != nil {
-					log.Errorf("Failed to serialize action-review message: %v", err)
+			for _, gameReviewMetrics := range gameReviewsMetrics {
+				if joinedGameReviewsMsg, exists := accumulatedGameReviews[gameReviewMetrics.AppID]; exists {
+					log.Infof("Joining review into action game with ID: %v", gameReviewMetrics.AppID)
+					joinedGameReviewsMsg.UpdateWithReview(gameReviewMetrics)
+
+					serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviews(joinedGameReviewsMsg)
+					if err != nil {
+						log.Errorf("Failed to serialize action-review message: %v", err)
+					}
+					writerExchange.Publish(WriterRoutingKey, serializedMetrics)
+					// delete the accumulated review
+					delete(accumulatedGameReviews, gameReviewMetrics.AppID)
+				} else {
+					log.Infof("Saving review for later join with id %v", gameReviewMetrics.AppID)
+					accumulatedGameReviews[gameReviewMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewMetrics.AppID)
 				}
-				writerExchange.Publish(WriterRoutingKey, serializedMetrics)
-				// delete the accumulated review
-				delete(accumulatedGameReviews, gameReviewsMetrics.AppID)
-			} else {
-				log.Info("Saving review for later join")
-				accumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewsMetrics.AppID)
 			}
 		case sp.MsgGameNames:
 
@@ -125,7 +151,7 @@ loop:
 					// delete the accumulated review
 					delete(accumulatedGameReviews, actionGame.AppId)
 				} else {
-					log.Info("Saving action game for later join")
+					log.Infof("Saving action game for later join with id %v", actionGame.AppId)
 					newJoinedActionGameReview := j.NewJoinedActionGameReview(actionGame.AppId)
 					newJoinedActionGameReview.UpdateWithGame(actionGame)
 					accumulatedGameReviews[actionGame.AppId] = newJoinedActionGameReview

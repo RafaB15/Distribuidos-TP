@@ -32,6 +32,11 @@ services:
     entrypoint: /mappers/game_mapper
     networks:
       - distributed_network
+    environment:
+      - OS_ACCUMULATORS_AMOUNT=2
+      - DECADE_FILTER_AMOUNT=3
+      - INDIE_REVIEW_JOINERS_AMOUNT=2
+      - ACTION_REVIEW_JOINERS_AMOUNT=2
     depends_on:
       entrypoint:
         condition: service_started
@@ -137,6 +142,7 @@ services:
     environment:
       - ID=1
       - MAPPERS_AMOUNT=2
+      - INDIE_REVIEW_JOINERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -152,6 +158,7 @@ services:
     environment:
       - ID=2
       - MAPPERS_AMOUNT=2
+      - INDIE_REVIEW_JOINERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -229,6 +236,7 @@ services:
     environment:
       - ID=1
       - FILTERS_AMOUNT=2
+      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -244,42 +252,97 @@ services:
     environment:
       - ID=2
       - FILTERS_AMOUNT=2
+      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
       rabbitmq:
         condition: service_healthy
 
-  positive_reviews_filter:
+  positive_reviews_filter_1:
     image: positive_reviews_filter:latest
-    container_name: positive_reviews_filter
+    container_name: positive_reviews_filter_1
     entrypoint: /filters/positive_reviews_filter
     networks:
       - distributed_network
+    environment:
+      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
+      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
       rabbitmq:
         condition: service_healthy
 
-  action_review_joiner:
+  positive_reviews_filter_2:
+    image: positive_reviews_filter:latest
+    container_name: positive_reviews_filter_2
+    entrypoint: /filters/positive_reviews_filter
+    networks:
+      - distributed_network
+    environment:
+      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
+      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  action_review_joiner_1:
     image: action_review_joiner:latest
-    container_name: action_review_joiner
+    container_name: action_review_joiner_1
     entrypoint: /joiners/action_review_joiner
     networks:
       - distributed_network
+    environment:
+      - ID=1
+      - POSITIVE_REVIEWS_FILTERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
       rabbitmq:
         condition: service_healthy
 
-  indie_review_joiner:
+  action_review_joiner_2:
+    image: action_review_joiner:latest
+    container_name: action_review_joiner_2
+    entrypoint: /joiners/action_review_joiner
+    networks:
+      - distributed_network
+    environment:
+      - ID=2
+      - POSITIVE_REVIEWS_FILTERS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  indie_review_joiner_1:
     image: indie_review_joiner:latest
-    container_name: indie_review_joiner
+    container_name: indie_review_joiner_1
     entrypoint: /joiners/indie_review_joiner
     networks:
       - distributed_network
+    environment:
+      - ID=1
+      - REVIEWS_ACCUMULATOR_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  indie_review_joiner_2:
+    image: indie_review_joiner:latest
+    container_name: indie_review_joiner_2
+    entrypoint: /joiners/indie_review_joiner
+    networks:
+      - distributed_network
+    environment:
+      - ID=2
+      - REVIEWS_ACCUMULATOR_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started

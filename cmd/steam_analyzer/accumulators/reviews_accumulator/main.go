@@ -28,8 +28,7 @@ const (
 
 	IdEnvironmentVariableName            = "ID"
 	MappersAmountEnvironmentVariableName = "MAPPERS_AMOUNT"
-
-	numNextNodes = 1
+	IndieReviewJoinersAmountName         = "INDIE_REVIEW_JOINERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -43,6 +42,12 @@ func main() {
 	}
 
 	filtersAmount, err := u.GetEnvInt(MappersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	indieReviewJoinerAmount, err := u.GetEnvInt(IndieReviewJoinersAmountName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -77,12 +82,12 @@ func main() {
 
 	forever := make(chan bool)
 
-	go accumulateReviewsMetrics(reviewsQueue, accumulatedReviewsExchange, indieReviewJoinExchange, filtersAmount)
+	go accumulateReviewsMetrics(reviewsQueue, accumulatedReviewsExchange, indieReviewJoinExchange, filtersAmount, indieReviewJoinerAmount)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func accumulateReviewsMetrics(reviewsQueue *mom.Queue, accumulatedReviewsExchange *mom.Exchange, indieReviewJoinExchange *mom.Exchange, filtersAmount int) error {
+func accumulateReviewsMetrics(reviewsQueue *mom.Queue, accumulatedReviewsExchange *mom.Exchange, indieReviewJoinExchange *mom.Exchange, filtersAmount int, indieReviewJoinerAmount int) error {
 	remainingEOFs := filtersAmount
 
 	accumulatedReviews := make(map[uint32]*ra.GameReviewsMetrics)
@@ -108,30 +113,23 @@ loop:
 				continue
 			}
 
-			// solo hacer esto si recibi todos los mensajes de end of file
-			for AppID, metrics := range accumulatedReviews {
-				//og.Info("Serializing accumulated reviews")
+			keyMap := idMapToKeyMap(accumulatedReviews, indieReviewJoinerAmount)
+			for routingKey, metrics := range keyMap {
+				serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(metrics)
 
-				serializedMetrics, err := sp.SerializeMsgGameReviewsMetrics(metrics)
-				if err != nil {
-					log.Errorf("Failed to serialize accumulated reviews: %v", err)
-					return err
-				}
-
-				err = accumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, serializedMetrics)
+				err = accumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, serializedMetricsBatch)
 				if err != nil {
 					log.Errorf("Failed to publish metrics: %v", err)
 					return err
 				}
-				log.Infof("Published accumulated reviews for appID: %d", AppID)
+				log.Info("Published accumulated reviews for percentile")
 
-				partitioningKey := u.GetPartitioningKeyFromInt(int(AppID), numNextNodes, IndieReviewJoinExchangeRoutingKeyPrefix)
-				err = indieReviewJoinExchange.Publish(partitioningKey, serializedMetrics)
+				err = indieReviewJoinExchange.Publish(routingKey, serializedMetricsBatch)
 				if err != nil {
 					log.Errorf("Failed to publish metrics: %v", err)
 					return err
 				}
-				log.Infof("Published accumulated reviews for appID in the join exchange: %d", AppID)
+				log.Infof("Published accumulated reviews for routing key: %d", routingKey)
 			}
 
 			//serialize msg de metrics
@@ -142,7 +140,7 @@ loop:
 			}
 			log.Info("Published end of file in review accumulator")
 
-			for nodeId := 1; nodeId <= numNextNodes; nodeId++ {
+			for nodeId := 1; nodeId <= indieReviewJoinerAmount; nodeId++ {
 				err = indieReviewJoinExchange.Publish(fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFile())
 				if err != nil {
 					log.Errorf("Failed to publish end of file in review accumulator: %v", err)
@@ -176,4 +174,13 @@ loop:
 		}
 	}
 	return nil
+}
+
+func idMapToKeyMap(idMap map[uint32]*ra.GameReviewsMetrics, indieReviewJoinerAmount int) map[string][]*ra.GameReviewsMetrics {
+	keyMap := make(map[string][]*ra.GameReviewsMetrics)
+	for id, metrics := range idMap {
+		key := u.GetPartitioningKeyFromInt(int(id), indieReviewJoinerAmount, IndieReviewJoinExchangeRoutingKeyPrefix)
+		keyMap[key] = append(keyMap[key], metrics)
+	}
+	return keyMap
 }

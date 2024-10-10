@@ -43,15 +43,40 @@ const (
 	IndieGenre  = "indie"
 	ActionGenre = "action"
 
-	OSAccumulatorNodes    = 2
-	DecadeFilterNodes     = 3
-	IndieReviewJoinNodes  = 1
-	ActionReviewJoinNodes = 1
+	OSAcumulatorsAmountEnvironmentVariableName       = "OS_ACCUMULATORS_AMOUNT"
+	DecadeFilterAmountEnvironmentVariableName        = "DECADE_FILTER_AMOUNT"
+	IndieReviewJoinersAmountEnvironmentVariableName  = "INDIE_REVIEW_JOINERS_AMOUNT"
+	ActionReviewJoinersAmountEnvironmentVariableName = "ACTION_REVIEW_JOINERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
 
 func main() {
+
+	osAccumulatorsAmount, err := u.GetEnvInt(OSAcumulatorsAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	decadeFilterAmount, err := u.GetEnvInt(DecadeFilterAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	indieReviewJoinersAmount, err := u.GetEnvInt(IndieReviewJoinersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	actionReviewJoinersAmount, err := u.GetEnvInt(ActionReviewJoinersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
 	manager, err := mom.NewMiddlewareManager(MiddlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
@@ -91,16 +116,17 @@ func main() {
 
 	forever := make(chan bool)
 
-	go mapLines(rawGamesQueue, osGamesExchange, gameYearAndAvgPtfExchange, indieReviewJoinExchange, actionReviewJoinExchange)
+	go mapLines(rawGamesQueue, osGamesExchange, gameYearAndAvgPtfExchange, indieReviewJoinExchange, actionReviewJoinExchange, osAccumulatorsAmount, decadeFilterAmount, indieReviewJoinersAmount, actionReviewJoinersAmount)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func mapLines(rawGamesQueue *mom.Queue, osGamesExchange *mom.Exchange, gameYearAndAvgPtfExchange *mom.Exchange, indieReviewJoinExchange *mom.Exchange, actionReviewJoinExchange *mom.Exchange) error {
+func mapLines(rawGamesQueue *mom.Queue, osGamesExchange *mom.Exchange, gameYearAndAvgPtfExchange *mom.Exchange, indieReviewJoinExchange *mom.Exchange, actionReviewJoinExchange *mom.Exchange, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int) error {
 	msgs, err := rawGamesQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
+loop:
 	for d := range msgs {
 
 		msgType, err := sp.DeserializeMessageType(d.Body)
@@ -113,13 +139,25 @@ func mapLines(rawGamesQueue *mom.Queue, osGamesExchange *mom.Exchange, gameYearA
 		case sp.MsgEndOfFile:
 			log.Info("End of file received")
 
-			for i := 0; i < OSAccumulatorNodes; i++ {
+			for i := 0; i < osAccumulatorsAmount; i++ {
 				osGamesExchange.Publish(OSGamesRoutingKey, sp.SerializeMsgEndOfFile())
 			}
 
-			for i := 0; i < DecadeFilterNodes; i++ {
+			for i := 0; i < decadeFilterAmount; i++ {
 				gameYearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, sp.SerializeMsgEndOfFile())
 			}
+
+			for i := 1; i <= indieReviewJoinersAmount; i++ {
+				routingKey := u.GetPartitioningKeyFromInt(i, indieReviewJoinersAmount, IndieReviewJoinRoutingKeyPrefix)
+				indieReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
+			}
+
+			for i := 1; i <= actionReviewJoinersAmount; i++ {
+				routingKey := u.GetPartitioningKeyFromInt(i, actionReviewJoinersAmount, ActionReviewJoinRoutingKeyPrefix)
+				actionReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
+			}
+
+			break loop
 
 		case sp.MsgBatch:
 
@@ -161,7 +199,7 @@ func mapLines(rawGamesQueue *mom.Queue, osGamesExchange *mom.Exchange, gameYearA
 					}
 				}
 
-				err = updateGameNameMaps(records, indieGamesNames, actionGamesNames)
+				err = updateGameNameMaps(records, indieGamesNames, actionGamesNames, indieReviewJoinersAmount, actionReviewJoinersAmount)
 				if err != nil {
 					log.Errorf("error updating game name maps, %v", err)
 					return err
@@ -226,7 +264,7 @@ func createAndAppendGameYearAndAvgPtf(records []string, gameYearAndAvgPtfSlice [
 	return gameYearAndAvgPtfSlice, nil
 }
 
-func updateGameNameMaps(records []string, indieGamesNames map[string][]*g.GameName, actionGamesNames map[string][]*g.GameName) error {
+func updateGameNameMaps(records []string, indieGamesNames map[string][]*g.GameName, actionGamesNames map[string][]*g.GameName, indieReviewJoinersAmount int, actionReviewJoinersAmount int) error {
 	appId, err := strconv.Atoi(records[0])
 	if err != nil {
 		log.Error("error converting appId")
@@ -240,10 +278,10 @@ func updateGameNameMaps(records []string, indieGamesNames map[string][]*g.GameNa
 		genre = strings.TrimSpace(genre)
 		switch genre {
 		case IndieGenre:
-			indiePartitioningKey := u.GetPartitioningKey(records[0], IndieReviewJoinNodes, IndieReviewJoinRoutingKeyPrefix)
+			indiePartitioningKey := u.GetPartitioningKey(records[0], indieReviewJoinersAmount, IndieReviewJoinRoutingKeyPrefix)
 			indieGamesNames[indiePartitioningKey] = append(indieGamesNames[indiePartitioningKey], gameName)
 		case ActionGenre:
-			actionPartitioningKey := u.GetPartitioningKey(records[0], ActionReviewJoinNodes, ActionReviewJoinRoutingKeyPrefix)
+			actionPartitioningKey := u.GetPartitioningKey(records[0], actionReviewJoinersAmount, ActionReviewJoinRoutingKeyPrefix)
 			actionGamesNames[actionPartitioningKey] = append(actionGamesNames[actionPartitioningKey], gameName)
 		}
 	}

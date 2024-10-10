@@ -4,6 +4,7 @@ import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	j "distribuidos-tp/internal/system_protocol/joiner"
+	u "distribuidos-tp/internal/utils"
 	"fmt"
 
 	"github.com/op/go-logging"
@@ -24,7 +25,8 @@ const (
 	TopPositiveReviewsExchangeType = "direct"
 	TopPositiveReviewsRoutingKey   = "top_positive_reviews_key"
 
-	Id = 1
+	ReviewsAccumulatorAmountEnvironmentVariableName = "REVIEWS_ACCUMULATOR_AMOUNT"
+	IdEnvironmentVariableName                       = "ID"
 )
 
 func main() {
@@ -36,9 +38,21 @@ func main() {
 
 	defer manager.CloseConnection()
 
-	accumulatedReviewsRoutingKey := fmt.Sprintf("%s%d", AccumulatedReviewsRoutingKeyPrefix, Id)
-	indieGameRoutingKey := fmt.Sprintf("%s%d", IndieGameRoutingKeyPrefix, Id)
-	indieReviewJoinQueueName := fmt.Sprintf("%s%d", IndieReviewJoinQueueNamePrefix, Id)
+	id, err := u.GetEnvInt(IdEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	reviewsAccumulatorAmount, err := u.GetEnvInt(ReviewsAccumulatorAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	accumulatedReviewsRoutingKey := fmt.Sprintf("%s%d", AccumulatedReviewsRoutingKeyPrefix, id)
+	indieGameRoutingKey := fmt.Sprintf("%s%d", IndieGameRoutingKeyPrefix, id)
+	indieReviewJoinQueueName := fmt.Sprintf("%s%d", IndieReviewJoinQueueNamePrefix, id)
 
 	routingKeys := []string{accumulatedReviewsRoutingKey, indieGameRoutingKey}
 	indieReviewJoinQueue, err := manager.CreateBoundQueueMultipleRoutingKeys(indieReviewJoinQueueName, IndieReviewJoinExchangeName, IndieReviewJoinExchangeType, routingKeys)
@@ -55,12 +69,13 @@ func main() {
 
 	forever := make(chan bool)
 
-	go joinActionReviews(indieReviewJoinQueue, topPositiveReviewsExchange)
+	go joinActionReviews(indieReviewJoinQueue, topPositiveReviewsExchange, reviewsAccumulatorAmount)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func joinActionReviews(indieReviewJoinQueue *mom.Queue, topPositiveReviewsExchange *mom.Exchange) error {
+func joinActionReviews(indieReviewJoinQueue *mom.Queue, topPositiveReviewsExchange *mom.Exchange, reviewsAccumulatorAmount int) error {
+	remainingEOFs := reviewsAccumulatorAmount + 1
 	accumulatedGameReviews := make(map[uint32]*j.JoinedActionGameReview)
 	log.Info("Creating Accumulating reviews metrics")
 	msgs, err := indieReviewJoinQueue.Consume(true)
@@ -80,31 +95,37 @@ loop:
 
 		switch messageType {
 		case sp.MsgEndOfFile:
+			remainingEOFs--
 			log.Info("End of file received in indie-review joiner")
+			if remainingEOFs > 0 {
+				continue
+			}
 
 			topPositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, sp.SerializeMsgEndOfFile())
 			break loop
 
 		case sp.MsgGameReviewsMetrics:
-			gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetrics(messageBody)
-			if err != nil {
-				log.Errorf("Failed to deserialize game reviews metrics: %v", err)
-				return err
-			}
-			if joinedGameReviewsMsg, exists := accumulatedGameReviews[gameReviewsMetrics.AppID]; exists {
-				log.Infof("Joining review into indie game with ID: %v", gameReviewsMetrics.AppID)
-				joinedGameReviewsMsg.UpdateWithReview(gameReviewsMetrics)
-
-				serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviews(joinedGameReviewsMsg)
+			gamesReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(messageBody)
+			for _, gameReviewsMetrics := range gamesReviewsMetrics {
 				if err != nil {
-					log.Errorf("Failed to serialize indie-review message: %v", err)
+					log.Errorf("Failed to deserialize game reviews metrics: %v", err)
+					return err
 				}
-				topPositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, serializedMetrics)
-				// delete the accumulated review
-				delete(accumulatedGameReviews, gameReviewsMetrics.AppID)
-			} else {
-				log.Info("Saving review for later join")
-				accumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewsMetrics.AppID)
+				if joinedGameReviewsMsg, exists := accumulatedGameReviews[gameReviewsMetrics.AppID]; exists {
+					log.Infof("Joining review into indie game with ID: %v", gameReviewsMetrics.AppID)
+					joinedGameReviewsMsg.UpdateWithReview(gameReviewsMetrics)
+
+					serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviews(joinedGameReviewsMsg)
+					if err != nil {
+						log.Errorf("Failed to serialize indie-review message: %v", err)
+					}
+					topPositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, serializedMetrics)
+					// delete the accumulated review
+					delete(accumulatedGameReviews, gameReviewsMetrics.AppID)
+				} else {
+					log.Info("Saving review for later join")
+					accumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewsMetrics.AppID)
+				}
 			}
 		case sp.MsgGameNames:
 
