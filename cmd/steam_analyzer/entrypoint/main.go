@@ -1,11 +1,16 @@
 package main
 
 import (
+	"context"
 	cp "distribuidos-tp/internal/client_protocol"
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	"github.com/op/go-logging"
 )
@@ -28,8 +33,18 @@ const GameFile = 1
 const ReviewFile = 0
 
 var log = logging.MustGetLogger("log")
+var wg sync.WaitGroup // WaitGroup para sincronizar la finalización
 
 func main() {
+	// Create a context that will be canceled on SIGINT or SIGTERM
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	done := make(chan bool, 1)
+
 	manager, err := mom.NewMiddlewareManager(MiddlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
@@ -68,15 +83,37 @@ func main() {
 
 	fmt.Println("Server listening on port 3000")
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			fmt.Println("Error accepting connection:", err)
-			continue
-		}
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				select {
+				case <-ctx.Done():
+					// Context canceled, stop accepting new connections
+					return
+				default:
+					fmt.Println("Error accepting connection:", err)
+					continue
+				}
+			}
 
-		go handleConnection(conn, rawGamesExchange, rawReviewsExchange, rawReviewsEofExchange)
-	}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				handleConnection(conn, rawGamesExchange, rawReviewsExchange, rawReviewsEofExchange)
+			}()
+		}
+	}()
+
+	go func() {
+		sig := <-sigs
+		log.Infof("Received signal: %v. Waiting for tasks to complete...", sig)
+		wg.Wait() // Esperar a que todas las tareas en el WaitGroup terminen
+		log.Info("All tasks completed. Shutting down.")
+		done <- true
+	}()
+
+	<-done
 }
 
 func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsExchange *mom.Exchange, rawReviewsEofExchange *mom.Exchange) {

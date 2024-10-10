@@ -4,8 +4,6 @@ import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
-	u "distribuidos-tp/internal/utils"
-	"fmt"
 
 	"github.com/op/go-logging"
 )
@@ -15,18 +13,14 @@ const (
 
 	StoredReviewsFileName = "stored_reviews"
 
-	ReviewsExchangeName     = "reviews_exchange"
-	ReviewsExchangeType     = "direct"
-	ReviewsRoutingKeyPrefix = "reviews_key_"
-	ReviewQueueNamePrefix   = "reviews_queue_"
+	CalculatePercentileQueueName    = "calculate_percentile_queue"
+	CalculatePercentileExchangeName = "calculate_percentile_exchange"
+	CalculatePercentileExchangeType = "direct"
+	CalculatePercentileRoutingKey   = "calculate_percentile_key"
 
 	AccumulatedReviewsExchangeName = "accumulated_reviews_exchange"
 	AccumulatedReviewsExchangeType = "direct"
 	AccumulatedReviewsRoutingKey   = "accumulated_reviews_key"
-
-	IndieReviewJoinExchangeName             = "indie_review_join_exchange"
-	IndieReviewJoinExchangeType             = "direct"
-	IndieReviewJoinExchangeRoutingKeyPrefix = "accumulated_reviews_key_"
 
 	IdEnvironmentVariableName            = "ID"
 	MappersAmountEnvironmentVariableName = "MAPPERS_AMOUNT"
@@ -40,18 +34,6 @@ var log = logging.MustGetLogger("log")
 
 func main() {
 
-	id, err := u.GetEnv(IdEnvironmentVariableName)
-	if err != nil {
-		log.Errorf("Failed to get environment variable: %v", err)
-		return
-	}
-
-	filtersAmount, err := u.GetEnvInt(MappersAmountEnvironmentVariableName)
-	if err != nil {
-		log.Errorf("Failed to get environment variable: %v", err)
-		return
-	}
-
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
@@ -59,21 +41,13 @@ func main() {
 	}
 	defer manager.CloseConnection()
 
-	reviewQueueName := fmt.Sprintf("%s%s", ReviewQueueNamePrefix, id)
-	reviewsRoutingKey := fmt.Sprintf("%s%s", ReviewsRoutingKeyPrefix, id)
-	reviewsQueue, err := manager.CreateBoundQueue(reviewQueueName, ReviewsExchangeName, ReviewsExchangeType, reviewsRoutingKey)
+	percentileQueue, err := manager.CreateBoundQueue(CalculatePercentileQueueName, CalculatePercentileExchangeName, CalculatePercentileExchangeType, CalculatePercentileRoutingKey)
 	if err != nil {
 		log.Errorf("Failed to create queue: %v", err)
 		return
 	}
 
-	accumulatedReviewsExchange, err := manager.CreateExchange(AccumulatedReviewsExchangeName, AccumulatedReviewsExchangeType)
-	if err != nil {
-		log.Errorf("Failed to declare exchange: %v", err)
-		return
-	}
-
-	indieReviewJoinExchange, err := manager.CreateExchange(IndieReviewJoinExchangeName, IndieReviewJoinExchangeType)
+	percentileExchange, err := manager.CreateExchange(CalculatePercentileExchangeName, CalculatePercentileExchangeType)
 	if err != nil {
 		log.Errorf("Failed to declare exchange: %v", err)
 		return
@@ -81,14 +55,14 @@ func main() {
 
 	forever := make(chan bool)
 
-	go accumulateReviewsMetrics(reviewsQueue, accumulatedReviewsExchange, indieReviewJoinExchange, filtersAmount)
+	go calculatePercentile(percentileQueue, percentileExchange)
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func accumulateReviewsMetrics(reviewsQueue *mom.Queue, accumulatedReviewsExchange *mom.Exchange, indieReviewJoinExchange *mom.Exchange, filtersAmount int) error {
+func calculatePercentile(percentileQueue *mom.Queue, percentileExchange *mom.Exchange) error {
 
-	msgs, err := reviewsQueue.Consume(true)
+	msgs, err := percentileQueue.Consume(true)
 	if err != nil {
 		return err
 	}
@@ -106,13 +80,17 @@ loop:
 
 			break loop
 
-		case sp.MsgReviewInformation:
+		case sp.MsgGameReviewsMetrics:
 			log.Infof("Received review information")
 			gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(d.Body)
 			if err != nil {
 				log.Errorf("Failed to deserialize game reviews metrics: %v", err)
 				return err
 			}
+			for _, review := range gameReviewsMetrics {
+				log.Infof("Received game review metrics: %v", review.NegativeReviews)
+			}
+
 			err = ra.AddSortedGamesAndMaintainOrder(StoredReviewsFileName, gameReviewsMetrics)
 			if err != nil {
 				log.Errorf("Failed to add sorted games and maintain order: %v", err)
@@ -121,6 +99,17 @@ loop:
 
 			numPrevNodes--
 			if numPrevNodes == 0 {
+
+				abovePercentile, err := ra.GetTop10PercentByNegativeReviews(StoredReviewsFileName)
+				if err != nil {
+					log.Errorf("Failed to get top 10 percent by negative reviews: %v", err)
+					return err
+				}
+
+				for _, review := range abovePercentile {
+					log.Infof("Metrics above p90: id:%v #:%v", review.AppID, review.NegativeReviews)
+				}
+
 				break loop
 			}
 

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"os"
+	"sync"
 )
 
 type GameOSMetrics struct {
@@ -23,9 +24,10 @@ func NewGameOSMetrics() *GameOSMetrics {
 
 const filePermission = 0644
 
-func (g *GameOSMetrics) UpdateAndSaveGameOSMetricsToFile(filePath string) error {
+func (g *GameOSMetrics) UpdateAndSaveGameOSMetricsToFile(filePath string, wg *sync.WaitGroup) error {
+	defer wg.Done() // Indicar al WaitGroup que la tarea finalizó
 
-	existingData, err := os.ReadFile(filePath) // This ReadFile reads the whole file (avoiding short reads)
+	existingData, err := os.ReadFile(filePath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}

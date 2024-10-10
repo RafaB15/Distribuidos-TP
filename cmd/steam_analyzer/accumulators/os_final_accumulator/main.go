@@ -4,6 +4,10 @@ import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	"github.com/op/go-logging"
 )
@@ -24,8 +28,15 @@ const (
 )
 
 var log = logging.MustGetLogger("log")
+var wg sync.WaitGroup // WaitGroup para sincronizar la finalización
 
 func main() {
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	done := make(chan bool, 1)
+
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
@@ -92,6 +103,18 @@ func main() {
 		return nil
 	}()
 	log.Info("Waiting for messages. To exit press CTRL+C")
+
+	go func() {
+		sig := <-sigs
+		log.Infof("Received signal: %v. Waiting for tasks to complete...", sig)
+		wg.Wait() // Esperar a que todas las tareas en el WaitGroup terminen
+		log.Info("All tasks completed. Shutting down.")
+		done <- true
+
+	}()
+
+	<-done
+
 	<-forever
 }
 

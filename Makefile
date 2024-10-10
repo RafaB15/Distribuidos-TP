@@ -11,12 +11,14 @@ docker-image-system:
 	docker build -f ./cmd/steam_analyzer/mappers/game_mapper/Dockerfile -t "game_mapper:latest" .
 	docker build -f ./cmd/steam_analyzer/mappers/review_mapper/Dockerfile -t "review_mapper:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/os_accumulator/Dockerfile -t "os_accumulator:latest" .
+	docker build -f ./cmd/steam_analyzer/accumulators/neg_review_accumulator/Dockerfile -t "neg_review_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/os_final_accumulator/Dockerfile -t "os_final_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/filters/english_filter/Dockerfile -t "english_filter:latest" .
 	docker build -f ./cmd/steam_analyzer/filters/top_positive_reviews/Dockerfile -t "top_positive_reviews:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/english_reviews_accumulator/Dockerfile -t "english_reviews_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/reviews_accumulator/Dockerfile -t "reviews_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/top_ten_accumulator/Dockerfile -t "top_ten_accumulator:latest" .
+	docker build -f ./cmd/steam_analyzer/accumulators/percentile_accumulator/Dockerfile -t "percentile_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/filters/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:latest" .
 	docker build -f ./cmd/steam_analyzer/filters/decade_filter/Dockerfile -t "decade_filter:latest" .
 	docker build -f ./cmd/steam_analyzer/joiners/action_review_joiner/Dockerfile -t "action_review_joiner:latest" .

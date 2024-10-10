@@ -5,6 +5,10 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	"fmt"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	"github.com/op/go-logging"
 )
@@ -23,13 +27,21 @@ const (
 )
 
 var log = logging.MustGetLogger("log")
+var wg sync.WaitGroup // WaitGroup para sincronizar la finalización
 
 func main() {
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	done := make(chan bool, 1)
+
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
 		return
 	}
+
 	defer manager.CloseConnection()
 
 	osGamesQueue, err := manager.CreateBoundQueue(OSGamesQueueName, OSGamesExchangeName, OSGamesExchangeType, OSGamesRoutingKey)
@@ -99,7 +111,8 @@ func main() {
 
 				log.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
 
-				osMetrics.UpdateAndSaveGameOSMetricsToFile("os_metrics")
+				wg.Add(1)
+				osMetrics.UpdateAndSaveGameOSMetricsToFile("os_metrics", &wg)
 
 			default:
 				return fmt.Errorf("unexpected message type")
@@ -109,6 +122,16 @@ func main() {
 
 		return nil
 	}()
+
+	go func() {
+		sig := <-sigs
+		log.Infof("Received signal: %v. Waiting for tasks to complete...", sig)
+		wg.Wait() // Esperar a que todas las tareas en el WaitGroup terminen
+		log.Info("All tasks completed. Shutting down.")
+		done <- true
+	}()
+
+	<-done
 
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever

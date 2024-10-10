@@ -10,8 +10,12 @@ import (
 	u "distribuidos-tp/internal/utils"
 	"encoding/csv"
 	"io"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 
 	"github.com/op/go-logging"
 )
@@ -50,8 +54,13 @@ const (
 )
 
 var log = logging.MustGetLogger("log")
+var wg sync.WaitGroup // WaitGroup para sincronizar la finalización
 
 func main() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	done := make(chan bool, 1)
 
 	osAccumulatorsAmount, err := u.GetEnvInt(OSAcumulatorsAmountEnvironmentVariableName)
 	if err != nil {
@@ -118,6 +127,15 @@ func main() {
 
 	go mapLines(rawGamesQueue, osGamesExchange, gameYearAndAvgPtfExchange, indieReviewJoinExchange, actionReviewJoinExchange, osAccumulatorsAmount, decadeFilterAmount, indieReviewJoinersAmount, actionReviewJoinersAmount)
 	log.Info("Waiting for messages. To exit press CTRL+C")
+	go func() {
+		sig := <-sigs
+		log.Infof("Received signal: %v. Waiting for tasks to complete...", sig)
+		wg.Wait() // Esperar a que todas las tareas en el WaitGroup terminen
+		log.Info("All tasks completed. Shutting down.")
+		done <- true
+	}()
+
+	<-done
 	<-forever
 }
 

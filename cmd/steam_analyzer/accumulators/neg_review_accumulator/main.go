@@ -77,6 +77,11 @@ loop:
 				log.Errorf("Failed to read game reviews metrics from file: %v", err)
 				return err
 			}
+			log.Infof("Ordered metrics:")
+			for _, review := range gameReviewMetricsToSend {
+				log.Infof("Received game review: %v", review.NegativeReviews)
+			}
+
 			PercentileExchange.Publish(CalculatePercentileRoutingKey, sp.SerializeMsgGameReviewsMetricsBatch(gameReviewMetricsToSend))
 			break loop
 

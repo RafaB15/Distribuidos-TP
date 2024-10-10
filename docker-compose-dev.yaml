@@ -103,6 +103,30 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  neg_review_accumulator:
+    image: neg_review_accumulator:latest
+    container_name: neg_reviews_accumulator
+    entrypoint: /accumulators/neg_review_accumulator
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  percentile_accumulator:
+    image: percentile_accumulator:latest
+    container_name: percentile_accumulator
+    entrypoint: /accumulators/percentile_accumulator
+    networks:
+      - distributed_network
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
   review_mapper_1:
     image: review_mapper:latest
     container_name: review_mapper_1

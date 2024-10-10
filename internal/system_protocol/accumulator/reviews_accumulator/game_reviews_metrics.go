@@ -4,6 +4,7 @@ import (
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/binary"
 	"errors"
+	"math"
 	"os"
 	"sort"
 )
@@ -143,4 +144,24 @@ func AddSortedGamesAndMaintainOrder(filename string, newGames []*GameReviewsMetr
 
 	// Escribir la lista combinada y ordenada de vuelta al archivo
 	return WriteGameReviewsMetricsToFile(filename, mergedGames)
+}
+
+// Retorna los juegos por encima del percentil 90 en reseñas negativas
+func GetTop10PercentByNegativeReviews(filename string) ([]*GameReviewsMetrics, error) {
+	// Leer todos los juegos ordenados del archivo
+	games, err := ReadGameReviewsMetricsFromFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	// Si no hay juegos, devolver error
+	if len(games) == 0 {
+		return nil, errors.New("no games found in file")
+	}
+
+	// Calcular la posición del percentil 90
+	percentileIndex := int(math.Ceil(0.9 * float64(len(games))))
+
+	// Retornar solo los juegos que están por encima del percentil 90
+	return games[percentileIndex:], nil
 }
