@@ -14,7 +14,8 @@
     "english_filter": 2,
     "english_reviews_accumulator": 2,
     "positive_reviews_filter": 2,
-    "action_review_joiner": 2,
+    "action_negative_review_joiner": 2,
+    "action_positive_review_joiner": 2,
     "indie_review_joiner": 2,
     "writer": 1
 }

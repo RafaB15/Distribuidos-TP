@@ -8,24 +8,25 @@ import (
 )
 
 type Config struct {
-	Rabbitmq                  int `json:"rabbitmq"`
-	Entrypoint                int `json:"entrypoint"`
-	GameMapper                int `json:"game_mapper"`
-	OSAccumulator             int `json:"os_accumulator"`
-	OSFinalAccumulator        int `json:"os_final_accumulator"`
-	TopTenAccumulator         int `json:"top_ten_accumulator"`
-	TopPositiveReviews        int `json:"top_positive_reviews"`
-	NegReviewAccumulator      int `json:"neg_review_accumulator"`
-	PercentileAccumulator     int `json:"percentile_accumulator"`
-	ReviewMapper              int `json:"review_mapper"`
-	ReviewsAccumulator        int `json:"reviews_accumulator"`
-	DecadeFilter              int `json:"decade_filter"`
-	EnglishFilter             int `json:"english_filter"`
-	EnglishReviewsAccumulator int `json:"english_reviews_accumulator"`
-	PositiveReviewsFilter     int `json:"positive_reviews_filter"`
-	ActionReviewJoiner        int `json:"action_review_joiner"`
-	IndieReviewJoiner         int `json:"indie_review_joiner"`
-	Writer                    int `json:"writer"`
+	Rabbitmq                   int `json:"rabbitmq"`
+	Entrypoint                 int `json:"entrypoint"`
+	GameMapper                 int `json:"game_mapper"`
+	OSAccumulator              int `json:"os_accumulator"`
+	OSFinalAccumulator         int `json:"os_final_accumulator"`
+	TopTenAccumulator          int `json:"top_ten_accumulator"`
+	TopPositiveReviews         int `json:"top_positive_reviews"`
+	NegReviewAccumulator       int `json:"neg_review_accumulator"`
+	PercentileAccumulator      int `json:"percentile_accumulator"`
+	ReviewMapper               int `json:"review_mapper"`
+	ReviewsAccumulator         int `json:"reviews_accumulator"`
+	DecadeFilter               int `json:"decade_filter"`
+	EnglishFilter              int `json:"english_filter"`
+	EnglishReviewsAccumulator  int `json:"english_reviews_accumulator"`
+	PositiveReviewsFilter      int `json:"positive_reviews_filter"`
+	ActionPositiveReviewJoiner int `json:"action_positive_review_joiner"`
+	ActionNegativeReviewJoiner int `json:"action_negative_review_joiner"`
+	IndieReviewJoiner          int `json:"indie_review_joiner"`
+	Writer                     int `json:"writer"`
 }
 
 func main() {
@@ -46,8 +47,7 @@ func main() {
 		return
 	}
 
-	compose := `version: '3.8'
-services:
+	compose := `services:
 `
 
 	// RabbitMQ service
@@ -68,6 +68,7 @@ services:
       retries: 5
     networks:
       - distributed_network
+
 `, serviceName, serviceName)
 
 	// Entrypoint service
@@ -81,6 +82,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName)
 
 	// GameMapper service
@@ -101,7 +103,8 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
-`, serviceName, serviceName, config.OSAccumulator, config.DecadeFilter, config.IndieReviewJoiner, config.ActionReviewJoiner)
+
+`, serviceName, serviceName, config.OSAccumulator, config.DecadeFilter, config.IndieReviewJoiner, config.ActionPositiveReviewJoiner)
 
 	// OSAccumulator service
 	for i := 1; i <= config.OSAccumulator; i++ {
@@ -117,6 +120,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName)
 	}
 
@@ -133,6 +137,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName)
 
 	// TopTenAccumulator service
@@ -148,6 +153,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName)
 
 	// TopPositiveReviews service
@@ -163,6 +169,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName)
 
 	// NegReviewAccumulator service
@@ -179,6 +186,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName)
 	}
 
@@ -188,6 +196,9 @@ services:
     container_name: %s
     image: percentile_accumulator:latest
     entrypoint: /accumulators/percentile_accumulator
+    environment:
+      - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=%d
+      - NUM_PREVIOUS_ACCUMULATORS=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -195,7 +206,8 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
-`, serviceName, serviceName)
+
+`, serviceName, serviceName, config.ActionNegativeReviewJoiner, config.OSAccumulator)
 
 	// ReviewMapper service
 	for i := 1; i <= config.ReviewMapper; i++ {
@@ -214,6 +226,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName, i, config.ReviewsAccumulator)
 	}
 
@@ -235,6 +248,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName, i, config.ReviewMapper, config.IndieReviewJoiner)
 	}
 
@@ -252,6 +266,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName)
 	}
 
@@ -272,6 +287,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName, i, config.EnglishReviewsAccumulator)
 	}
 
@@ -293,6 +309,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName, i, config.EnglishFilter, config.PositiveReviewsFilter)
 	}
 
@@ -313,16 +330,17 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
-`, serviceName, serviceName, config.ActionReviewJoiner, config.EnglishReviewsAccumulator)
+
+`, serviceName, serviceName, config.ActionPositiveReviewJoiner, config.EnglishReviewsAccumulator)
 	}
 
-	// ActionReviewJoiner service
-	for i := 1; i <= config.ActionReviewJoiner; i++ {
-		serviceName := fmt.Sprintf("action_review_joiner_%d", i)
+	// ActionPositiveReviewJoiner service
+	for i := 1; i <= config.ActionPositiveReviewJoiner; i++ {
+		serviceName := fmt.Sprintf("action_positive_review_joiner_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: action_review_joiner:latest
-    entrypoint: /joiners/action_review_joiner
+    image: action_positive_review_joiner:latest
+    entrypoint: /joiners/action_positive_review_joiner
     environment:
       - ID=%d
       - POSITIVE_REVIEWS_FILTERS_AMOUNT=%d
@@ -333,7 +351,28 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName, i, config.PositiveReviewsFilter)
+	}
+
+	// ActionPositiveReviewJoiner service
+	for i := 1; i <= config.ActionNegativeReviewJoiner; i++ {
+		serviceName := fmt.Sprintf("action_negative_review_joiner_%d", i)
+		compose += fmt.Sprintf(`  %s:
+    container_name: %s
+    image: action_negative_review_joiner:latest
+    entrypoint: /joiners/action_negative_review_joiner
+    environment:
+      - ID=%d
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+`, serviceName, serviceName, i)
 	}
 
 	// IndieReviewJoiner service
@@ -353,6 +392,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName, i, config.ReviewsAccumulator)
 	}
 
@@ -369,6 +409,7 @@ services:
         condition: service_healthy
     networks:
       - distributed_network
+
 `, serviceName, serviceName)
 
 	compose += `networks:
