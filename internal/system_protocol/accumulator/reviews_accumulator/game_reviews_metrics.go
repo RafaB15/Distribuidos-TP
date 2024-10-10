@@ -4,6 +4,8 @@ import (
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/binary"
 	"errors"
+	"os"
+	"sort"
 )
 
 type GameReviewsMetrics struct {
@@ -29,12 +31,12 @@ func (m *GameReviewsMetrics) UpdateWithReview(review *r.Review) {
 	}
 }
 
-func SerializeGameReviewsMetrics(metrics *GameReviewsMetrics) ([]byte, error) {
+func SerializeGameReviewsMetrics(metrics *GameReviewsMetrics) []byte {
 	buf := make([]byte, 12)
 	binary.BigEndian.PutUint32(buf[0:4], metrics.AppID)
 	binary.BigEndian.PutUint32(buf[4:8], uint32(metrics.PositiveReviews))
 	binary.BigEndian.PutUint32(buf[8:12], uint32(metrics.NegativeReviews))
-	return buf, nil
+	return buf
 }
 
 func DeserializeGameReviewsMetrics(data []byte) (*GameReviewsMetrics, error) {
@@ -48,4 +50,97 @@ func DeserializeGameReviewsMetrics(data []byte) (*GameReviewsMetrics, error) {
 		NegativeReviews: int(binary.BigEndian.Uint32(data[8:12])),
 	}
 	return metrics, nil
+}
+
+func ReadGameReviewsMetricsFromFile(filename string) ([]*GameReviewsMetrics, error) {
+	fileData, err := os.ReadFile(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Si el archivo no existe, devuelve una lista vacía
+			return []*GameReviewsMetrics{}, nil
+		}
+		return nil, err
+	}
+
+	var games []*GameReviewsMetrics
+	for i := 0; i < len(fileData); i += 12 {
+		game, err := DeserializeGameReviewsMetrics(fileData[i : i+12])
+		if err != nil {
+			return nil, err
+		}
+		games = append(games, game)
+	}
+	return games, nil
+}
+
+// Escribe una lista de juegos al archivo
+func WriteGameReviewsMetricsToFile(filename string, games []*GameReviewsMetrics) error {
+	var data []byte
+	for _, game := range games {
+		data = append(data, SerializeGameReviewsMetrics(game)...)
+	}
+	return os.WriteFile(filename, data, 0644)
+}
+
+func AddGamesAndMaintainOrder(filename string, newGames []*GameReviewsMetrics) error {
+	// Leer los juegos existentes del archivo
+	existingGames, err := ReadGameReviewsMetricsFromFile(filename)
+	if err != nil {
+		return err
+	}
+
+	// Combinar la lista existente con la nueva lista
+	allGames := append(existingGames, newGames...)
+
+	// Ordenar los juegos por la cantidad de reseñas negativas
+	sort.Slice(allGames, func(i, j int) bool {
+		return allGames[i].NegativeReviews < allGames[j].NegativeReviews
+	})
+
+	// Escribir la lista ordenada de vuelta al archivo
+	return WriteGameReviewsMetricsToFile(filename, allGames)
+}
+
+// Función para hacer un merge de dos listas ordenadas
+func MergeSortedGames(existingGames, newGames []*GameReviewsMetrics) []*GameReviewsMetrics {
+	result := make([]*GameReviewsMetrics, 0, len(existingGames)+len(newGames))
+	i, j := 0, 0
+
+	// Hacer merge de las dos listas ya ordenadas
+	for i < len(existingGames) && j < len(newGames) {
+		if existingGames[i].NegativeReviews <= newGames[j].NegativeReviews {
+			result = append(result, existingGames[i])
+			i++
+		} else {
+			result = append(result, newGames[j])
+			j++
+		}
+	}
+
+	// Agregar el resto de elementos si alguno quedó
+	for i < len(existingGames) {
+		result = append(result, existingGames[i])
+		i++
+	}
+
+	for j < len(newGames) {
+		result = append(result, newGames[j])
+		j++
+	}
+
+	return result
+}
+
+func AddSortedGamesAndMaintainOrder(filename string, newGames []*GameReviewsMetrics) error {
+	// Leer los juegos existentes del archivo
+	existingGames, err := ReadGameReviewsMetricsFromFile(filename)
+	if err != nil {
+		return err
+	}
+
+	// Combinar las dos listas usando merge sort
+	mergedGames := MergeSortedGames(existingGames, newGames)
+
+	// Escribir la lista combinada y ordenada de vuelta al archivo
+	return WriteGameReviewsMetricsToFile(filename, mergedGames)
 }
