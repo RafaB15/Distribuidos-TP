@@ -11,7 +11,7 @@ services:
     networks:
       - distributed_network
     healthcheck:
-      test: [ "CMD", "rabbitmqctl", "status" ]
+      test: ["CMD", "rabbitmqctl", "status"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -121,6 +121,9 @@ services:
     entrypoint: /accumulators/percentile_accumulator
     networks:
       - distributed_network
+    environment:
+      - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=2
+      - NUM_PREVIOUS_ACCUMULATORS=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -313,10 +316,10 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  action_review_joiner_1:
-    image: action_review_joiner:latest
-    container_name: action_review_joiner_1
-    entrypoint: /joiners/action_review_joiner
+  action_positive_review_joiner_1:
+    image: action_positive_review_joiner:latest
+    container_name: action_positive_review_joiner_1
+    entrypoint: /joiners/action_positive_review_joiner
     networks:
       - distributed_network
     environment:
@@ -328,15 +331,43 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  action_review_joiner_2:
-    image: action_review_joiner:latest
-    container_name: action_review_joiner_2
-    entrypoint: /joiners/action_review_joiner
+  action_positive_review_joiner_2:
+    image: action_positive_review_joiner:latest
+    container_name: action_positive_review_joiner_2
+    entrypoint: /joiners/action_positive_review_joiner
     networks:
       - distributed_network
     environment:
       - ID=2
       - POSITIVE_REVIEWS_FILTERS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  action_negative_review_joiner_1:
+    image: action_negative_review_joiner:latest
+    container_name: action_negative_review_joiner_1
+    entrypoint: /joiners/action_negative_review_joiner
+    networks:
+      - distributed_network
+    environment:
+      - ID=1
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  action_negative_review_joiner_2:
+    image: action_negative_review_joiner:latest
+    container_name: action_negative_review_joiner_2
+    entrypoint: /joiners/action_negative_review_joiner
+    networks:
+      - distributed_network
+    environment:
+      - ID=2
     depends_on:
       game_mapper:
         condition: service_started

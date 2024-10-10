@@ -21,7 +21,8 @@ docker-image-system:
 	docker build -f ./cmd/steam_analyzer/accumulators/percentile_accumulator/Dockerfile -t "percentile_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/filters/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:latest" .
 	docker build -f ./cmd/steam_analyzer/filters/decade_filter/Dockerfile -t "decade_filter:latest" .
-	docker build -f ./cmd/steam_analyzer/joiners/action_review_joiner/Dockerfile -t "action_review_joiner:latest" .
+	docker build -f ./cmd/steam_analyzer/joiners/action_positive_review_joiner/Dockerfile -t "action_positive_review_joiner:latest" .
+	docker build -f ./cmd/steam_analyzer/joiners/action_negative_review_joiner/Dockerfile -t "action_negative_review_joiner:latest" .
 	docker build -f ./cmd/steam_analyzer/joiners/indie_review_joiner/Dockerfile -t "indie_review_joiner:latest" .
 	docker build -f ./cmd/steam_analyzer/writer/Dockerfile -t "writer:latest" .
 .PHONY: docker-image-system

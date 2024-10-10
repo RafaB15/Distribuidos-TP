@@ -292,6 +292,29 @@ func DeserializeMsgJoinedActionGameReviews(data []byte) (*j.JoinedActionGameRevi
 	return metrics, nil
 }
 
+func SerializeMsgNegativeJoinedActionGameReviews(joinedActionGameReview *j.JoinedActionGameReview) ([]byte, error) {
+	messageLen := 4 + 4 + len(joinedActionGameReview.GameName) + 4
+	message := make([]byte, 2+messageLen) //chequear cuando haga el mensaje de ActionGame
+	message[0] = byte(MsgQueryResolved)
+	message[1] = byte(MsgActionNegativeReviewsQuery)
+	serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
+	if err != nil {
+		return nil, err
+	}
+	copy(message[2:], serializedJoinedActionGameReview)
+	return message, nil
+}
+
+func DeserializeMsgNegativeJoinedActionGameReviews(data []byte) (*j.JoinedActionGameReview, error) {
+
+	metrics, err := j.DeserializeJoinedActionGameReview(data[2:]) //me salteo los 2 bytesde tipo de mensaje
+	if err != nil {
+		return nil, err
+	}
+
+	return metrics, nil
+}
+
 func SerializeMsgJoinedIndieGameReviews(joinedActionGameReview *j.JoinedActionGameReview) ([]byte, error) {
 	messageLen := 4 + 4 + len(joinedActionGameReview.GameName) + 4
 	message := make([]byte, 2+messageLen) //chequear cuando haga el mensaje de ActionGame
