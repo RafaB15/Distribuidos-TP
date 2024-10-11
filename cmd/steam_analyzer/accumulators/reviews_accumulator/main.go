@@ -130,7 +130,7 @@ loop:
 					log.Errorf("Failed to publish metrics: %v", err)
 					return err
 				}
-				log.Infof("Published accumulated reviews for routing key: %d", routingKey)
+				log.Infof("Published accumulated reviews for routing key: %v", routingKey)
 			}
 
 			err = accumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFile())

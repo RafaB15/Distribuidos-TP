@@ -21,6 +21,8 @@ const (
 	CalculatePercentileExchangeName = "calculate_percentile_exchange"
 	CalculatePercentileExchangeType = "direct"
 	CalculatePercentileRoutingKey   = "calculate_percentile_key"
+
+	IdEnvironmentVariableName = "ID"
 )
 
 var log = logging.MustGetLogger("log")
@@ -52,11 +54,12 @@ func main() {
 	<-forever
 }
 
-func sortAndSendAccumulatedReviews(reviewsQueue *mom.Queue, calculatePercentileExchange *mom.Exchange) error {
-	msgs, err := reviewsQueue.Consume(true)
+func sortAndSendAccumulatedReviews(accumulatedReviewsQueue *mom.Queue, calculatePercentileExchange *mom.Exchange) error {
+	msgs, err := accumulatedReviewsQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
+	log.Info("About to enter the loop")
 loop:
 	for d := range msgs {
 
@@ -80,7 +83,7 @@ loop:
 			log.Infof("Ordered metrics:")
 			log.Infof("Number of game review metrics to send: %d", len(gameReviewMetricsToSend))
 			for _, review := range gameReviewMetricsToSend {
-				log.Infof("Received game review: %v", review.NegativeReviews)
+				log.Infof("Received game review metrics. Negatives: %v", review.NegativeReviews)
 			}
 
 			calculatePercentileExchange.Publish(CalculatePercentileRoutingKey, sp.SerializeMsgGameReviewsMetricsBatch(gameReviewMetricsToSend))
@@ -94,6 +97,7 @@ loop:
 				return err
 			}
 
+			log.Info("Received game reviews metrics")
 			err = ra.AddGamesAndMaintainOrder(StoredReviewsFileName, gameReviewsMetrics)
 			if err != nil {
 				log.Errorf("Failed to add games and maintain order: %v", err)

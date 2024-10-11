@@ -81,6 +81,7 @@ loop:
 			nodesLeft -= 1
 			if nodesLeft <= 0 {
 				for _, indieGame := range topPositiveIndieGames {
+					log.Infof("Sending indie game with ID: %v to writer", indieGame.AppId)
 					serializedGame, err := sp.SerializeMsgJoinedIndieGameReviews(indieGame)
 					if err != nil {
 						log.Errorf("Failed to serialize message: %v", err)

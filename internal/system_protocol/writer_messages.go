@@ -20,7 +20,7 @@ func DeserializeQueryResolvedType(message []byte) (Query, error) {
 	query := Query(message[0])
 	switch query {
 
-	case MsgOsResolvedQuery, MsgActionPositiveReviewsQuery, MsgTopTenDecadeAvgPtfQuery, MsgIndiePositiveJoinedReviewsQuery:
+	case MsgOsResolvedQuery, MsgActionPositiveReviewsQuery, MsgTopTenDecadeAvgPtfQuery, MsgIndiePositiveJoinedReviewsQuery, MsgActionNegativeReviewsQuery:
 		return query, nil
 	default:
 		return 0, fmt.Errorf("unknown message type: %d", query)

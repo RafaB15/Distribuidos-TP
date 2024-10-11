@@ -16,11 +16,27 @@ const (
 	WriterRoutingKey   = "writer_key"
 	WriterExchangeType = "direct"
 	WriterQueueName    = "writer_queue"
+
+	ActionNegativeReviewsJoinersAmountEnvironmentVariableName = "ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT"
+	ActionPositiveReviewJoinersAmountEnvironmentVariableName  = "ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
 
 func main() {
+
+	actionNegativeReviewsJoinersAmount, err := u.GetEnvInt(ActionNegativeReviewsJoinersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	actionPositiveReviewsJoinersAmount, err := u.GetEnvInt(ActionPositiveReviewJoinersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
@@ -42,6 +58,8 @@ func main() {
 	forever := make(chan bool)
 
 	go func() {
+		remmainingEOFs := actionNegativeReviewsJoinersAmount + actionPositiveReviewsJoinersAmount + 3
+	loop:
 		for d := range msgs {
 			msgType, err := sp.DeserializeMessageType(d.Body)
 			if err != nil {
@@ -96,6 +114,13 @@ func main() {
 						return
 					}
 				}
+			case sp.MsgEndOfFile:
+				log.Info("End Of File received")
+				remmainingEOFs--
+				if remmainingEOFs > 0 {
+					continue
+				}
+				break loop
 
 			default:
 				log.Errorf("Invalid message type: %v", msgType)

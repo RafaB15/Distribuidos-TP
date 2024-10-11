@@ -15,7 +15,6 @@ type Config struct {
 	OSFinalAccumulator         int `json:"os_final_accumulator"`
 	TopTenAccumulator          int `json:"top_ten_accumulator"`
 	TopPositiveReviews         int `json:"top_positive_reviews"`
-	NegReviewAccumulator       int `json:"neg_review_accumulator"`
 	PercentileAccumulator      int `json:"percentile_accumulator"`
 	ReviewMapper               int `json:"review_mapper"`
 	ReviewsAccumulator         int `json:"reviews_accumulator"`
@@ -172,24 +171,6 @@ func main() {
 
 `, serviceName, serviceName)
 
-	// NegReviewAccumulator service
-	for i := 1; i <= config.NegReviewAccumulator; i++ {
-		serviceName := fmt.Sprintf("neg_review_accumulator_%d", i)
-		compose += fmt.Sprintf(`  %s:
-    container_name: %s
-    image: neg_review_accumulator:latest
-    entrypoint: /accumulators/neg_review_accumulator
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-`, serviceName, serviceName)
-	}
-
 	// PercentileAccumulator service
 	serviceName = "percentile_accumulator"
 	compose += fmt.Sprintf(`  %s:
@@ -207,7 +188,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.ActionNegativeReviewJoiner, config.OSAccumulator)
+`, serviceName, serviceName, config.ActionNegativeReviewJoiner, config.ReviewsAccumulator)
 
 	// ReviewMapper service
 	for i := 1; i <= config.ReviewMapper; i++ {
@@ -402,6 +383,9 @@ func main() {
     container_name: %s
     image: writer:latest
     entrypoint: /writer
+    environment:
+      - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=%d
+      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=%d
     depends_on:
       entrypoint:
         condition: service_started
@@ -410,7 +394,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName)
+`, serviceName, serviceName, config.ActionNegativeReviewJoiner, config.ActionPositiveReviewJoiner)
 
 	compose += `networks:
   distributed_network:

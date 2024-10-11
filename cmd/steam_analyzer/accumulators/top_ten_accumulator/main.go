@@ -132,6 +132,12 @@ func main() {
 					return err
 				}
 
+				err = writerExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
+				if err != nil {
+					log.Errorf("Failed to publish end of file: %v", err)
+					return err
+				}
+
 				break
 			}
 		}

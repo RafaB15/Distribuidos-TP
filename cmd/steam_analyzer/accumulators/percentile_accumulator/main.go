@@ -15,10 +15,10 @@ const (
 
 	StoredReviewsFileName = "stored_reviews"
 
-	CalculatePercentileQueueName    = "calculate_percentile_queue"
-	CalculatePercentileExchangeName = "calculate_percentile_exchange"
-	CalculatePercentileExchangeType = "direct"
-	CalculatePercentileRoutingKey   = "calculate_percentile_key"
+	AccumulatedReviewsExchangeName = "accumulated_reviews_exchange"
+	AccumulatedReviewsExchangeType = "direct"
+	AccumulatedReviewsRoutingKey   = "accumulated_reviews_key"
+	AccumulatedReviewsQueueName    = "accumulated_reviews_queue"
 
 	AccumulatedPercentileReviewsExchangeName     = "action_review_join_exchange"
 	AccumulatedPercentileReviewsExchangeType     = "direct"
@@ -53,7 +53,7 @@ func main() {
 		return
 	}
 
-	percentileQueue, err := manager.CreateBoundQueue(CalculatePercentileQueueName, CalculatePercentileExchangeName, CalculatePercentileExchangeType, CalculatePercentileRoutingKey)
+	percentileQueue, err := manager.CreateBoundQueue(AccumulatedReviewsQueueName, AccumulatedReviewsExchangeName, AccumulatedReviewsExchangeType, AccumulatedReviewsRoutingKey)
 	if err != nil {
 		log.Errorf("Failed to create queue: %v", err)
 		return
@@ -89,7 +89,42 @@ loop:
 
 		switch messageType {
 		case sp.MsgEndOfFile:
+			previousAccumulators--
+			if previousAccumulators > 0 {
+				continue
+			}
+			//obtengo los reviews de percentil en una lista
+			abovePercentile, err := ra.GetTop10PercentByNegativeReviews(StoredReviewsFileName)
+			if err != nil {
+				log.Errorf("Failed to get top 10 percent by negative reviews: %v", err)
+				return err
+			}
 
+			// por cada review le calculo la sharding key y lo inserto
+			for _, review := range abovePercentile {
+				key := u.GetPartitioningKeyFromInt(int(review.AppID), actionNegativeReviewsJoinersAmount, AccumulatedPercentileReviewsRoutingKeyPrefix)
+				accumulatedPercentileKeyMap[key] = append(accumulatedPercentileKeyMap[key], review)
+				log.Infof("Metrics above p90: id:%v #:%v", review.AppID, review.NegativeReviews)
+			}
+
+			// por cada key serializo y envio
+			for routingKey, metrics := range accumulatedPercentileKeyMap {
+				serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(metrics)
+
+				err = percentileExchange.Publish(routingKey, serializedMetricsBatch)
+				if err != nil {
+					log.Errorf("Failed to publish metrics: %v", err)
+					return err
+				}
+				log.Info("Published accumulated reviews for join")
+				log.Infof("Published accumulated reviews for routing key: %d", routingKey)
+			}
+
+			// envio a todos los joiners end of file
+			err = handleEof(percentileExchange, actionNegativeReviewsJoinersAmount)
+			if err != nil {
+				log.Errorf("Failed to handle end of file: %v", err)
+			}
 			break loop
 
 		case sp.MsgGameReviewsMetrics:
@@ -105,47 +140,10 @@ loop:
 				log.Infof("Received game review metrics: %v", review.NegativeReviews)
 			}
 
-			err = ra.AddSortedGamesAndMaintainOrder(StoredReviewsFileName, gameReviewsMetrics)
+			err = ra.AddGamesAndMaintainOrder(StoredReviewsFileName, gameReviewsMetrics)
 			if err != nil {
-				log.Errorf("Failed to add sorted games and maintain order: %v", err)
+				log.Errorf("Failed to add games and maintain order: %v", err)
 				return err
-			}
-
-			previousAccumulators--
-			if previousAccumulators == 0 {
-
-				//obtengo los reviews de percentil en una lista
-				abovePercentile, err := ra.GetTop10PercentByNegativeReviews(StoredReviewsFileName)
-				if err != nil {
-					log.Errorf("Failed to get top 10 percent by negative reviews: %v", err)
-					return err
-				}
-
-				// por cada review le calculo la sharding key y lo inserto
-				for id, review := range abovePercentile {
-					key := u.GetPartitioningKeyFromInt(int(id), actionNegativeReviewsJoinersAmount, AccumulatedPercentileReviewsRoutingKeyPrefix)
-					accumulatedPercentileKeyMap[key] = append(accumulatedPercentileKeyMap[key], review)
-					log.Infof("Metrics above p90: id:%v #:%v", review.AppID, review.NegativeReviews)
-				}
-
-				// por cada key serializo y envio
-				for routingKey, metrics := range accumulatedPercentileKeyMap {
-					serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(metrics)
-
-					err = percentileExchange.Publish(routingKey, serializedMetricsBatch)
-					if err != nil {
-						log.Errorf("Failed to publish metrics: %v", err)
-						return err
-					}
-					log.Info("Published accumulated reviews for join")
-					log.Infof("Published accumulated reviews for routing key: %d", routingKey)
-				}
-
-				// envio a todos los joiners end of file
-				err = handleEof(percentileExchange, actionNegativeReviewsJoinersAmount)
-				if err != nil {
-					log.Errorf("Failed to handle end of file: %v", err)
-				}
 			}
 		default:
 			log.Errorf("Unexpected message type: %d", messageType)

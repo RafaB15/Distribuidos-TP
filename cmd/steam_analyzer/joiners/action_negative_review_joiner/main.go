@@ -122,6 +122,7 @@ loop:
 					if err != nil {
 						log.Errorf("Failed to serialize action-review message: %v", err)
 					}
+					log.Infof("Sending review for game with ID: %v, negative reviews: %d", gameReviewMetrics.AppID, gameReviewMetrics.NegativeReviews)
 					writerExchange.Publish(WriterRoutingKey, serializedMetrics)
 					// delete the accumulated review
 					delete(accumulatedGameReviews, gameReviewMetrics.AppID)
@@ -146,6 +147,7 @@ loop:
 					if err != nil {
 						log.Errorf("Failed to serialize action-review message: %v", err)
 					}
+					log.Infof("Sending review for game with ID: %v, negative reviews: %d", actionGame.AppId)
 					writerExchange.Publish(WriterRoutingKey, serializedMetrics)
 					// delete the accumulated review
 					delete(accumulatedGameReviews, actionGame.AppId)
