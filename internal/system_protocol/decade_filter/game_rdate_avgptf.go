@@ -205,18 +205,35 @@ func SerializeTopTenAvgPlaytimeForever(games []*GameYearAndAvgPtf) []byte {
 	return result
 }
 
-func WriteToFile(filename string, data []byte) error {
-	deserializedGame, err := DeserializeGameYearAndAvgPtf(data)
-	if err != nil {
-		log.Errorf("Failed to deserialize game: %v", err)
-		return err
-	}
+func WriteToFile(filename string, data *GameYearAndAvgPtf) error {
 
-	jsonData, err := json.Marshal(deserializedGame)
+	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
 
 	return os.WriteFile(filename, jsonData, filePermission)
 
+}
+
+func DeserializeTopTenAvgPlaytimeForever(data []byte) ([]*GameYearAndAvgPtf, error) {
+	if len(data) < 1 {
+		return nil, io.ErrUnexpectedEOF
+	}
+
+	amount := int(data[0])
+	if len(data) != 1+amount*10 {
+		return nil, io.ErrUnexpectedEOF
+	}
+
+	games := make([]*GameYearAndAvgPtf, amount)
+	for i := 0; i < amount; i++ {
+		game, err := DeserializeGameYearAndAvgPtf(data[1+i*10 : 1+(i+1)*10])
+		if err != nil {
+			return nil, err
+		}
+		games[i] = game
+	}
+
+	return games, nil
 }

@@ -5,6 +5,7 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	gm "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	av "distribuidos-tp/internal/system_protocol/decade_filter"
+	jm "distribuidos-tp/internal/system_protocol/joiner"
 	u "distribuidos-tp/internal/utils"
 
 	"github.com/op/go-logging"
@@ -81,7 +82,7 @@ func main() {
 				switch query {
 				case sp.MsgOsResolvedQuery:
 					log.Info("Received query Os resolved message")
-					err := handleOsResolvedQuery(data)
+					err := handleOsResolvedQuery(data[1:])
 					if err != nil {
 						log.Errorf("Failed to handle os resolved query: %v", err)
 						return
@@ -148,7 +149,7 @@ func handleOsResolvedQuery(data []byte) error {
 
 func handleGenrePositiveReviewsQuery(data []byte, name_file string) error {
 
-	err := av.WriteToFile(name_file, data)
+	err := jm.WriteToFile(name_file, data)
 	if err != nil {
 		log.Errorf("Failed to write Game Avg Playtime query to file: %v", err)
 		return err
@@ -161,13 +162,22 @@ func handleGenrePositiveReviewsQuery(data []byte, name_file string) error {
 
 func handleTopTenDecadeAvgPtfQuery(data []byte) error {
 
-	err := av.WriteToFile("top_ten_decade_avg_ptf_query.txt", data)
+	gamesAvg, err := av.DeserializeTopTenAvgPlaytimeForever(data)
 	if err != nil {
-		log.Errorf("Failed to write Game Avg Playtime query to file: %v", err)
+		log.Errorf("Failed to deserialize top ten games avg playtime forever: %v", err)
 		return err
 	}
 
-	log.Info("Query saved to os_query file")
+	for _, game := range gamesAvg {
+		err = av.WriteToFile("top_ten_decade_avg_ptf_query.txt", game)
+		if err != nil {
+			log.Errorf("Failed to write Game Avg Playtime query to file: %v", err)
+			return err
+		}
+
+	}
+
+	log.Info("Query saved to Top Avg file")
 	return nil
 
 }

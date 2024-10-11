@@ -66,6 +66,7 @@ func DeserializeJoinedActionGameReview(data []byte) (*JoinedActionGameReview, er
 }
 
 func WriteToFile(filename string, data []byte) error {
+
 	deserializedData, err := DeserializeJoinedActionGameReview(data)
 	if err != nil {
 		return err
