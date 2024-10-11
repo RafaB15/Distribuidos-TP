@@ -89,13 +89,19 @@ En esta instancia (y las subsiguientes) el objetivo es la resolucion de estas co
   
 ## Diagrama de Robustez
 
+[Link al Diagrama](https://github.com/RafaB15/Distribuidos-TP/blob/sofiajaves-patch-1/images/Diagrama%20de%20Robustez.png)
+
 En este diagrama se pueden ver los distintos servicios mencionados en la seccion anterior pero con la conexión entre ellos. 
 
 ## Diagrama de Paquetes
 
+[Link al Diagrama](https://github.com/RafaB15/Distribuidos-TP/blob/sofiajaves-patch-1/images/Paquetes.png)
+
 En este diagrama se refleja la organización del código a gran escala por como estan organizadas por sus funcionalidades similares.
 
 ## DAG
+
+[Link al Diagrama](https://github.com/RafaB15/Distribuidos-TP/blob/sofiajaves-patch-1/images/DAG.png)
 
 En el DAG se pueden observar aquellos datos que son necesarios para procesar cada una de las consultas. Las consultas se pueden interpretar como los distintos caminos desde el entrypoint hasta el Post o Writer.
 
