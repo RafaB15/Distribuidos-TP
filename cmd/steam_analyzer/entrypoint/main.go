@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -33,7 +32,6 @@ const GameFile = 1
 const ReviewFile = 0
 
 var log = logging.MustGetLogger("log")
-var wg sync.WaitGroup // WaitGroup para sincronizar la finalización
 
 func main() {
 	// Create a context that will be canceled on SIGINT or SIGTERM
@@ -97,9 +95,7 @@ func main() {
 				}
 			}
 
-			wg.Add(1)
 			go func() {
-				defer wg.Done()
 				handleConnection(conn, rawGamesExchange, rawReviewsExchange, rawReviewsEofExchange)
 			}()
 		}
@@ -108,7 +104,6 @@ func main() {
 	go func() {
 		sig := <-sigs
 		log.Infof("Received signal: %v. Waiting for tasks to complete...", sig)
-		wg.Wait() // Esperar a que todas las tareas en el WaitGroup terminen
 		log.Info("All tasks completed. Shutting down.")
 		done <- true
 	}()

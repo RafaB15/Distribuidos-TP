@@ -147,7 +147,7 @@ func handleMsgBatch(lines []string, reviewsExchange *mom.Exchange, accumulatorsA
 			}
 			return err
 		}
-		log.Debugf("Printing fields: 0 : %v, 1 : %v, 2 : %v", records[0], records[1], records[2])
+		log.Debugf("Printing fields: 0 : %v, 2 : %v", records[0], records[2])
 
 		review, err := r.NewReviewFromStrings(records[0], records[2])
 		if err != nil {

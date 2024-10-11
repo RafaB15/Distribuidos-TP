@@ -17,6 +17,17 @@ var log = logging.MustGetLogger("log")
 
 func main() {
 
+	gameFilePath := os.Getenv("GAME_FILE_PATH")
+	if gameFilePath == "" {
+		log.Errorf("GAME_FILE_PATH not set")
+		return
+	}
+	reviewFilePath := os.Getenv("REVIEW_FILE_PATH")
+	if reviewFilePath == "" {
+		log.Errorf("REVIEW_FILE_PATH not set")
+		return
+	}
+
 	conn, err := net.Dial("tcp", SERVER_IP)
 	if err != nil {
 		log.Errorf("Error connecting:", err)
@@ -24,7 +35,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	file, err := os.Open("./client_data/games_reduced_cleaned.csv")
+	file, err := os.Open(gameFilePath)
 	if err != nil {
 		log.Errorf("Error opening file:", err)
 		return
@@ -62,7 +73,7 @@ func main() {
 		log.Debug("Sent game batch")
 	}
 
-	file, err = os.Open("./client_data/steam_reviews_reduced_cleaned.csv")
+	file, err = os.Open(reviewFilePath)
 	if err != nil {
 		log.Errorf("Error opening file:", err)
 		return

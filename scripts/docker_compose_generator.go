@@ -145,6 +145,8 @@ func main() {
     container_name: %s
     image: top_ten_accumulator:latest
     entrypoint: /accumulators/top_ten_accumulator
+    environment:
+      - DECADE_FILTERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -153,7 +155,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName)
+`, serviceName, serviceName, config.DecadeFilter)
 
 	// TopPositiveReviews service
 	serviceName = "top_positive_reviews"
@@ -161,6 +163,8 @@ func main() {
     container_name: %s
     image: top_positive_reviews:latest
     entrypoint: /filters/top_positive_reviews
+    environment:
+      - INDIE_REVIEW_JOINERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -169,7 +173,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName)
+`, serviceName, serviceName, config.IndieReviewJoiner)
 
 	// PercentileAccumulator service
 	serviceName = "percentile_accumulator"

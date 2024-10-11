@@ -27,8 +27,6 @@ const (
 	ActionPositiveReviewsJoinersAmountEnvironmentVariableName = "ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT"
 	EnglishReviewAccumulatorsAmountEnvironmentVariableName    = "ENGLISH_REVIEW_ACCUMULATORS_AMOUNT"
 
-	numPreviousNodes   = 1
-	numNextNodes       = 1
 	minPositiveReviews = 5
 )
 

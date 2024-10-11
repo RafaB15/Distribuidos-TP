@@ -113,9 +113,11 @@ loop:
 				}
 			}
 		case <-time.After(timeout):
+			log.Debug("Timeout!!!")
 			eofMsg, err := rawEnglishReviewsEofQueue.GetIfAvailable()
 			if err != nil {
-				timeout = time.Second * 1
+				log.Errorf("Failed to get message from queue eof queue: %v", err)
+				timeout = time.Second * 2
 				continue
 			}
 			msgType, err := sp.DeserializeMessageType(eofMsg.Body)
@@ -162,7 +164,7 @@ func handleMsgBatch(lines []string, englishReviewsExchange *mom.Exchange, accumu
 			updateEnglishReviewsMap(review, routingKeyMap, accumulatorsAmount)
 		}
 
-		log.Debugf("Received review: %v", records[1])
+		log.Debugf("Received review for game with id: %v", records[0])
 	}
 
 	for routingKey, reviews := range routingKeyMap {

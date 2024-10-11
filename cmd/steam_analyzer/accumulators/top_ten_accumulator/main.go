@@ -4,9 +4,9 @@ import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
+	u "distribuidos-tp/internal/utils"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -23,11 +23,11 @@ const (
 	WriterExchangeName = "writer_exchange"
 	WriterRoutingKey   = "writer_key"
 	WriterExchangeType = "direct"
-	numPreviousNodes   = 3
+
+	DecadeFiltersAmountEnvironmentVariableName = "DECADE_FILTERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
-var wg sync.WaitGroup // WaitGroup para sincronizar la finalización
 
 func main() {
 
@@ -35,6 +35,12 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	done := make(chan bool, 1)
+
+	decadeFiltersAmount, err := u.GetEnvInt(DecadeFiltersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
 
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
@@ -70,7 +76,7 @@ func main() {
 	forever := make(chan bool)
 
 	go func() error {
-		nodesLeft := numPreviousNodes
+		nodesLeft := decadeFiltersAmount
 	loop:
 		for d := range msgs {
 			messageBody := d.Body
@@ -131,12 +137,14 @@ func main() {
 					log.Errorf("Failed to publish message: %v", err)
 					return err
 				}
+				log.Debug("Top ten games sent to writer")
 
 				err = writerExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
 				if err != nil {
 					log.Errorf("Failed to publish end of file: %v", err)
 					return err
 				}
+				log.Debug("End of file sent to writer")
 
 				break
 			}
@@ -148,7 +156,6 @@ func main() {
 	go func() {
 		sig := <-sigs
 		log.Infof("Received signal: %v. Waiting for tasks to complete...", sig)
-		wg.Wait() // Esperar a que todas las tareas en el WaitGroup terminen
 		log.Info("All tasks completed. Shutting down.")
 		done <- true
 	}()

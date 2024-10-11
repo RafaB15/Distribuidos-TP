@@ -14,7 +14,6 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -54,7 +53,6 @@ const (
 )
 
 var log = logging.MustGetLogger("log")
-var wg sync.WaitGroup // WaitGroup para sincronizar la finalización
 
 func main() {
 	sigs := make(chan os.Signal, 1)
@@ -130,7 +128,6 @@ func main() {
 	go func() {
 		sig := <-sigs
 		log.Infof("Received signal: %v. Waiting for tasks to complete...", sig)
-		wg.Wait() // Esperar a que todas las tareas en el WaitGroup terminen
 		log.Info("All tasks completed. Shutting down.")
 		done <- true
 	}()
@@ -250,9 +247,6 @@ loop:
 				log.Error("error sending games names to review join")
 				return err
 			}
-
-			log.Infof("Received a message (after attempted send): %s\n", string(d.Body))
-
 		}
 
 	}

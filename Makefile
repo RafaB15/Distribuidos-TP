@@ -45,10 +45,21 @@ docker-image-clients:
 .PHONY: docker-image-client 
 
 docker-client: docker-image-clients
-	docker run -d --name client -v ./cmd/client/client_data:/client_data --network distributed_network client:latest
+	docker run -d --name client \
+		-v ./cmd/client/client_data:/client_data \
+		--network distributed_network \
+		-e GAME_FILE_PATH=./client_data/games_90k.csv \
+		-e REVIEW_FILE_PATH=./client_data/steam_reviews_50k.csv \
+		client:latest
 .PHONY: docker-client
 
 docker-client-remove:
 	docker stop client || true
 	docker rm client || true
+.PHONY: docker-client-remove
+
+all-down: docker-compose-down docker-client-remove
+
+generate_compose:
+	./generar-compose.sh config.json docker-compose-dev.yaml
 .PHONY: docker-client-remove

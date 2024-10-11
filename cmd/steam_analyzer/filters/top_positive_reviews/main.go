@@ -4,6 +4,7 @@ import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	j "distribuidos-tp/internal/system_protocol/joiner"
+	u "distribuidos-tp/internal/utils"
 	"sort"
 
 	"github.com/op/go-logging"
@@ -20,12 +21,20 @@ const (
 	WriterExchangeName = "writer_exchange"
 	WriterRoutingKey   = "writer_key"
 	WriterExchangeType = "direct"
-	numPreviousNodes   = 1
+
+	IndieReviewJoinersAmountEnvironmentVariableName = "INDIE_REVIEW_JOINERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
 
 func main() {
+
+	indieReviewJoinerAmount, err := u.GetEnvInt(IndieReviewJoinersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		log.Errorf("Failed to create middleware manager: %v", err)
@@ -53,15 +62,15 @@ func main() {
 
 	forever := make(chan bool)
 
-	go FilterTopPositiveReviews(topPositiveReviewsQueue, writerExchange)
+	go FilterTopPositiveReviews(topPositiveReviewsQueue, writerExchange, indieReviewJoinerAmount)
 
 	log.Info("Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
 
-func FilterTopPositiveReviews(topPositiveReviewsQueue *mom.Queue, writerExchange *mom.Exchange) error {
+func FilterTopPositiveReviews(topPositiveReviewsQueue *mom.Queue, writerExchange *mom.Exchange, indieReviewJoinerAmount int) error {
 	topPositiveIndieGames := make([]*j.JoinedActionGameReview, 0)
-	nodesLeft := numPreviousNodes
+	nodesLeft := indieReviewJoinerAmount
 	msgs, err := topPositiveReviewsQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
@@ -78,29 +87,30 @@ loop:
 		switch messageType {
 		case sp.MsgEndOfFile:
 			log.Infof("Received EOF message in top positive reviews node")
-			nodesLeft -= 1
-			if nodesLeft <= 0 {
-				for _, indieGame := range topPositiveIndieGames {
-					log.Infof("Sending indie game with ID: %v to writer", indieGame.AppId)
-					serializedGame, err := sp.SerializeMsgJoinedIndieGameReviews(indieGame)
-					if err != nil {
-						log.Errorf("Failed to serialize message: %v", err)
-						return err
-					}
-					err = writerExchange.Publish(WriterRoutingKey, serializedGame)
-					if err != nil {
-						log.Errorf("Failed to publish message: %v", err)
-						return err
-					}
-					log.Info("Sent IndieGame to writer")
-				}
-				err := writerExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
+			nodesLeft--
+			if nodesLeft > 0 {
+				continue
+			}
+			for _, indieGame := range topPositiveIndieGames {
+				log.Infof("Sending indie game with ID: %v to writer", indieGame.AppId)
+				serializedGame, err := sp.SerializeMsgJoinedIndieGameReviews(indieGame)
 				if err != nil {
-					log.Errorf("Failed to publish EOF message: %v", err)
+					log.Errorf("Failed to serialize message: %v", err)
 					return err
 				}
-				break loop
+				err = writerExchange.Publish(WriterRoutingKey, serializedGame)
+				if err != nil {
+					log.Errorf("Failed to publish message: %v", err)
+					return err
+				}
+				log.Info("Sent IndieGame to writer")
 			}
+			err := writerExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
+			if err != nil {
+				log.Errorf("Failed to publish EOF message: %v", err)
+				return err
+			}
+			break loop
 		case sp.MsgQueryResolved:
 			log.Infof("Received query resolved message in top positive reviews node")
 			indieGame, err := sp.DeserializeMsgJoinedActionGameReviews(messageBody)

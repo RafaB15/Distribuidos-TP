@@ -6,7 +6,6 @@ import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -28,7 +27,6 @@ const (
 )
 
 var log = logging.MustGetLogger("log")
-var wg sync.WaitGroup // WaitGroup para sincronizar la finalización
 
 func main() {
 
@@ -107,7 +105,6 @@ func main() {
 	go func() {
 		sig := <-sigs
 		log.Infof("Received signal: %v. Waiting for tasks to complete...", sig)
-		wg.Wait() // Esperar a que todas las tareas en el WaitGroup terminen
 		log.Info("All tasks completed. Shutting down.")
 		done <- true
 

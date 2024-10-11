@@ -115,6 +115,7 @@ func (m *MiddlewareManager) CreateExchange(name string, kind string) (*Exchange,
 }
 
 func (m *MiddlewareManager) CloseConnection() error {
+	fmt.Print("Closing connection to rabbit")
 	if m.conn != nil {
 		return m.conn.Close()
 	}

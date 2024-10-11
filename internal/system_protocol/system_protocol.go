@@ -354,7 +354,6 @@ func DeserializeBatch(data []byte) ([]string, error) {
 	for i := 0; i < numLines; i++ {
 		line, newOffset, _ := DeserializeLine(serializedLines, offset)
 		lines = append(lines, line)
-		log.Infof("Deserialized game line: %s", line)
 		offset = newOffset
 	}
 

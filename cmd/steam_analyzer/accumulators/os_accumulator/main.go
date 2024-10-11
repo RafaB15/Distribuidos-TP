@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -27,7 +26,6 @@ const (
 )
 
 var log = logging.MustGetLogger("log")
-var wg sync.WaitGroup // WaitGroup para sincronizar la finalización
 
 func main() {
 
@@ -111,8 +109,7 @@ func main() {
 
 				log.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
 
-				wg.Add(1)
-				osMetrics.UpdateAndSaveGameOSMetricsToFile("os_metrics", &wg)
+				osMetrics.UpdateAndSaveGameOSMetricsToFile("os_metrics")
 
 			default:
 				return fmt.Errorf("unexpected message type")
@@ -126,7 +123,6 @@ func main() {
 	go func() {
 		sig := <-sigs
 		log.Infof("Received signal: %v. Waiting for tasks to complete...", sig)
-		wg.Wait() // Esperar a que todas las tareas en el WaitGroup terminen
 		log.Info("All tasks completed. Shutting down.")
 		done <- true
 	}()
