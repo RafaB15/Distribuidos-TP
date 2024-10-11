@@ -3,8 +3,9 @@ package main
 import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
+	gm "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	av "distribuidos-tp/internal/system_protocol/decade_filter"
 	u "distribuidos-tp/internal/utils"
-	"os"
 
 	"github.com/op/go-logging"
 )
@@ -134,20 +135,12 @@ func main() {
 
 func handleOsResolvedQuery(data []byte) error {
 
-	file, err := os.OpenFile("os_query.txt", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	err := gm.WriteToFile("os_query.txt", data)
 	if err != nil {
-		log.Errorf("Failed to open file: %v", err)
+		log.Errorf("Failed to write os query to file: %v", err)
 		return err
 	}
 
-	defer file.Close()
-
-	err = u.WriteAllToFile(file, data)
-
-	if err != nil {
-		log.Errorf("Failed to write to file: %v", err)
-		return err
-	}
 	log.Info("Query saved to os_query file")
 	return nil
 
@@ -155,20 +148,12 @@ func handleOsResolvedQuery(data []byte) error {
 
 func handleGenrePositiveReviewsQuery(data []byte, name_file string) error {
 
-	file, err := os.OpenFile(name_file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	err := av.WriteToFile(name_file, data)
 	if err != nil {
-		log.Errorf("Failed to open file: %v", err)
+		log.Errorf("Failed to write Game Avg Playtime query to file: %v", err)
 		return err
 	}
 
-	defer file.Close()
-
-	err = u.WriteAllToFile(file, data)
-
-	if err != nil {
-		log.Errorf("Failed to write to file: %v", err)
-		return err
-	}
 	log.Info("Query saved to action_positive_reviews_query file")
 	return nil
 
@@ -176,20 +161,13 @@ func handleGenrePositiveReviewsQuery(data []byte, name_file string) error {
 
 func handleTopTenDecadeAvgPtfQuery(data []byte) error {
 
-	file, err := os.OpenFile("top_ten_decade_avg_ptf_query.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	err := av.WriteToFile("top_ten_decade_avg_ptf_query.txt", data)
 	if err != nil {
-		log.Errorf("Failed to open file: %v", err)
+		log.Errorf("Failed to write Game Avg Playtime query to file: %v", err)
 		return err
 	}
 
-	defer file.Close()
-	err = u.WriteAllToFile(file, data)
-
-	if err != nil {
-		log.Errorf("Failed to write to file: %v", err)
-		return err
-	}
-	log.Info("Query saved to top_ten_decade_avg_ptf_query file")
+	log.Info("Query saved to os_query file")
 	return nil
 
 }

@@ -3,6 +3,7 @@ package decade_filter
 import (
 	u "distribuidos-tp/internal/utils"
 	"encoding/binary"
+	"encoding/json"
 	"io"
 	"os"
 	"sort"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/op/go-logging"
 )
+
+const filePermission = 0644
 
 type GameYearAndAvgPtf struct {
 	AppId              uint32
@@ -200,4 +203,20 @@ func SerializeTopTenAvgPlaytimeForever(games []*GameYearAndAvgPtf) []byte {
 	}
 
 	return result
+}
+
+func WriteToFile(filename string, data []byte) error {
+	deserializedGame, err := DeserializeGameYearAndAvgPtf(data)
+	if err != nil {
+		log.Errorf("Failed to deserialize game: %v", err)
+		return err
+	}
+
+	jsonData, err := json.Marshal(deserializedGame)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filename, jsonData, filePermission)
+
 }

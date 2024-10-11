@@ -4,7 +4,11 @@ import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	g "distribuidos-tp/internal/system_protocol/games"
 	"encoding/binary"
+	"encoding/json"
+	"os"
 )
+
+const filePermission = 0644
 
 type JoinedActionGameReview struct {
 	AppId           uint32
@@ -59,4 +63,19 @@ func DeserializeJoinedActionGameReview(data []byte) (*JoinedActionGameReview, er
 		GameName:        gameName,
 		PositiveReviews: positiveReviews,
 	}, nil
+}
+
+func WriteToFile(filename string, data []byte) error {
+	deserializedData, err := DeserializeJoinedActionGameReview(data)
+	if err != nil {
+		return err
+	}
+
+	jsonData, err := json.Marshal(deserializedData)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filename, jsonData, filePermission)
+
 }

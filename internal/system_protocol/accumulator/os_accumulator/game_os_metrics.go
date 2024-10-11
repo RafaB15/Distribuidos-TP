@@ -2,6 +2,7 @@ package os_accumulator
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"os"
 	"sync"
@@ -97,4 +98,18 @@ func (g *GameOSMetrics) AddGameOS(gameOS *GameOS) {
 	if gameOS.Mac {
 		g.Mac++
 	}
+}
+
+func WriteToFile(filename string, data []byte) error {
+	deserializedData, err := DeserializeGameOSMetrics(data)
+	if err != nil {
+		return err
+	}
+
+	jsonData, err := json.Marshal(deserializedData)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filename, jsonData, filePermission)
 }
