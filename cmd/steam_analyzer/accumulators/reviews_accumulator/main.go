@@ -180,8 +180,8 @@ loop:
 
 func idMapToKeyMap(idMap map[uint32]*ra.GameReviewsMetrics, indieReviewJoinerAmount int) map[string][]*ra.GameReviewsMetrics {
 	keyMap := make(map[string][]*ra.GameReviewsMetrics)
-	for id, metrics := range idMap {
-		key := u.GetPartitioningKeyFromInt(int(id), indieReviewJoinerAmount, IndieReviewJoinExchangeRoutingKeyPrefix)
+	for _, metrics := range idMap {
+		key := u.GetPartitioningKeyFromInt(int(metrics.AppID), indieReviewJoinerAmount, IndieReviewJoinExchangeRoutingKeyPrefix)
 		keyMap[key] = append(keyMap[key], metrics)
 	}
 	return keyMap

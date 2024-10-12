@@ -112,8 +112,17 @@ func main() {
 	}
 
 	for i := 0; i < 5; i++ {
+
+		var queryNumber byte
+		err := binary.Read(conn, binary.BigEndian, &queryNumber)
+		if err != nil {
+			log.Errorf("Error reading query number from connection: %v", err)
+			return
+		}
+		log.Infof("Results for query %d:", queryNumber)
+
 		var length uint16
-		err := binary.Read(conn, binary.BigEndian, &length)
+		err = binary.Read(conn, binary.BigEndian, &length)
 		if err != nil {
 			log.Errorf("Error reading length from connection: %v", err)
 			return
@@ -130,6 +139,6 @@ func main() {
 			totalRead += n
 		}
 
-		log.Infof("Received message: %s", string(message))
+		log.Infof("Received message: \n%s", string(message))
 	}
 }

@@ -13,6 +13,15 @@ type Queue struct {
 
 func NewQueue(ch *amqp.Channel, name string) (*Queue, error) {
 
+	err := ch.Qos(
+		1,     // prefetch count
+		0,     // prefetch size
+		false, // global
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set QoS: %w", err)
+	}
+
 	queueData, err := ch.QueueDeclare(
 		name,  // name
 		true,  // durable

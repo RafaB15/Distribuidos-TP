@@ -7,6 +7,8 @@ import (
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	jr "distribuidos-tp/internal/system_protocol/joiner"
 	u "distribuidos-tp/internal/utils"
+	"encoding/binary"
+	"io"
 	"os"
 
 	"github.com/op/go-logging"
@@ -20,8 +22,18 @@ const (
 	WriterExchangeType = "direct"
 	WriterQueueName    = "writer_queue"
 
+	QueryResponseExchangeName = "query_response_exchange"
+	QueryResponseExchangeType = "direct"
+	QueryResponseRoutingKey   = "query_response_key"
+
 	ActionNegativeReviewsJoinersAmountEnvironmentVariableName = "ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT"
 	ActionPositiveReviewJoinersAmountEnvironmentVariableName  = "ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT"
+
+	Query1OSFileName                       = "os_query.txt"
+	Query2TopTenDecadeFileName             = "top_ten_decade_avg_ptf_query.txt"
+	Query3TopPositiveIndiesFileName        = "top_positive_indie_reviews_query.txt"
+	Query4ActionPositiveFileName           = "action_positive_reviews_query.txt"
+	Query5ActionNegativePercentileFileName = "percentile_negative_action_reviews_query.txt"
 )
 
 var log = logging.MustGetLogger("log")
@@ -50,6 +62,12 @@ func main() {
 	writerQueue, err := manager.CreateBoundQueue(WriterQueueName, WriterExchangeName, WriterExchangeType, WriterRoutingKey)
 	if err != nil {
 		log.Errorf("Failed to create queue: %v", err)
+		return
+	}
+
+	queryResponseExchange, err := manager.CreateExchange(QueryResponseExchangeName, QueryResponseExchangeType)
+	if err != nil {
+		log.Errorf("Failed to declare exchange: %v", err)
 		return
 	}
 
@@ -88,6 +106,7 @@ func main() {
 						log.Errorf("Failed to handle os resolved query: %v", err)
 						return
 					}
+					sendQueryResult(queryResponseExchange, Query1OSFileName, 1)
 				case sp.MsgActionPositiveReviewsQuery:
 					log.Info("Received query Action positive reviews resolved message")
 					err := handleActionEnfglish5kReviewsQuery(data[1:], "action_positive_reviews_query.txt")
@@ -102,6 +121,7 @@ func main() {
 						log.Errorf("Failed to handle top ten decade avg ptf resolved query: %v", err)
 						return
 					}
+					sendQueryResult(queryResponseExchange, Query2TopTenDecadeFileName, 2)
 				case sp.MsgIndiePositiveJoinedReviewsQuery:
 					log.Info("Received query Indie positive joined reviews resolved message")
 					err := handleIndieTopPositiveReviewsQuery(data[1:], "top_positive_indie_reviews_query.txt")
@@ -109,6 +129,7 @@ func main() {
 						log.Errorf("Failed to handle top positive indie reviews resolved query: %v", err)
 						return
 					}
+					sendQueryResult(queryResponseExchange, Query3TopPositiveIndiesFileName, 3)
 				case sp.MsgActionNegativeReviewsQuery:
 					log.Info("Received query Action negative reviews resolved message")
 					err := handleActionNegativeReviewAbovePercentileQuery(data[1:], "percentile_negative_action_reviews_query.txt")
@@ -123,6 +144,8 @@ func main() {
 				if remmainingEOFs > 0 {
 					continue
 				}
+				sendQueryResult(queryResponseExchange, Query4ActionPositiveFileName, 4)
+				sendQueryResult(queryResponseExchange, Query5ActionNegativePercentileFileName, 5)
 				break loop
 
 			default:
@@ -273,4 +296,34 @@ func handleIndieTopPositiveReviewsQuery(data []byte, name_file string) error {
 	log.Info("Query saved to action_positive_reviews_query file")
 	return nil
 
+}
+
+func sendQueryResult(queryResponseExchange *mom.Exchange, fileName string, queryNumber int) error {
+	file, err := os.Open(fileName)
+	if err != nil {
+		log.Errorf("Failed to open file: %v", err)
+		return err
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		log.Errorf("Failed to read file: %v", err)
+		return err
+	}
+
+	totalLength := len(content)
+	var bytesToSend []byte = make([]byte, 3+totalLength)
+
+	bytesToSend[0] = byte(queryNumber)
+	binary.BigEndian.PutUint16(bytesToSend[1:], uint16(totalLength))
+	copy(bytesToSend[3:], content)
+
+	err = queryResponseExchange.Publish(QueryResponseRoutingKey, bytesToSend)
+	if err != nil {
+		log.Errorf("Failed to publish file content: %v", err)
+		return err
+	}
+
+	return nil
 }

@@ -77,7 +77,7 @@ func main() {
 
 	defer rawReviewsExchange.CloseExchange()
 
-	queueResponseQueue, err := manager.CreateBoundQueue(QueryResponseQueueName, QueryResponseExchangeName, QueryResponseExchangeType, QueryResponseRoutingKey)
+	queryResponseQueue, err := manager.CreateBoundQueue(QueryResponseQueueName, QueryResponseExchangeName, QueryResponseExchangeType, QueryResponseRoutingKey)
 	if err != nil {
 		log.Errorf("Failed to create queue: %v", err)
 		return
@@ -107,7 +107,7 @@ func main() {
 			}
 
 			go func() {
-				handleConnection(conn, rawGamesExchange, rawReviewsExchange, rawReviewsEofExchange, queueResponseQueue)
+				handleConnection(conn, rawGamesExchange, rawReviewsExchange, rawReviewsEofExchange, queryResponseQueue)
 			}()
 		}
 	}()
@@ -122,7 +122,7 @@ func main() {
 	<-done
 }
 
-func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsExchange *mom.Exchange, rawReviewsEofExchange *mom.Exchange, queueResponseQueue *mom.Queue) {
+func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsExchange *mom.Exchange, rawReviewsEofExchange *mom.Exchange, queryResponseQueue *mom.Queue) {
 	defer conn.Close()
 
 	eofGames := false
@@ -162,7 +162,7 @@ func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsE
 		}
 	}
 
-	msgs, err := queueResponseQueue.Consume(true)
+	msgs, err := queryResponseQueue.Consume(true)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 		return

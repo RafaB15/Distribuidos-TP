@@ -84,7 +84,7 @@ func main() {
 func filterEnglishReviews(rawEnglishReviewsQueue *mom.Queue, rawEnglishReviewsEofQueue *mom.Queue, englishReviewsExchange *mom.Exchange, accumulatorsAmount int) error {
 	languageIdentifier := r.NewLanguageIdentifier()
 
-	msgs, err := rawEnglishReviewsQueue.Consume(true)
+	msgs, err := rawEnglishReviewsQueue.Consume(false)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
@@ -111,7 +111,9 @@ loop:
 					log.Errorf("Failed to handle batch: %v", err)
 					return err
 				}
+				lines = nil
 			}
+			d.Ack(false)
 		case <-time.After(timeout):
 			log.Debug("Timeout!!!")
 			eofMsg, err := rawEnglishReviewsEofQueue.GetIfAvailable()
@@ -176,6 +178,11 @@ func handleMsgBatch(lines []string, englishReviewsExchange *mom.Exchange, accumu
 			return err
 		}
 	}
+
+	for k := range routingKeyMap {
+		delete(routingKeyMap, k)
+	}
+
 	return nil
 }
 

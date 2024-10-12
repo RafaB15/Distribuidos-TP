@@ -27,7 +27,7 @@ const (
 	ActionPositiveReviewsJoinersAmountEnvironmentVariableName = "ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT"
 	EnglishReviewAccumulatorsAmountEnvironmentVariableName    = "ENGLISH_REVIEW_ACCUMULATORS_AMOUNT"
 
-	minPositiveReviews = 100
+	minPositiveReviews = 5000
 )
 
 var log = logging.MustGetLogger("log")

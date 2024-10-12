@@ -82,7 +82,7 @@ func main() {
 }
 
 func mapReviews(rawReviewsQueue *mom.Queue, rawReviewsEofQueue *mom.Queue, reviewsExchange *mom.Exchange, accumulatorsAmount int) error {
-	msgs, err := rawReviewsQueue.Consume(true)
+	msgs, err := rawReviewsQueue.Consume(false)
 	if err != nil {
 		log.Errorf("Failed to consume messages: %v", err)
 	}
@@ -110,6 +110,7 @@ loop:
 					return err
 				}
 			}
+			d.Ack(false)
 		case <-time.After(timeout):
 			eofMsg, err := rawReviewsEofQueue.GetIfAvailable()
 			if err != nil {
