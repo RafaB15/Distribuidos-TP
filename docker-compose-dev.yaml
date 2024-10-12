@@ -72,7 +72,7 @@ services:
     image: os_final_accumulator:latest
     entrypoint: /accumulators/os_final_accumulator
     environment:
-      - OS_ACCUMULATORS_AMOUNT=2
+      - NUM_PREVIOUS_OS_ACCUMULATORS=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -115,7 +115,7 @@ services:
     entrypoint: /accumulators/percentile_accumulator
     environment:
       - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=2
-      - NUM_PREVIOUS_ACCUMULATORS=2
+      - NUM_PREVIOUS_ACCUMULATORS=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -130,7 +130,7 @@ services:
     entrypoint: /mappers/review_mapper
     environment:
       - ID=1
-      - ACCUMULATORS_AMOUNT=2
+      - ACCUMULATORS_AMOUNT=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -145,7 +145,7 @@ services:
     entrypoint: /mappers/review_mapper
     environment:
       - ID=2
-      - ACCUMULATORS_AMOUNT=2
+      - ACCUMULATORS_AMOUNT=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -160,22 +160,6 @@ services:
     entrypoint: /accumulators/reviews_accumulator
     environment:
       - ID=1
-      - MAPPERS_AMOUNT=2
-      - INDIE_REVIEW_JOINERS_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  reviews_accumulator_2:
-    container_name: reviews_accumulator_2
-    image: reviews_accumulator:latest
-    entrypoint: /accumulators/reviews_accumulator
-    environment:
-      - ID=2
       - MAPPERS_AMOUNT=2
       - INDIE_REVIEW_JOINERS_AMOUNT=2
     depends_on:
@@ -383,7 +367,7 @@ services:
     entrypoint: /joiners/indie_review_joiner
     environment:
       - ID=1
-      - REVIEWS_ACCUMULATOR_AMOUNT=2
+      - REVIEWS_ACCUMULATOR_AMOUNT=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -398,7 +382,7 @@ services:
     entrypoint: /joiners/indie_review_joiner
     environment:
       - ID=2
-      - REVIEWS_ACCUMULATOR_AMOUNT=2
+      - REVIEWS_ACCUMULATOR_AMOUNT=1
     depends_on:
       game_mapper:
         condition: service_started

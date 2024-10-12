@@ -24,7 +24,7 @@ const (
 	WriterRoutingKey   = "writer_key"
 	WriterExchangeType = "direct"
 
-	OSAccumulatorsAmountEnvironmentVariableName = "OS_ACCUMULATORS_AMOUNT"
+	NumPreviousNodes = "NUM_PREVIOUS_OS_ACCUMULATORS"
 )
 
 var log = logging.MustGetLogger("log")
@@ -33,14 +33,13 @@ func main() {
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	done := make(chan bool, 1)
 
-	osAccumulatorsAmount, err := u.GetEnvInt(OSAccumulatorsAmountEnvironmentVariableName)
+	osAccumulatorsAmount, err := u.GetEnvInt(NumPreviousNodes)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
 	}
-
-	done := make(chan bool, 1)
 
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {

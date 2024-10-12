@@ -8,7 +8,7 @@
     "top_positive_reviews": 1,
     "percentile_accumulator": 1,
     "review_mapper": 2,
-    "reviews_accumulator": 2,
+    "reviews_accumulator": 1,
     "decade_filter": 2,
     "english_filter": 1,
     "english_reviews_accumulator": 4,

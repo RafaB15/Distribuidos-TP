@@ -190,14 +190,36 @@ func UploadTopTenAvgPlaytimeForeverFromFile(filePath string) ([]*GameYearAndAvgP
 
 func SerializeTopTenAvgPlaytimeForever(games []*GameYearAndAvgPtf) []byte {
 	amount := len(games)
-	result := make([]byte, 1+amount*10)
-
-	result[0] = byte(amount)
+	result := make([]byte, amount*10)
 
 	for i, game := range games {
 		gameBytes := SerializeGameYearAndAvgPtf(game)
-		copy(result[1+i*10:], gameBytes)
+		copy(result[i*10:], gameBytes)
 	}
 
 	return result
+}
+
+func DeserializeTopTenAvgPlaytimeForever(data []byte) ([]*GameYearAndAvgPtf, error) {
+	const gameSize = 10 // Cada juego ocupa 10 bytes
+	amount := len(data) / gameSize
+	games := make([]*GameYearAndAvgPtf, amount)
+
+	for i := 0; i < amount; i++ {
+		start := i * gameSize
+		end := start + gameSize
+		gameBytes := data[start:end]
+		var err error
+		games[i], err = DeserializeGameYearAndAvgPtf(gameBytes)
+		if err != nil {
+			log.Errorf("Error deserializing game: %v", err)
+			return nil, err
+		}
+	}
+
+	return games, nil
+}
+
+func GetStrRepresentation(game *GameYearAndAvgPtf) string {
+	return "AppId: " + strconv.Itoa(int(game.AppId)) + " ReleaseYear: " + strconv.Itoa(int(game.ReleaseYear)) + " AvgPlaytimeForever: " + strconv.Itoa(int(game.AvgPlaytimeForever)) + "\n"
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"os"
+	"strconv"
 )
 
 type GameOSMetrics struct {
@@ -55,6 +56,7 @@ func LoadGameOsMetricsFromFile(filePath string) ([]byte, error) {
 	return data, nil
 }
 
+// Returns the serialized representation of the GameOSMetrics
 func SerializeGameOSMetrics(gameOsMetrics *GameOSMetrics) []byte {
 	buf := make([]byte, 12)
 	binary.BigEndian.PutUint32(buf[0:4], gameOsMetrics.Linux)
@@ -95,4 +97,8 @@ func (g *GameOSMetrics) AddGameOS(gameOS *GameOS) {
 	if gameOS.Mac {
 		g.Mac++
 	}
+}
+
+func GetStrRepresentation(gameOs *GameOSMetrics) string {
+	return "Linux: " + strconv.Itoa(int(gameOs.Linux)) + "\n" + " Windows: " + strconv.Itoa(int(gameOs.Windows)) + "\n" + " Mac: " + strconv.Itoa(int(gameOs.Mac)) + "\n"
 }

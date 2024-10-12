@@ -3,6 +3,8 @@ package main
 import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
+	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	u "distribuidos-tp/internal/utils"
 	"os"
 
@@ -80,7 +82,7 @@ func main() {
 				switch query {
 				case sp.MsgOsResolvedQuery:
 					log.Info("Received query Os resolved message")
-					err := handleOsResolvedQuery(data)
+					err := handleOsResolvedQuery(data[1:])
 					if err != nil {
 						log.Errorf("Failed to handle os resolved query: %v", err)
 						return
@@ -142,10 +144,17 @@ func handleOsResolvedQuery(data []byte) error {
 
 	defer file.Close()
 
-	err = u.WriteAllToFile(file, data)
+	gameOsMetric, err := oa.DeserializeGameOSMetrics(data)
 
 	if err != nil {
-		log.Errorf("Failed to write to file: %v", err)
+		log.Errorf("failed to deserialize game os metrics: %v", err)
+		return err
+	}
+
+	err = u.WriteAllToFile(file, []byte(oa.GetStrRepresentation(gameOsMetric)))
+
+	if err != nil {
+		log.Errorf("failed to write to file: %v", err)
 		return err
 	}
 	log.Info("Query saved to os_query file")
@@ -183,12 +192,22 @@ func handleTopTenDecadeAvgPtfQuery(data []byte) error {
 	}
 
 	defer file.Close()
-	err = u.WriteAllToFile(file, data)
+
+	resultList, err := df.DeserializeTopTenAvgPlaytimeForever(data)
 
 	if err != nil {
-		log.Errorf("Failed to write to file: %v", err)
+		log.Errorf("Failed to deserialize top ten avg playtime forever: %v", err)
 		return err
 	}
+
+	for _, game := range resultList {
+		err = u.WriteAllToFile(file, []byte(df.GetStrRepresentation(game)))
+		if err != nil {
+			log.Errorf("Failed to write to file: %v", err)
+			return err
+		}
+	}
+
 	log.Info("Query saved to top_ten_decade_avg_ptf_query file")
 	return nil
 

@@ -130,7 +130,7 @@ func main() {
     image: os_final_accumulator:latest
     entrypoint: /accumulators/os_final_accumulator
     environment:
-      - OS_ACCUMULATORS_AMOUNT=%d
+      - NUM_PREVIOUS_OS_ACCUMULATORS=%d
     depends_on:
       game_mapper:
         condition: service_started
