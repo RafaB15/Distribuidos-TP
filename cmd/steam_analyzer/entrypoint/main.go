@@ -26,6 +26,11 @@ const (
 
 	RawReviewsEofExchangeName = "raw_reviews_eof_exchange"
 	RawReviewsEofExchangeType = "fanout"
+
+	QueryResponseQueueName    = "query_response_queue"
+	QueryResponseExchangeName = "query_response_exchange"
+	QueryResponseExchangeType = "direct"
+	QueryResponseRoutingKey   = "query_response_key"
 )
 
 const GameFile = 1
@@ -72,6 +77,12 @@ func main() {
 
 	defer rawReviewsExchange.CloseExchange()
 
+	queueResponseQueue, err := manager.CreateBoundQueue(QueryResponseQueueName, QueryResponseExchangeName, QueryResponseExchangeType, QueryResponseRoutingKey)
+	if err != nil {
+		log.Errorf("Failed to create queue: %v", err)
+		return
+	}
+
 	listener, err := net.Listen("tcp", ":3000")
 	if err != nil {
 		fmt.Println("Error starting TCP server:", err)
@@ -96,7 +107,7 @@ func main() {
 			}
 
 			go func() {
-				handleConnection(conn, rawGamesExchange, rawReviewsExchange, rawReviewsEofExchange)
+				handleConnection(conn, rawGamesExchange, rawReviewsExchange, rawReviewsEofExchange, queueResponseQueue)
 			}()
 		}
 	}()
@@ -111,10 +122,13 @@ func main() {
 	<-done
 }
 
-func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsExchange *mom.Exchange, rawReviewsEofExchange *mom.Exchange) {
+func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsExchange *mom.Exchange, rawReviewsEofExchange *mom.Exchange, queueResponseQueue *mom.Queue) {
 	defer conn.Close()
 
-	for {
+	eofGames := false
+	eofReviews := false
+
+	for !eofGames || !eofReviews {
 		data, fileOrigin, eofFlag, err := cp.ReceiveBatch(conn)
 		if err != nil {
 			log.Errorf("Error receiving game batch:", err)
@@ -136,13 +150,33 @@ func handleConnection(conn net.Conn, rawGamesExchange *mom.Exchange, rawReviewsE
 			if fileOrigin == GameFile {
 				err = rawGamesExchange.Publish(RawGamesRoutingKey, sp.SerializeMsgEndOfFile())
 				log.Infof("End of file message published for games")
+				eofGames = true
 			} else {
 				err = rawReviewsEofExchange.PublishWithoutKey(sp.SerializeMsgEndOfFile())
 				log.Infof("End of file message published for reviews")
+				eofReviews = true
 			}
 			if err != nil {
 				fmt.Println("Error publishing message:", err)
 			}
+		}
+	}
+
+	msgs, err := queueResponseQueue.Consume(true)
+	if err != nil {
+		log.Errorf("Failed to consume messages: %v", err)
+		return
+	}
+
+	for d := range msgs {
+		totalWritten := 0
+		for totalWritten < len(d.Body) {
+			n, err := conn.Write(d.Body[totalWritten:])
+			if err != nil {
+				log.Errorf("Failed to send message to client: %v", err)
+				return
+			}
+			totalWritten += n
 		}
 	}
 }

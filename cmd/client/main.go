@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	cp "distribuidos-tp/internal/client_protocol"
+	"encoding/binary"
 	"net"
 	"os"
 
@@ -110,4 +111,25 @@ func main() {
 		log.Debug("Sent reviews batch")
 	}
 
+	for i := 0; i < 5; i++ {
+		var length uint16
+		err := binary.Read(conn, binary.BigEndian, &length)
+		if err != nil {
+			log.Errorf("Error reading length from connection: %v", err)
+			return
+		}
+
+		message := make([]byte, length)
+		totalRead := 0
+		for totalRead < int(length) {
+			n, err := conn.Read(message[totalRead:])
+			if err != nil {
+				log.Errorf("Error reading message from connection: %v", err)
+				return
+			}
+			totalRead += n
+		}
+
+		log.Infof("Received message: %s", string(message))
+	}
 }
