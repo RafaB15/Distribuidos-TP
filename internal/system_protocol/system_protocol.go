@@ -338,6 +338,48 @@ func DeserializeMsgJoinedIndieGameReviews(data []byte) (*j.JoinedActionGameRevie
 	return metrics, nil
 }
 
+func SerializeMsgJoinedIndieGameReviewsBatch(joinedActionGameReviews []*j.JoinedActionGameReview) []byte {
+	count := len(joinedActionGameReviews)
+	message := make([]byte, 3)
+	message[0] = byte(MsgQueryResolved)
+	message[1] = byte(MsgIndiePositiveJoinedReviewsQuery)
+	message[2] = byte(count)
+
+	offset := 3
+	for _, joinedActionGameReview := range joinedActionGameReviews {
+		serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
+		if err != nil {
+			return nil
+		}
+		message = append(message, serializedJoinedActionGameReview...)
+		offset += len(serializedJoinedActionGameReview)
+	}
+
+	return message
+}
+
+func DeserializeMsgJoinedIndieGameReviewsBatch(message []byte) ([]*j.JoinedActionGameReview, error) {
+	// Función asume que nos viene sin el primer header
+	if len(message) < 1 {
+		return nil, errors.New("message too short to contain count")
+	}
+
+	count := int(message[0])
+	offset := 1
+	joinedActionGameReviews := make([]*j.JoinedActionGameReview, count)
+
+	for i := 0; i < count; i++ {
+		joinedActionGameReview, err := j.DeserializeJoinedActionGameReview(message[offset:])
+		if err != nil {
+			return nil, err
+		}
+		joinedActionGameReviews[i] = joinedActionGameReview
+		offset += 4 + 2 + len([]byte(joinedActionGameReview.GameName)) + 4
+	}
+
+	return joinedActionGameReviews, nil
+}
+
 func DeserializeBatch(data []byte) ([]string, error) {
 
 	if len(data) == 0 {

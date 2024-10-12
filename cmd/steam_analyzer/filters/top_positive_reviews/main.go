@@ -91,20 +91,13 @@ loop:
 			if nodesLeft > 0 {
 				continue
 			}
-			for _, indieGame := range topPositiveIndieGames {
-				log.Infof("Sending indie game with ID: %v to writer", indieGame.AppId)
-				serializedGame, err := sp.SerializeMsgJoinedIndieGameReviews(indieGame)
-				if err != nil {
-					log.Errorf("Failed to serialize message: %v", err)
-					return err
-				}
-				err = writerExchange.Publish(WriterRoutingKey, serializedGame)
-				if err != nil {
-					log.Errorf("Failed to publish message: %v", err)
-					return err
-				}
-				log.Info("Sent IndieGame to writer")
+			serializedTop := sp.SerializeMsgJoinedIndieGameReviewsBatch(topPositiveIndieGames)
+			err = writerExchange.Publish(WriterRoutingKey, serializedTop)
+			if err != nil {
+				log.Errorf("Failed to publish message: %v", err)
+				return err
 			}
+			log.Info("Sent IndieGame to writer")
 			err := writerExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
 			if err != nil {
 				log.Errorf("Failed to publish EOF message: %v", err)
