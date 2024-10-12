@@ -4,6 +4,7 @@ import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	g "distribuidos-tp/internal/system_protocol/games"
 	"encoding/binary"
+	"strconv"
 )
 
 type JoinedActionGameReview struct {
@@ -59,4 +60,8 @@ func DeserializeJoinedActionGameReview(data []byte) (*JoinedActionGameReview, er
 		GameName:        gameName,
 		PositiveReviews: positiveReviews,
 	}, nil
+}
+
+func GetStrRepresentation(joinedActionGameReview *JoinedActionGameReview) string {
+	return "AppID: " + strconv.Itoa(int(joinedActionGameReview.AppId)) + ", GameName: " + joinedActionGameReview.GameName + ", PositiveReviews: " + strconv.Itoa(int(joinedActionGameReview.PositiveReviews)) + "\n"
 }

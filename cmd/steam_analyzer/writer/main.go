@@ -5,6 +5,7 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
+	jr "distribuidos-tp/internal/system_protocol/joiner"
 	u "distribuidos-tp/internal/utils"
 	"os"
 
@@ -89,7 +90,7 @@ func main() {
 					}
 				case sp.MsgActionPositiveReviewsQuery:
 					log.Info("Received query Action positive reviews resolved message")
-					err := handleGenrePositiveReviewsQuery(data[1:], "action_positive_reviews_query.txt")
+					err := handleActionEnfglish5kReviewsQuery(data[1:], "action_positive_reviews_query.txt")
 					if err != nil {
 						log.Errorf("Failed to handle action positive reviews resolved query: %v", err)
 						return
@@ -103,14 +104,14 @@ func main() {
 					}
 				case sp.MsgIndiePositiveJoinedReviewsQuery:
 					log.Info("Received query Indie positive joined reviews resolved message")
-					err := handleGenrePositiveReviewsQuery(data[1:], "top_positive_indie_reviews_query.txt")
+					err := handleIndieTopPositiveReviewsQuery(data[1:], "top_positive_indie_reviews_query.txt")
 					if err != nil {
 						log.Errorf("Failed to handle top positive indie reviews resolved query: %v", err)
 						return
 					}
 				case sp.MsgActionNegativeReviewsQuery:
 					log.Info("Received query Action negative reviews resolved message")
-					err := handleGenrePositiveReviewsQuery(data[1:], "percentile_negative_action_reviews_query.txt")
+					err := handleActionNegativeReviewAbovePercentileQuery(data[1:], "percentile_negative_action_reviews_query.txt")
 					if err != nil {
 						log.Errorf("Failed to handle percentile negative action reviews resolved query: %v", err)
 						return
@@ -162,27 +163,6 @@ func handleOsResolvedQuery(data []byte) error {
 
 }
 
-func handleGenrePositiveReviewsQuery(data []byte, name_file string) error {
-
-	file, err := os.OpenFile(name_file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Errorf("Failed to open file: %v", err)
-		return err
-	}
-
-	defer file.Close()
-
-	err = u.WriteAllToFile(file, data)
-
-	if err != nil {
-		log.Errorf("Failed to write to file: %v", err)
-		return err
-	}
-	log.Info("Query saved to action_positive_reviews_query file")
-	return nil
-
-}
-
 func handleTopTenDecadeAvgPtfQuery(data []byte) error {
 
 	file, err := os.OpenFile("top_ten_decade_avg_ptf_query.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
@@ -209,6 +189,88 @@ func handleTopTenDecadeAvgPtfQuery(data []byte) error {
 	}
 
 	log.Info("Query saved to top_ten_decade_avg_ptf_query file")
+	return nil
+
+}
+
+func handleActionNegativeReviewAbovePercentileQuery(data []byte, name_file string) error {
+
+	file, err := os.OpenFile(name_file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Errorf("Failed to open file: %v", err)
+		return err
+	}
+
+	defer file.Close()
+	game, err := jr.DeserializeJoinedActionGameReview(data)
+	if err != nil {
+		log.Errorf("Failed to deserialize joined action game review: %v", err)
+		return err
+	}
+
+	err = u.WriteAllToFile(file, []byte(jr.GetStrRepresentation(game)))
+
+	if err != nil {
+		log.Errorf("Failed to write to file: %v", err)
+		return err
+	}
+	log.Info("Query saved to percentile_negative_action_reviews_query file")
+	return nil
+
+}
+
+func handleActionEnfglish5kReviewsQuery(data []byte, name_file string) error {
+
+	file, err := os.OpenFile(name_file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Errorf("Failed to open file: %v", err)
+		return err
+	}
+
+	defer file.Close()
+
+	game, err := jr.DeserializeJoinedActionGameReview(data)
+	if err != nil {
+		log.Errorf("Failed to deserialize joined action game review: %v", err)
+		return err
+	}
+
+	err = u.WriteAllToFile(file, []byte(jr.GetStrRepresentation(game)))
+
+	if err != nil {
+		log.Errorf("Failed to write to file: %v", err)
+		return err
+	}
+	log.Info("Query saved to action_positive_reviews_query file")
+	return nil
+
+}
+
+func handleIndieTopPositiveReviewsQuery(data []byte, name_file string) error {
+
+	file, err := os.OpenFile(name_file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Errorf("Failed to open file: %v", err)
+		return err
+	}
+
+	defer file.Close()
+
+	gamesList, err := sp.DeserializeMsgJoinedIndieGameReviewsBatch(data)
+
+	for _, game := range gamesList {
+		err = u.WriteAllToFile(file, []byte(jr.GetStrRepresentation(game)))
+		if err != nil {
+			log.Errorf("Failed to write to file: %v", err)
+			return err
+		}
+	}
+
+	if err != nil {
+		log.Errorf("Failed to write to file: %v", err)
+		return err
+	}
+	log.Info("Query saved to action_positive_reviews_query file")
 	return nil
 
 }

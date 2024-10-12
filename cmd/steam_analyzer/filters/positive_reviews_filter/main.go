@@ -27,7 +27,7 @@ const (
 	ActionPositiveReviewsJoinersAmountEnvironmentVariableName = "ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT"
 	EnglishReviewAccumulatorsAmountEnvironmentVariableName    = "ENGLISH_REVIEW_ACCUMULATORS_AMOUNT"
 
-	minPositiveReviews = 5
+	minPositiveReviews = 100
 )
 
 var log = logging.MustGetLogger("log")
@@ -52,8 +52,6 @@ func main() {
 		return
 	}
 
-	//AccumulatedReviewQueueName := fmt.Sprintf("%s%d", AccumulatedReviewQueueNamePrefix, Id)
-	//accumulatedReviewsRoutingKey := fmt.Sprintf("%s%d", AccumulatedReviewsRoutingKeyPrefix, Id)
 	accumulatedEnglishReviewsQueue, err := manager.CreateBoundQueue(AccumulatedEnglishReviewQueueName, AccumulatedEnglishReviewsExchangeName, AccumulatedEnglishReviewsExchangeType, AccumulatedEnglishReviewsRoutingKey)
 	if err != nil {
 		log.Errorf("Failed to create queue: %v", err)
