@@ -53,7 +53,7 @@ func main() {
 	serviceName := "rabbitmq"
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: rabbitmq:management-alpine
+    image: rabbitmq:4-management
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -129,6 +129,8 @@ func main() {
     container_name: %s
     image: os_final_accumulator:latest
     entrypoint: /accumulators/os_final_accumulator
+    environment:
+      - OS_ACCUMULATORS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -137,7 +139,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName)
+`, serviceName, serviceName, config.OSAccumulator)
 
 	// TopTenAccumulator service
 	serviceName = "top_ten_accumulator"

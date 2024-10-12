@@ -4,6 +4,7 @@ import (
 	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	u "distribuidos-tp/internal/utils"
 	"os"
 	"os/signal"
 	"syscall"
@@ -23,7 +24,7 @@ const (
 	WriterRoutingKey   = "writer_key"
 	WriterExchangeType = "direct"
 
-	numPreviousNodes = 2
+	OSAccumulatorsAmountEnvironmentVariableName = "OS_ACCUMULATORS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -32,6 +33,12 @@ func main() {
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	osAccumulatorsAmount, err := u.GetEnvInt(OSAccumulatorsAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
 
 	done := make(chan bool, 1)
 
@@ -63,7 +70,7 @@ func main() {
 	forever := make(chan bool)
 
 	go func() error {
-		nodesLeft := numPreviousNodes
+		nodesLeft := osAccumulatorsAmount
 		finalGameMetrics := oa.NewGameOSMetrics()
 	loop:
 		for d := range msgs {

@@ -1,7 +1,7 @@
 services:
   rabbitmq:
     container_name: rabbitmq
-    image: rabbitmq:management-alpine
+    image: rabbitmq:4-management
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -31,10 +31,10 @@ services:
     image: game_mapper:latest
     entrypoint: /mappers/game_mapper
     environment:
-      - OS_ACCUMULATORS_AMOUNT=3
-      - DECADE_FILTER_AMOUNT=5
+      - OS_ACCUMULATORS_AMOUNT=2
+      - DECADE_FILTER_AMOUNT=2
       - INDIE_REVIEW_JOINERS_AMOUNT=2
-      - ACTION_REVIEW_JOINERS_AMOUNT=4
+      - ACTION_REVIEW_JOINERS_AMOUNT=2
     depends_on:
       entrypoint:
         condition: service_started
@@ -67,22 +67,12 @@ services:
     networks:
       - distributed_network
 
-  os_accumulator_3:
-    container_name: os_accumulator_3
-    image: os_accumulator:latest
-    entrypoint: /accumulators/os_accumulator
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
   os_final_accumulator:
     container_name: os_final_accumulator
     image: os_final_accumulator:latest
     entrypoint: /accumulators/os_final_accumulator
+    environment:
+      - OS_ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -95,6 +85,8 @@ services:
     container_name: top_ten_accumulator
     image: top_ten_accumulator:latest
     entrypoint: /accumulators/top_ten_accumulator
+    environment:
+      - DECADE_FILTERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -107,6 +99,8 @@ services:
     container_name: top_positive_reviews
     image: top_positive_reviews:latest
     entrypoint: /filters/top_positive_reviews
+    environment:
+      - INDIE_REVIEW_JOINERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -120,7 +114,7 @@ services:
     image: percentile_accumulator:latest
     entrypoint: /accumulators/percentile_accumulator
     environment:
-      - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=4
+      - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=2
       - NUM_PREVIOUS_ACCUMULATORS=2
     depends_on:
       game_mapper:
@@ -216,94 +210,13 @@ services:
     networks:
       - distributed_network
 
-  decade_filter_3:
-    container_name: decade_filter_3
-    image: decade_filter:latest
-    entrypoint: /filters/decade_filter
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  decade_filter_4:
-    container_name: decade_filter_4
-    image: decade_filter:latest
-    entrypoint: /filters/decade_filter
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  decade_filter_5:
-    container_name: decade_filter_5
-    image: decade_filter:latest
-    entrypoint: /filters/decade_filter
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
   english_filter_1:
     container_name: english_filter_1
     image: english_filter:latest
     entrypoint: /filters/english_filter
     environment:
       - ID=1
-      - ACCUMULATORS_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_filter_2:
-    container_name: english_filter_2
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
-    environment:
-      - ID=2
-      - ACCUMULATORS_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_filter_3:
-    container_name: english_filter_3
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
-    environment:
-      - ID=3
-      - ACCUMULATORS_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_filter_4:
-    container_name: english_filter_4
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
-    environment:
-      - ID=4
-      - ACCUMULATORS_AMOUNT=2
+      - ACCUMULATORS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -318,7 +231,7 @@ services:
     entrypoint: /accumulators/english_reviews_accumulator
     environment:
       - ID=1
-      - FILTERS_AMOUNT=4
+      - FILTERS_AMOUNT=1
       - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
@@ -334,7 +247,39 @@ services:
     entrypoint: /accumulators/english_reviews_accumulator
     environment:
       - ID=2
-      - FILTERS_AMOUNT=4
+      - FILTERS_AMOUNT=1
+      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+  english_reviews_accumulator_3:
+    container_name: english_reviews_accumulator_3
+    image: english_reviews_accumulator:latest
+    entrypoint: /accumulators/english_reviews_accumulator
+    environment:
+      - ID=3
+      - FILTERS_AMOUNT=1
+      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+  english_reviews_accumulator_4:
+    container_name: english_reviews_accumulator_4
+    image: english_reviews_accumulator:latest
+    entrypoint: /accumulators/english_reviews_accumulator
+    environment:
+      - ID=4
+      - FILTERS_AMOUNT=1
       - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
@@ -349,8 +294,8 @@ services:
     image: positive_reviews_filter:latest
     entrypoint: /filters/positive_reviews_filter
     environment:
-      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=4
-      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
+      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
+      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -364,8 +309,8 @@ services:
     image: positive_reviews_filter:latest
     entrypoint: /filters/positive_reviews_filter
     environment:
-      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=4
-      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
+      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
+      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -404,36 +349,6 @@ services:
     networks:
       - distributed_network
 
-  action_positive_review_joiner_3:
-    container_name: action_positive_review_joiner_3
-    image: action_positive_review_joiner:latest
-    entrypoint: /joiners/action_positive_review_joiner
-    environment:
-      - ID=3
-      - POSITIVE_REVIEWS_FILTERS_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  action_positive_review_joiner_4:
-    container_name: action_positive_review_joiner_4
-    image: action_positive_review_joiner:latest
-    entrypoint: /joiners/action_positive_review_joiner
-    environment:
-      - ID=4
-      - POSITIVE_REVIEWS_FILTERS_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
   action_negative_review_joiner_1:
     container_name: action_negative_review_joiner_1
     image: action_negative_review_joiner:latest
@@ -454,34 +369,6 @@ services:
     entrypoint: /joiners/action_negative_review_joiner
     environment:
       - ID=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  action_negative_review_joiner_3:
-    container_name: action_negative_review_joiner_3
-    image: action_negative_review_joiner:latest
-    entrypoint: /joiners/action_negative_review_joiner
-    environment:
-      - ID=3
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  action_negative_review_joiner_4:
-    container_name: action_negative_review_joiner_4
-    image: action_negative_review_joiner:latest
-    entrypoint: /joiners/action_negative_review_joiner
-    environment:
-      - ID=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -525,8 +412,8 @@ services:
     image: writer:latest
     entrypoint: /writer
     environment:
-      - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=4
-      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=4
+      - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=2
+      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
     depends_on:
       entrypoint:
         condition: service_started
