@@ -225,13 +225,13 @@ func handleActionNegativeReviewAbovePercentileQuery(data []byte, name_file strin
 	}
 
 	defer file.Close()
-	game, err := jr.DeserializeJoinedActionGameReview(data)
+	game, err := jr.DeserializeJoinedActionNegativeGameReview(data)
 	if err != nil {
 		log.Errorf("Failed to deserialize joined action game review: %v", err)
 		return err
 	}
 
-	err = u.WriteAllToFile(file, []byte(jr.GetStrRepresentation(game)))
+	err = u.WriteAllToFile(file, []byte(jr.GetStrRepresentationNegativeGameReview(game)))
 
 	if err != nil {
 		log.Errorf("Failed to write to file: %v", err)

@@ -76,7 +76,7 @@ func main() {
 func joinActionReviews(actionReviewJoinQueue *mom.Queue, writerExchange *mom.Exchange) error {
 	remainingEOFs := 1 + 1 // 1 para el percentil y 1 para los juegos
 
-	accumulatedGameReviews := make(map[uint32]*j.JoinedActionGameReview)
+	accumulatedGameReviews := make(map[uint32]*j.JoinedActionNegativeGameReview)
 	log.Info("Creating Accumulating reviews metrics")
 	msgs, err := actionReviewJoinQueue.Consume(true)
 	if err != nil {
@@ -128,7 +128,7 @@ loop:
 					delete(accumulatedGameReviews, gameReviewMetrics.AppID)
 				} else {
 					log.Infof("Saving review for later join with id %v", gameReviewMetrics.AppID)
-					accumulatedGameReviews[gameReviewMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewMetrics.AppID)
+					accumulatedGameReviews[gameReviewMetrics.AppID] = j.NewJoinedActionNegativeGameReview(gameReviewMetrics.AppID)
 				}
 			}
 		case sp.MsgGameNames:
@@ -153,7 +153,7 @@ loop:
 					delete(accumulatedGameReviews, actionGame.AppId)
 				} else {
 					log.Infof("Saving action game for later join with id %v", actionGame.AppId)
-					newJoinedActionGameReview := j.NewJoinedActionGameReview(actionGame.AppId)
+					newJoinedActionGameReview := j.NewJoinedActionNegativeGameReview(actionGame.AppId)
 					newJoinedActionGameReview.UpdateWithGame(actionGame)
 					accumulatedGameReviews[actionGame.AppId] = newJoinedActionGameReview
 				}
