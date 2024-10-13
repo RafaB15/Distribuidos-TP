@@ -123,7 +123,7 @@ loop:
 					// delete the accumulated review
 					delete(accumulatedGameReviews, gameReviewsMetrics.AppID)
 				} else {
-					log.Info("Saving review for later join")
+					log.Infof("Saving review with AppID %v for later join", gameReviewsMetrics.AppID)
 					accumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewsMetrics.AppID)
 				}
 			}
@@ -147,7 +147,7 @@ loop:
 					// delete the accumulated review
 					delete(accumulatedGameReviews, indieGame.AppId)
 				} else {
-					log.Info("Saving indie game for later join")
+					log.Info("Saving indie game with AppID %v for later join", indieGame.AppId)
 					newJoinedActionGameReview := j.NewJoinedActionGameReview(indieGame.AppId)
 					newJoinedActionGameReview.UpdateWithGame(indieGame)
 					accumulatedGameReviews[indieGame.AppId] = newJoinedActionGameReview

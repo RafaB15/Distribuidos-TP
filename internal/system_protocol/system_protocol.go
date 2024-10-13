@@ -166,11 +166,11 @@ func DeserializeMsgGameOSInformation(message []byte) ([]*oa.GameOS, error) {
 
 func SerializeMsgGameReviewsMetricsBatch(metrics []*m.GameReviewsMetrics) []byte {
 	count := len(metrics)
-	message := make([]byte, 2+count*12)
+	message := make([]byte, 3+count*12)
 	message[0] = byte(MsgGameReviewsMetrics)
-	message[1] = byte(count)
+	binary.BigEndian.PutUint16(message[1:3], uint16(count))
 
-	offset := 2
+	offset := 3
 	for i, metric := range metrics {
 		serializedMetrics := m.SerializeGameReviewsMetrics(metric)
 		copy(message[offset+i*12:], serializedMetrics)
@@ -180,12 +180,12 @@ func SerializeMsgGameReviewsMetricsBatch(metrics []*m.GameReviewsMetrics) []byte
 }
 
 func DeserializeMsgGameReviewsMetricsBatch(message []byte) ([]*m.GameReviewsMetrics, error) {
-	if len(message) < 2 {
+	if len(message) < 3 {
 		return nil, errors.New("message too short to contain count")
 	}
 
-	count := int(message[1])
-	offset := 2
+	count := int(binary.BigEndian.Uint16(message[1:3]))
+	offset := 3
 	metrics := make([]*m.GameReviewsMetrics, count)
 
 	for i := 0; i < count; i++ {
