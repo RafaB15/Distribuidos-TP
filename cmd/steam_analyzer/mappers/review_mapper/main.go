@@ -87,7 +87,7 @@ func mapReviews(rawReviewsQueue *mom.Queue, rawReviewsEofQueue *mom.Queue, revie
 		log.Errorf("Failed to consume messages: %v", err)
 	}
 
-	timeout := time.Second * 1
+	timeout := time.Second * 2
 
 loop:
 	for {
@@ -111,10 +111,11 @@ loop:
 				}
 			}
 			d.Ack(false)
+			timeout = time.Second * 2
 		case <-time.After(timeout):
 			eofMsg, err := rawReviewsEofQueue.GetIfAvailable()
 			if err != nil {
-				timeout = time.Second * 1
+				timeout = time.Second * 2
 				continue
 			}
 			msgType, err := sp.DeserializeMessageType(eofMsg.Body)
@@ -137,7 +138,6 @@ loop:
 
 func handleMsgBatch(lines []string, reviewsExchange *mom.Exchange, accumulatorsAmount int) error {
 	routingKeyMap := make(map[string][]*r.Review)
-
 	for _, line := range lines {
 		reader := csv.NewReader(strings.NewReader(line))
 		records, err := reader.Read()

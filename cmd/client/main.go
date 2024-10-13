@@ -91,7 +91,8 @@ func main() {
 	pendingBytes = nil
 
 	for {
-		serializedBatch, pendingBytes, eof, err := cp.SerializeBatch(scanner, pendingBytes, 9000, ReviewFile)
+		serializedBatch, pendingBytesFor, eof, err := cp.SerializeBatch(scanner, pendingBytes, 9000, ReviewFile)
+		pendingBytes = pendingBytesFor
 		if err != nil {
 			log.Errorf("Error reading csv file: ", err)
 			return

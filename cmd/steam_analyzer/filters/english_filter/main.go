@@ -89,7 +89,7 @@ func filterEnglishReviews(rawEnglishReviewsQueue *mom.Queue, rawEnglishReviewsEo
 		log.Errorf("Failed to consume messages: %v", err)
 	}
 
-	timeout := time.Second * 1
+	timeout := time.Second * 2
 
 loop:
 	for {
@@ -114,6 +114,7 @@ loop:
 				lines = nil
 			}
 			d.Ack(false)
+			timeout = time.Second * 2
 		case <-time.After(timeout):
 			log.Debug("Timeout!!!")
 			eofMsg, err := rawEnglishReviewsEofQueue.GetIfAvailable()

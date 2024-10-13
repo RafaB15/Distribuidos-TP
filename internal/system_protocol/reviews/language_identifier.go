@@ -7,7 +7,7 @@ type LanguageIdentifier struct {
 }
 
 func NewLanguageIdentifier() *LanguageIdentifier {
-	detector := lingua.NewLanguageDetectorBuilder().FromAllLanguages().Build()
+	detector := lingua.NewLanguageDetectorBuilder().FromAllLanguages().WithLowAccuracyMode().Build()
 	return &LanguageIdentifier{
 		detector: detector,
 	}
