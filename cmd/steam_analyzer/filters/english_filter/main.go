@@ -143,6 +143,7 @@ loop:
 
 func handleMsgBatch(lines []string, englishReviewsExchange *mom.Exchange, accumulatorsAmount int, languageIdentifier *r.LanguageIdentifier) error {
 	routingKeyMap := make(map[string][]*r.Review)
+	log.Debug("Handling batch")
 
 	for _, line := range lines {
 		reader := csv.NewReader(strings.NewReader(line))
@@ -154,7 +155,6 @@ func handleMsgBatch(lines []string, englishReviewsExchange *mom.Exchange, accumu
 			}
 			return err
 		}
-		log.Debugf("Printing fields: 0 : %v, 2 : %v", records[0], records[2])
 
 		review, err := r.NewReviewFromStrings(records[0], records[2])
 		if err != nil {
@@ -163,11 +163,8 @@ func handleMsgBatch(lines []string, englishReviewsExchange *mom.Exchange, accumu
 		}
 
 		if languageIdentifier.IsEnglish(records[1]) {
-			log.Debugf("I am the english language")
 			updateEnglishReviewsMap(review, routingKeyMap, accumulatorsAmount)
 		}
-
-		log.Debugf("Received review for game with id: %v", records[0])
 	}
 
 	for routingKey, reviews := range routingKeyMap {

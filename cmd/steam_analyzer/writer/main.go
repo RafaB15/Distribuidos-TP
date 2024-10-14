@@ -144,6 +144,7 @@ func main() {
 				if remmainingEOFs > 0 {
 					continue
 				}
+				log.Info("All EOFs received")
 				sendQueryResult(queryResponseExchange, Query4ActionPositiveFileName, 4)
 				sendQueryResult(queryResponseExchange, Query5ActionNegativePercentileFileName, 5)
 				break loop
