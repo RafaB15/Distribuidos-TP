@@ -7,13 +7,22 @@ type LanguageIdentifier struct {
 }
 
 func NewLanguageIdentifier() *LanguageIdentifier {
-	detector := lingua.NewLanguageDetectorBuilder().FromAllLanguages().WithLowAccuracyMode().Build()
+	languages := []lingua.Language{
+		lingua.English,
+		lingua.Spanish,
+		lingua.French,
+	}
+
+	detector := lingua.NewLanguageDetectorBuilder().FromLanguages(languages...).Build()
 	return &LanguageIdentifier{
 		detector: detector,
 	}
 }
 
 func (l *LanguageIdentifier) IsEnglish(text string) bool {
-	language, _ := l.detector.DetectLanguageOf(text)
+	language, reliable := l.detector.DetectLanguageOf(text)
+	if !reliable {
+		return false
+	}
 	return language == lingua.English
 }
