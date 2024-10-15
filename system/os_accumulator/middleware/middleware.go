@@ -72,8 +72,7 @@ func (m *Middleware) ReceiveGameOS() ([]*oa.GameOS, bool, error) {
 		return nil, false, err
 	}
 
-	messageBody := msg.Body
-	messageType, err := sp.DeserializeMessageType(messageBody)
+	messageType, err := sp.DeserializeMessageType(msg)
 
 	if err != nil {
 		return nil, false, err
@@ -84,7 +83,7 @@ func (m *Middleware) ReceiveGameOS() ([]*oa.GameOS, bool, error) {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 	case sp.MsgGameOSInformation:
-		gamesOs, err := sp.DeserializeMsgGameOSInformation(messageBody)
+		gamesOs, err := sp.DeserializeMsgGameOSInformation(msg)
 
 		if err != nil {
 			return nil, false, err

@@ -58,13 +58,13 @@ func NewQueue(ch *amqp.Channel, name string, autoAck bool) (*Queue, error) {
 	}, nil
 }
 
-func (q *Queue) Consume() (*amqp.Delivery, error) {
+func (q *Queue) Consume() ([]byte, error) {
 	msg, ok := <-q.messages
 	if !ok {
 		return nil, fmt.Errorf("channel closed")
 	}
 	q.lastMessage = &msg
-	return &msg, nil
+	return msg.Body, nil
 }
 
 func (q *Queue) Bind(exchange string, routingKey string) error {
