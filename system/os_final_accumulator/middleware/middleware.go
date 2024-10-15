@@ -18,8 +18,6 @@ const (
 	WriterExchangeName = "writer_exchange"
 	WriterRoutingKey   = "writer_key"
 	WriterExchangeType = "direct"
-
-	NumPreviousNodes = "NUM_PREVIOUS_OS_ACCUMULATORS"
 )
 
 type Middleware struct {
