@@ -26,6 +26,7 @@ docker-image-system:
 	docker build -f ./cmd/steam_analyzer/joiners/indie_review_joiner/Dockerfile -t "indie_review_joiner:latest" .
 	docker build -f ./cmd/steam_analyzer/writer/Dockerfile -t "writer:latest" .
 	docker build -f ./system/os_accumulator/Dockerfile -t "os_accumulator:new_version" .
+	docker build -f ./system/os_final_accumulator/Dockerfile -t "os_final_accumulator:new_version" .
 .PHONY: docker-image-system
 
 docker-compose-up: docker-image-system
