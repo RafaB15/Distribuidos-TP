@@ -25,6 +25,7 @@ docker-image-system:
 	docker build -f ./cmd/steam_analyzer/joiners/action_negative_review_joiner/Dockerfile -t "action_negative_review_joiner:latest" .
 	docker build -f ./cmd/steam_analyzer/joiners/indie_review_joiner/Dockerfile -t "indie_review_joiner:latest" .
 	docker build -f ./cmd/steam_analyzer/writer/Dockerfile -t "writer:latest" .
+	docker build -f ./system/os_accumulator/Dockerfile -t "os_accumulator:new_version" .
 .PHONY: docker-image-system
 
 docker-compose-up: docker-image-system
@@ -49,7 +50,7 @@ docker-client: docker-image-clients
 		-v ./cmd/client/client_data:/client_data \
 		--network distributed_network \
 		-e GAME_FILE_PATH=./client_data/games_90k.csv \
-		-e REVIEW_FILE_PATH=./client_data/steam_reviews_100k.csv \
+		-e REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv \
 		client:latest
 .PHONY: docker-client
 

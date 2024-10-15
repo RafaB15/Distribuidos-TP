@@ -32,6 +32,7 @@ func (o *OSAccumulator) Run() {
 		}
 
 		if eof {
+			log.Infof("Received EOF. Sending metrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
 			err = o.SendMetrics(osMetrics)
 			continue
 		}

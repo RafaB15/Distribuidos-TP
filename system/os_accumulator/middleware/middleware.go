@@ -1,9 +1,9 @@
 package middleware
 
 import (
-	"distribuidos-tp/internal/mom"
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	mom "distribuidos-tp/middleware"
 )
 
 const (
@@ -20,6 +20,7 @@ const (
 )
 
 type Middleware struct {
+	Manager               *mom.MiddlewareManager
 	OSGamesQueue          *mom.Queue
 	OSAccumulatorExchange *mom.Exchange
 }
@@ -30,9 +31,7 @@ func NewMiddleware() (*Middleware, error) {
 		return nil, err
 	}
 
-	defer manager.CloseConnection()
-
-	osGamesQueue, err := manager.CreateBoundQueue(OSGamesQueueName, OSGamesExchangeName, OSGamesExchangeType, OSGamesRoutingKey)
+	osGamesQueue, err := manager.CreateBoundQueue(OSGamesQueueName, OSGamesExchangeName, OSGamesExchangeType, OSGamesRoutingKey, true)
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +42,7 @@ func NewMiddleware() (*Middleware, error) {
 	}
 
 	return &Middleware{
+		Manager:               manager,
 		OSGamesQueue:          osGamesQueue,
 		OSAccumulatorExchange: osAccumulatorExchange,
 	}, nil
@@ -65,16 +65,33 @@ func (m *Middleware) SendMetrics(gameMetrics *oa.GameOSMetrics) error {
 	return nil
 }
 
-func (m *Middleware) ReceiveMetrics() ([]*oa.GameOS, bool, error) {
-	msg, err := m.OSGamesQueue.ConsumeOne() // Luego la implemento bien
+// Returns a slice of GameOS structs, a boolean indicating if the end of the file was reached and an error
+func (m *Middleware) ReceiveGameOS() ([]*oa.GameOS, bool, error) {
+	msg, err := m.OSGamesQueue.Consume()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	gamesOS, err := sp.DeserializeMsgGameOSInformation(msg.Body)
+	messageBody := msg.Body
+	messageType, err := sp.DeserializeMessageType(messageBody)
+
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return gamesOS, false, nil // El bool debería ser por el eof
+	switch messageType {
+
+	case sp.MsgEndOfFile:
+		return nil, true, nil
+	case sp.MsgGameOSInformation:
+		gamesOs, err := sp.DeserializeMsgGameOSInformation(messageBody)
+
+		if err != nil {
+			return nil, false, err
+		}
+
+		return gamesOs, false, nil
+	default:
+		return nil, false, nil
+	}
 }

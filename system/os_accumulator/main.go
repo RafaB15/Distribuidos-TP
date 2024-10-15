@@ -16,6 +16,6 @@ func main() {
 		return
 	}
 
-	osAccumulator := l.NewOSAccumulator(middleware.ReceiveMetrics, middleware.SendMetrics)
+	osAccumulator := l.NewOSAccumulator(middleware.ReceiveGameOS, middleware.SendMetrics)
 	osAccumulator.Run()
 }
