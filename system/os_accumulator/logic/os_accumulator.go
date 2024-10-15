@@ -11,7 +11,6 @@ var log = logging.MustGetLogger("log")
 type OSAccumulator struct {
 	ReceiveGamesOS func() ([]*oa.GameOS, bool, error)
 	SendMetrics    func(*oa.GameOSMetrics) error
-	OSKey          string
 }
 
 func NewOSAccumulator(receiveGamesOS func() ([]*oa.GameOS, bool, error), sendMetrics func(*oa.GameOSMetrics) error) *OSAccumulator {

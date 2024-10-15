@@ -7,16 +7,16 @@ WORKDIR /build/
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY system/game_mapper ./system/game_mapper
+COPY system/os_final_accumulator ./system/os_final_accumulator
 COPY middleware ./middleware
 COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/game_mapper ./system/game_mapper
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/os_final_accumulator ./system/os_final_accumulator
 
 # Stage 2
 FROM busybox:latest
 
-COPY --from=builder /build/bin/game_mapper /game_mapper
+COPY --from=builder /build/bin/os_final_accumulator /os_final_accumulator
 
-ENTRYPOINT ["/game_mapper"]
+ENTRYPOINT ["/os_final_accumulator"]
