@@ -1,34 +1,43 @@
 package review_mapper
 
 import (
-	r "distribuidos-tp/internal/system_protocol/reviews"
+	re "distribuidos-tp/internal/system_protocol/reviews"
+	u "distribuidos-tp/internal/utils"
+	"encoding/csv"
+	"strings"
 
 	"github.com/op/go-logging"
 )
 
 const (
-	REVIEW_ID_INDEX = 0
+	REVIEW_ID_INDEX   = 0
 	REVIEW_VOTE_INDEX = 2
+
+	ReviewsRoutingKeyPrefix = "reviews_key_" //consultar
 )
 
 var log = logging.MustGetLogger("log")
 
 type ReviewMapper struct {
 	ReceiveReviewBatch func() ([]string, bool, error)
+	AccumulatorsAmount func() (int, error)
+	SendMetrics        func([]*re.Review, string) error
+	SendEof            func(int) error
 }
 
-func NewReviewMapper(receiveReviewBatch func() ([]string, bool, error), GetAccumulatorsAmount func() (int, error), SendMetrics func() (error)) *ReviewMapper {
+func NewReviewMapper(receiveReviewBatch func() ([]string, bool, error), accumulatorsAmount func() (int, error), sendMetrics func([]*re.Review, string) error, SendEof func(int) error) *ReviewMapper {
 	return &ReviewMapper{
 		ReceiveReviewBatch: receiveReviewBatch,
 		AccumulatorsAmount: accumulatorsAmount,
-		SendMetrics: sendMetrics,
+		SendMetrics:        sendMetrics,
+		SendEof:            SendEof,
 	}
 }
 
 func (r *ReviewMapper) Run() {
-	routingKeyMap := make(map[string][]*r.Review)
+	routingKeyMap := make(map[string][]*re.Review)
 
-	accumulatorsAmount, err := r.GetAccumulatorsAmount()
+	accumulatorsAmount, err := r.AccumulatorsAmount()
 	if err != nil {
 		log.Errorf("Failed to get accumulators amount: %v", err)
 		return
@@ -42,7 +51,15 @@ func (r *ReviewMapper) Run() {
 		}
 
 		if eof {
+			for i := 0; i < accumulatorsAmount; i++ {
+				err = r.SendEof(i)
+				if err != nil {
+					log.Errorf("Failed to send EOF: %v", err)
+					return
+				}
+			}
 			// Do something
+
 		}
 
 		for _, review := range reviews {
@@ -52,7 +69,7 @@ func (r *ReviewMapper) Run() {
 				continue
 			}
 
-			review, err := r.NewReviewFromStrings(records[REVIEW_ID_INDEX], records[REVIEW_VOTE_INDEX]) //este import tambien hay que arreglarlo.
+			review, err := re.NewReviewFromStrings(records[REVIEW_ID_INDEX], records[REVIEW_VOTE_INDEX]) //este import tambien hay que arreglarlo.
 			if err != nil {
 				log.Errorf("Failed to create review struct: %v", err)
 				continue
@@ -71,7 +88,6 @@ func (r *ReviewMapper) Run() {
 		}
 	}
 
-
 }
 
 func getRecords(review string) ([]string, error) {
@@ -86,8 +102,8 @@ func getRecords(review string) ([]string, error) {
 	return records, nil
 }
 
-func updateReviewsMap(review *r.Review, routingKeyMap map[string][]*r.Review, accumulatorsAmount int) {
+// ver si esto deberis estar aca o no
+func updateReviewsMap(review *re.Review, routingKeyMap map[string][]*re.Review, accumulatorsAmount int) {
 	routingKey := u.GetPartitioningKeyFromInt(int(review.AppId), accumulatorsAmount, ReviewsRoutingKeyPrefix)
 	routingKeyMap[routingKey] = append(routingKeyMap[routingKey], review)
 }
-

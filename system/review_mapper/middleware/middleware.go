@@ -2,6 +2,11 @@ package middleware
 
 import (
 	sp "distribuidos-tp/internal/system_protocol"
+	r "distribuidos-tp/internal/system_protocol/reviews"
+	u "distribuidos-tp/internal/utils"
+	mom "distribuidos-tp/middleware"
+	"fmt"
+	"strconv"
 )
 
 const (
@@ -24,10 +29,10 @@ const (
 )
 
 type Middleware struct {
-	Manager              *mom.MiddlewareManager
-	RawReviewsQueue      *mom.Queue
-	RawReviewsEofQueue   *mom.Queue
-	ReviewsExchange      *mom.Exchange
+	Manager            *mom.MiddlewareManager
+	RawReviewsQueue    *mom.Queue
+	RawReviewsEofQueue *mom.Queue
+	ReviewsExchange    *mom.Exchange
 }
 
 func NewMiddleware() (*Middleware, error) {
@@ -36,7 +41,7 @@ func NewMiddleware() (*Middleware, error) {
 		return nil, err
 	}
 
-	rawReviewsQueue, err := manager.CreateBoundQueue(RawReviewsQueueName, RawReviewsExchangeName, RawReviewsExchangeType,"", true)
+	rawReviewsQueue, err := manager.CreateBoundQueue(RawReviewsQueueName, RawReviewsExchangeName, RawReviewsExchangeType, "", true)
 	if err != nil {
 		return nil, err
 	}
@@ -50,22 +55,23 @@ func NewMiddleware() (*Middleware, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	reviewsEchange, err := manager.CreateExchange(ReviewsExchangeName, ReviewsExchangeType)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Middleware{
-		Manager:              manager,
-		RawReviewsQueue:      rawReviewsQueue,
-		RawReviewsEofQueue:   rawReviewsEofQueue,
-		ReviewsExchange:      reviewsEchange,
+		Manager:            manager,
+		RawReviewsQueue:    rawReviewsQueue,
+		RawReviewsEofQueue: rawReviewsEofQueue,
+		ReviewsExchange:    reviewsEchange,
 	}, nil
 
 }
 
 func (m *Middleware) ReceiveReviewBatch() ([]string, bool, error) {
+	//timeout := time.Second * 2
 	msg, err := m.RawReviewsQueue.Consume()
 	if err != nil {
 		return nil, false, err
@@ -75,7 +81,7 @@ func (m *Middleware) ReceiveReviewBatch() ([]string, bool, error) {
 		return nil, true, nil
 	}
 
-	messageType := sp.DeserializeMessageType(msg)
+	messageType, err := sp.DeserializeMessageType(msg)
 	if err != nil {
 		return nil, false, err
 	}
@@ -85,10 +91,25 @@ func (m *Middleware) ReceiveReviewBatch() ([]string, bool, error) {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 	case sp.MsgBatch:
-		lines, err := sp.DeserializeBatch(msg)
+		lines, err = sp.DeserializeBatch(msg)
 		if err != nil {
 			return nil, false, err
 		}
+		//d.Ack(false)
+		//timeout = time.Second * 2
+	/*case <-time.After(timeout):
+	eofMsg, err := m.RawReviewsEofQueue.GetIfAvailable()
+	if err != nil {
+		timeout = time.Second * 2
+		//continue
+	}
+	msgType, err := sp.DeserializeMessageType(eofMsg.Body)
+	if err != nil {
+		return nil, false, err
+	}
+	if msgType == sp.MsgEndOfFile {
+		return nil, true, nil
+	}*/
 	default:
 		return nil, false, fmt.Errorf("unexpected message type: %v", messageType)
 
@@ -112,12 +133,21 @@ func GetAccumulatorsAmount() (int, error) {
 	return accumulatorsAmount, nil
 }
 
-// ya lo arreglo el tipo de dato de reviewsInformation
-func (m *Middleware) SendMetrics(reviewsInformation *type.ofReviewSerialization, routingKey string) error {
+func (m *Middleware) SendMetrics(reviewsInformation []*r.Review, routingKey string) error {
 
-	serializedReviews := sp.SerializeMsgReviewInformation(reviews)
+	serializedReviews := sp.SerializeMsgReviewInformation(reviewsInformation)
 
 	err := m.ReviewsExchange.Publish(routingKey, serializedReviews)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Middleware) SendEof(id int) error {
+	routingKey := fmt.Sprintf("%v%d", ReviewsRoutingKeyPrefix, id)
+	err := m.ReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
 	if err != nil {
 		return err
 	}
