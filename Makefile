@@ -27,6 +27,7 @@ docker-image-system:
 	docker build -f ./cmd/steam_analyzer/writer/Dockerfile -t "writer:latest" .
 	docker build -f ./system/os_accumulator/Dockerfile -t "os_accumulator:new_version" .
 	docker build -f ./system/os_final_accumulator/Dockerfile -t "os_final_accumulator:new_version" .
+	docker build -f ./system/reviews_accumulator/Dockerfile -t "reviews_accumulator:new_version" .
 .PHONY: docker-image-system
 
 docker-compose-up: docker-image-system
@@ -50,7 +51,7 @@ docker-client: docker-image-clients
 	docker run -d --name client \
 		-v ./cmd/client/client_data:/client_data \
 		--network distributed_network \
-		-e GAME_FILE_PATH=./client_data/games_90k.csv \
+		-e GAME_FILE_PATH=./client_data/games_50k.csv \
 		-e REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv \
 		client:latest
 .PHONY: docker-client

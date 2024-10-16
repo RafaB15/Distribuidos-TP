@@ -9,7 +9,7 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
-      test: [ "CMD", "rabbitmqctl", "status" ]
+      test: ["CMD", "rabbitmqctl", "status"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -72,7 +72,7 @@ services:
     image: os_final_accumulator:new_version
     entrypoint: /os_final_accumulator
     environment:
-      - OS_ACCUMULATORS_AMOUNT=2
+      - NUM_PREVIOUS_OS_ACCUMULATORS=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -156,8 +156,8 @@ services:
 
   reviews_accumulator_1:
     container_name: reviews_accumulator_1
-    image: reviews_accumulator:latest
-    entrypoint: /accumulators/reviews_accumulator
+    image: reviews_accumulator:new_version
+    entrypoint: /reviews_accumulator
     environment:
       - ID=1
       - MAPPERS_AMOUNT=2
@@ -200,52 +200,7 @@ services:
     entrypoint: /filters/english_filter
     environment:
       - ID=1
-      - ACCUMULATORS_AMOUNT=4
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_filter_2:
-    container_name: english_filter_2
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
-    environment:
-      - ID=2
-      - ACCUMULATORS_AMOUNT=4
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_filter_3:
-    container_name: english_filter_3
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
-    environment:
-      - ID=3
-      - ACCUMULATORS_AMOUNT=4
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_filter_4:
-    container_name: english_filter_4
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
-    environment:
-      - ID=4
-      - ACCUMULATORS_AMOUNT=4
+      - ACCUMULATORS_AMOUNT=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -260,55 +215,7 @@ services:
     entrypoint: /accumulators/english_reviews_accumulator
     environment:
       - ID=1
-      - FILTERS_AMOUNT=4
-      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_reviews_accumulator_2:
-    container_name: english_reviews_accumulator_2
-    image: english_reviews_accumulator:latest
-    entrypoint: /accumulators/english_reviews_accumulator
-    environment:
-      - ID=2
-      - FILTERS_AMOUNT=4
-      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_reviews_accumulator_3:
-    container_name: english_reviews_accumulator_3
-    image: english_reviews_accumulator:latest
-    entrypoint: /accumulators/english_reviews_accumulator
-    environment:
-      - ID=3
-      - FILTERS_AMOUNT=4
-      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_reviews_accumulator_4:
-    container_name: english_reviews_accumulator_4
-    image: english_reviews_accumulator:latest
-    entrypoint: /accumulators/english_reviews_accumulator
-    environment:
-      - ID=4
-      - FILTERS_AMOUNT=4
+      - FILTERS_AMOUNT=1
       - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
@@ -324,7 +231,7 @@ services:
     entrypoint: /filters/positive_reviews_filter
     environment:
       - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
-      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=4
+      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -339,7 +246,7 @@ services:
     entrypoint: /filters/positive_reviews_filter
     environment:
       - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
-      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=4
+      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=1
     depends_on:
       game_mapper:
         condition: service_started
