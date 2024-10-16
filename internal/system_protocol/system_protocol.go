@@ -458,3 +458,12 @@ func DeserializeMsgGameNames(message []byte) ([]*g.GameName, error) {
 
 	return gameNames, nil
 }
+
+/*
+func DeserializeTimeout(data []byte) (bool, error) {
+	if bytes.Equal(data, []byte("timeout")) {
+		return true, nil
+	}
+	return false, errors.New("data is not a timeout")
+}
+*/

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -59,12 +60,35 @@ func NewQueue(ch *amqp.Channel, name string, autoAck bool) (*Queue, error) {
 }
 
 func (q *Queue) Consume() ([]byte, error) {
+
 	msg, ok := <-q.messages
 	if !ok {
 		return nil, fmt.Errorf("channel closed")
 	}
 	q.lastMessage = &msg
 	return msg.Body, nil
+
+}
+
+// usar para el rev mapper
+func (q *Queue) ConsumeAndCheckEOF(EOFQueue *Queue) ([]byte, bool, error) {
+
+	select {
+	case msg, ok := <-q.messages:
+		if !ok {
+			return nil, false, fmt.Errorf("channel closed")
+		}
+		q.lastMessage = &msg
+		return msg.Body, false, nil
+	case <-time.After(2 * time.Second):
+		eofMsg, err := EOFQueue.GetIfAvailable()
+		if err != nil {
+			//timeout = time.Second * 2
+			//continue
+		}
+		return eofMsg.Body, true, nil
+
+	}
 }
 
 func (q *Queue) Bind(exchange string, routingKey string) error {

@@ -77,9 +77,18 @@ func (m *Middleware) ReceiveReviewBatch() ([]string, bool, error) {
 		return nil, false, err
 	}
 
-	if msg == nil {
+	if msg == nil || len(msg) == 0 {
 		return nil, true, nil
 	}
+
+	/*timeout, err := sp.DeserializeTimeout(msg)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if timeout {
+		return nil, true, nil
+	}*/
 
 	messageType, err := sp.DeserializeMessageType(msg)
 	if err != nil {
@@ -87,6 +96,7 @@ func (m *Middleware) ReceiveReviewBatch() ([]string, bool, error) {
 	}
 
 	var lines []string
+
 	switch messageType {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
