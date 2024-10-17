@@ -80,6 +80,7 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 		if eof {
 			log.Info("End of file received")
 			gm.SendEndOfFile(osAccumulatorsAmount, decadeFilterAmount, indieReviewJoinersAmount, actionReviewJoinersAmount)
+			continue
 		}
 
 		for _, game := range games {
