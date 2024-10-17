@@ -26,9 +26,8 @@ const (
 	IndieReviewJoinExchangeType             = "direct"
 	IndieReviewJoinExchangeRoutingKeyPrefix = "accumulated_reviews_key_"
 
-	IdEnvironmentVariableName            = "ID"
-	MappersAmountEnvironmentVariableName = "MAPPERS_AMOUNT"
-	IndieReviewJoinersAmountName         = "INDIE_REVIEW_JOINERS_AMOUNT"
+	IdEnvironmentVariableName    = "ID"
+	IndieReviewJoinersAmountName = "INDIE_REVIEW_JOINERS_AMOUNT"
 )
 
 type Middleware struct {
@@ -136,20 +135,6 @@ func (m *Middleware) SendEof() error {
 	}
 
 	return nil
-}
-
-func GetAccumulatorsAmount() (int, error) {
-	accumulatorsAmountString, err := u.GetEnv(MappersAmountEnvironmentVariableName)
-	if err != nil {
-		return 0, err
-	}
-
-	accumulatorsAmount, err := strconv.Atoi(accumulatorsAmountString)
-	if err != nil {
-		return 0, err
-	}
-
-	return accumulatorsAmount, nil
 }
 
 func GetIndieReviewJoinersAmount() int {

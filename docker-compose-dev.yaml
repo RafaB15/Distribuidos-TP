@@ -97,8 +97,8 @@ services:
 
   top_positive_reviews:
     container_name: top_positive_reviews
-    image: top_positive_reviews:latest
-    entrypoint: /filters/top_positive_reviews
+    image: top_positive_reviews:new_version
+    entrypoint: /top_positive_reviews
     environment:
       - INDIE_REVIEW_JOINERS_AMOUNT=2
     depends_on:
@@ -361,8 +361,8 @@ services:
 
   indie_review_joiner_1:
     container_name: indie_review_joiner_1
-    image: indie_review_joiner:latest
-    entrypoint: /joiners/indie_review_joiner
+    image: indie_review_joiner:new_version
+    entrypoint: /indie_review_joiner
     environment:
       - ID=1
       - REVIEWS_ACCUMULATOR_AMOUNT=1
@@ -376,8 +376,8 @@ services:
 
   indie_review_joiner_2:
     container_name: indie_review_joiner_2
-    image: indie_review_joiner:latest
-    entrypoint: /joiners/indie_review_joiner
+    image: indie_review_joiner:new_version
+    entrypoint: /indie_review_joiner
     environment:
       - ID=2
       - REVIEWS_ACCUMULATOR_AMOUNT=1

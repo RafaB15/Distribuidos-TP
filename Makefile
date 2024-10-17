@@ -30,6 +30,7 @@ docker-image-system:
 	docker build -f ./system/os_final_accumulator/Dockerfile -t "os_final_accumulator:new_version" .
 	docker build -f ./system/reviews_accumulator/Dockerfile -t "reviews_accumulator:new_version" .
 	docker build -f ./system/indie_review_joiner/Dockerfile -t "indie_review_joiner:new_version" .
+	docker build -f ./system/top_positive_reviews/Dockerfile -t "top_positive_reviews:new_version" .
 .PHONY: docker-image-system
 
 docker-compose-up: docker-image-system

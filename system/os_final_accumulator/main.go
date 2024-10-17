@@ -8,7 +8,7 @@ import (
 	"github.com/op/go-logging"
 )
 
-const OSAccumulatorsAmountEnvironmentVariableName = "OS_ACCUMULATORS_AMOUNT"
+const OSAccumulatorsAmountEnvironmentVariableName = "NUM_PREVIOUS_OS_ACCUMULATORS"
 
 var log = logging.MustGetLogger("log")
 

@@ -5,11 +5,9 @@ import (
 	"distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	"distribuidos-tp/internal/system_protocol/games"
 	j "distribuidos-tp/internal/system_protocol/joiner"
-	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 
 	"fmt"
-	"strconv"
 )
 
 const (
@@ -24,9 +22,6 @@ const (
 	TopPositiveReviewsExchangeName = "top_positive_reviews_exchange"
 	TopPositiveReviewsExchangeType = "direct"
 	TopPositiveReviewsRoutingKey   = "top_positive_reviews_key"
-
-	ReviewsAccumulatorAmountEnvironmentVariableName = "REVIEWS_ACCUMULATOR_AMOUNT"
-	IdEnvironmentVariableName                       = "ID"
 )
 
 type Middleware struct {
@@ -35,13 +30,8 @@ type Middleware struct {
 	TopPositiveReviewsEchange *mom.Exchange
 }
 
-func NewMiddleware() (*Middleware, error) {
+func NewMiddleware(id int) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
-	if err != nil {
-		return nil, err
-	}
-
-	id, err := u.GetEnvInt(IdEnvironmentVariableName)
 	if err != nil {
 		return nil, err
 	}
@@ -101,20 +91,6 @@ func HandleGameNames(message []byte) ([]*games.GameName, error) {
 		return nil, err
 	}
 	return gameNames, nil
-}
-
-func GetAccumulatorsAmount() (int, error) {
-	accumulatorsAmountString, err := u.GetEnv(ReviewsAccumulatorAmountEnvironmentVariableName)
-	if err != nil {
-		return 0, err
-	}
-
-	accumulatorsAmount, err := strconv.Atoi(accumulatorsAmountString)
-	if err != nil {
-		return 0, err
-	}
-
-	return accumulatorsAmount, nil
 }
 
 func (m *Middleware) SendMetrics(reviewsInformation *j.JoinedActionGameReview) error {

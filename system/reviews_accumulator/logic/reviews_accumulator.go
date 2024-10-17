@@ -13,25 +13,20 @@ var log = logging.MustGetLogger("log")
 type ReviewsAccumulator struct {
 	ReceiveReviews         func() ([]*reviews.Review, bool, error)
 	SendAccumulatedReviews func(map[uint32]*r.GameReviewsMetrics) error
-	AccumulatorsAmount     func() (int, error)
 	SendEof                func() error
 }
 
-func NewReviewsAccumulator(receiveReviews func() ([]*reviews.Review, bool, error), sendAccumulatedReviews func(map[uint32]*r.GameReviewsMetrics) error, accumulatorsAmount func() (int, error), sendEof func() error) *ReviewsAccumulator {
+func NewReviewsAccumulator(receiveReviews func() ([]*reviews.Review, bool, error), sendAccumulatedReviews func(map[uint32]*r.GameReviewsMetrics) error, sendEof func() error) *ReviewsAccumulator {
 	return &ReviewsAccumulator{
 		ReceiveReviews:         receiveReviews,
 		SendAccumulatedReviews: sendAccumulatedReviews,
-		AccumulatorsAmount:     accumulatorsAmount,
 		SendEof:                sendEof,
 	}
 }
 
-func (ra *ReviewsAccumulator) Run() {
-	remainingEOFs, err := ra.AccumulatorsAmount()
-	if err != nil {
-		log.Error("Error getting accumulators amount: ", err)
-		return
-	}
+func (ra *ReviewsAccumulator) Run(accumulatorsAmount int) {
+	remainingEOFs := accumulatorsAmount
+
 	accumulatedReviews := make(map[uint32]*r.GameReviewsMetrics)
 
 	for {

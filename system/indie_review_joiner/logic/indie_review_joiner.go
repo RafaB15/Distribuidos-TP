@@ -15,30 +15,23 @@ type IndieReviewJoiner struct {
 	ReceiveMsg               func() (sp.MessageType, []byte, bool, error)
 	HandleGameReviewsMetrics func([]byte) ([]*reviews_accumulator.GameReviewsMetrics, error)
 	HandleGameNames          func([]byte) ([]*games.GameName, error)
-	AccumulatorsAmount       func() (int, error)
 	SendMetrics              func(*j.JoinedActionGameReview) error
 	SendEof                  func() error
 }
 
-func NewIndieReviewJoiner(receiveMsg func() (sp.MessageType, []byte, bool, error), handleGameReviewsMetrics func([]byte) ([]*reviews_accumulator.GameReviewsMetrics, error), handleGameNames func([]byte) ([]*games.GameName, error), accumulatorsAmount func() (int, error), sendMetrics func(*j.JoinedActionGameReview) error, sendEof func() error) *IndieReviewJoiner {
+func NewIndieReviewJoiner(receiveMsg func() (sp.MessageType, []byte, bool, error), handleGameReviewsMetrics func([]byte) ([]*reviews_accumulator.GameReviewsMetrics, error), handleGameNames func([]byte) ([]*games.GameName, error), sendMetrics func(*j.JoinedActionGameReview) error, sendEof func() error) *IndieReviewJoiner {
 	return &IndieReviewJoiner{
 		ReceiveMsg:               receiveMsg,
 		HandleGameReviewsMetrics: handleGameReviewsMetrics,
 		HandleGameNames:          handleGameNames,
-		AccumulatorsAmount:       accumulatorsAmount,
 		SendMetrics:              sendMetrics,
 		SendEof:                  sendEof,
 	}
 }
 
-func (i *IndieReviewJoiner) Run() {
+func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 	accumulatedGameReviews := make(map[uint32]*j.JoinedActionGameReview)
 
-	accumulatorsAmount, err := i.AccumulatorsAmount()
-	if err != nil {
-		log.Errorf("Failed to get accumulators amount: %v", err)
-		return
-	}
 	remainingEOFs := accumulatorsAmount + 1
 
 	for {
