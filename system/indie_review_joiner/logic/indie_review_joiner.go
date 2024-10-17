@@ -50,7 +50,7 @@ func (i *IndieReviewJoiner) Run() {
 
 		if eof {
 			remainingEOFs--
-			if remainingEOFs >= 0 {
+			if remainingEOFs > 0 {
 				continue
 			}
 			log.Info("Received all EOFs, sending EOFs")
