@@ -2,6 +2,10 @@ package middleware
 
 import (
 	sp "distribuidos-tp/internal/system_protocol"
+	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	df "distribuidos-tp/internal/system_protocol/decade_filter"
+	g "distribuidos-tp/internal/system_protocol/games"
+	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
 )
@@ -110,4 +114,84 @@ func (m *Middleware) ReceiveGameBatch() ([]string, bool, error) {
 	}
 
 	return lines, false, nil
+}
+
+func (m *Middleware) SendGamesOS(gamesOS []*oa.GameOS) error {
+	serializedGameOS := sp.SerializeMsgGameOSInformation(gamesOS)
+	err := m.OSGamesExchange.Publish(OSGamesRoutingKey, serializedGameOS)
+	if err != nil {
+		return fmt.Errorf("failed to publish games OS: %v", err)
+	}
+
+	return nil
+}
+
+func (m *Middleware) SendGameYearAndAvgPtf(gameYearAndAvgPtf []*df.GameYearAndAvgPtf) error {
+	serializedGameYearAndAvgPtf := sp.SerializeMsgGameYearAndAvgPtf(gameYearAndAvgPtf)
+	err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, serializedGameYearAndAvgPtf)
+	if err != nil {
+		return fmt.Errorf("failed to publish game year and avg ptf: %v", err)
+	}
+
+	return nil
+}
+
+func (m *Middleware) SendIndieGamesNames(indieGamesNames map[int][]*g.GameName) error {
+	return sendGamesNamesToReviewJoin(indieGamesNames, m.IndieReviewJoinExchange, IndieReviewJoinRoutingKeyPrefix)
+}
+
+func (m *Middleware) SendActionGamesNames(actionGamesNames map[int][]*g.GameName) error {
+	return sendGamesNamesToReviewJoin(actionGamesNames, m.ActionReviewJoinExchange, ActionReviewJoinRoutingKeyPrefix)
+}
+
+func sendGamesNamesToReviewJoin(gamesNamesMap map[int][]*g.GameName, reviewJoinExchange *mom.Exchange, keyPrefix string) error {
+	for shardingKey, gameName := range gamesNamesMap {
+		routingKey := fmt.Sprintf("%s%d", keyPrefix, shardingKey)
+
+		serializedGamesNames, err := sp.SerializeMsgGameNames(gameName)
+		if err != nil {
+			return fmt.Errorf("failed to serialize game names: %v", err)
+		}
+
+		err = reviewJoinExchange.Publish(routingKey, serializedGamesNames)
+		if err != nil {
+			return fmt.Errorf("failed to publish game names: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (m *Middleware) SendEndOfFiles(osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int) error {
+	for i := 0; i < osAccumulatorsAmount; i++ {
+		err := m.OSGamesExchange.Publish(OSGamesRoutingKey, sp.SerializeMsgEndOfFile())
+		if err != nil {
+			return err
+		}
+	}
+
+	for i := 0; i < decadeFilterAmount; i++ {
+		err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, sp.SerializeMsgEndOfFile())
+		if err != nil {
+			return err
+		}
+	}
+
+	for i := 1; i <= indieReviewJoinersAmount; i++ {
+		routingKey := u.GetPartitioningKeyFromInt(i, indieReviewJoinersAmount, IndieReviewJoinRoutingKeyPrefix)
+		err := m.IndieReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
+		if err != nil {
+			return err
+		}
+	}
+
+	for i := 1; i <= actionReviewJoinersAmount; i++ {
+		routingKey := u.GetPartitioningKeyFromInt(i, actionReviewJoinersAmount, ActionReviewJoinRoutingKeyPrefix)
+		err := m.ActionReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
