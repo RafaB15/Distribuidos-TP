@@ -32,6 +32,7 @@ docker-image-system:
 	docker build -f ./system/indie_review_joiner/Dockerfile -t "indie_review_joiner:new_version" .
 	docker build -f ./system/action_positive_review_joiner/Dockerfile -t "action_positive_review_joiner:new_version" .
 	docker build -f ./system/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:new_version" .
+	docker build -f ./system/action_negative_review_joiner/Dockerfile -t "action_negative_review_joiner:new_version" .
 
 .PHONY: docker-image-system
 

@@ -318,8 +318,8 @@ services:
 
   action_negative_review_joiner_1:
     container_name: action_negative_review_joiner_1
-    image: action_negative_review_joiner:latest
-    entrypoint: /joiners/action_negative_review_joiner
+    image: action_negative_review_joiner:new_version
+    entrypoint: /action_negative_review_joiner
     environment:
       - ID=1
     depends_on:
@@ -332,8 +332,8 @@ services:
 
   action_negative_review_joiner_2:
     container_name: action_negative_review_joiner_2
-    image: action_negative_review_joiner:latest
-    entrypoint: /joiners/action_negative_review_joiner
+    image: action_negative_review_joiner:new_version
+    entrypoint: /action_negative_review_joiner
     environment:
       - ID=2
     depends_on:
