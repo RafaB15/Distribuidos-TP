@@ -25,9 +25,9 @@ const (
 )
 
 type Middleware struct {
-	Manager                   *mom.MiddlewareManager
-	IndieReviewJoinQueue      *mom.Queue
-	TopPositiveReviewsEchange *mom.Exchange
+	Manager                 *mom.MiddlewareManager
+	IndieReviewJoinQueue    *mom.Queue
+	PositiveReviewsExchange *mom.Exchange
 }
 
 func NewMiddleware(id int) (*Middleware, error) {
@@ -52,9 +52,9 @@ func NewMiddleware(id int) (*Middleware, error) {
 	}
 
 	return &Middleware{
-		Manager:                   manager,
-		IndieReviewJoinQueue:      indieReviewJoinQueue,
-		TopPositiveReviewsEchange: topPositiveReviewsExchange,
+		Manager:                 manager,
+		IndieReviewJoinQueue:    indieReviewJoinQueue,
+		PositiveReviewsExchange: topPositiveReviewsExchange,
 	}, nil
 }
 
@@ -99,11 +99,11 @@ func (m *Middleware) SendMetrics(reviewsInformation *j.JoinedActionGameReview) e
 		return err
 	}
 
-	return m.TopPositiveReviewsEchange.Publish(TopPositiveReviewsRoutingKey, serializedMetrics)
+	return m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, serializedMetrics)
 }
 
 func (m *Middleware) SendEof() error {
-	err := m.TopPositiveReviewsEchange.Publish(TopPositiveReviewsRoutingKey, sp.SerializeMsgEndOfFile())
+	err := m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, sp.SerializeMsgEndOfFile())
 	if err != nil {
 		return err
 	}

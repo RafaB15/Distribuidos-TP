@@ -135,12 +135,11 @@ loop:
 		case sp.MsgGameNames:
 
 			actionGames, err := sp.DeserializeMsgGameNames(messageBody)
+			if err != nil {
+				log.Errorf("Failed to deserialize action game: %v", err)
+				return err
+			}
 			for _, actionGame := range actionGames {
-
-				if err != nil {
-					log.Errorf("Failed to deserialize action game: %v", err)
-					return err
-				}
 				if joinedGameReviewsMsg, exists := accumulatedGameReviews[actionGame.AppId]; exists {
 					log.Infof("Joining action game into review with ID: %v", actionGame.AppId)
 					joinedGameReviewsMsg.UpdateWithGame(actionGame)

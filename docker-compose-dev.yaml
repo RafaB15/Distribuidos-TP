@@ -9,7 +9,7 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
-      test: [ "CMD", "rabbitmqctl", "status" ]
+      test: ["CMD", "rabbitmqctl", "status"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -28,8 +28,8 @@ services:
 
   game_mapper:
     container_name: game_mapper
-    image: game_mapper:new_version
-    entrypoint: /game_mapper
+    image: game_mapper:latest
+    entrypoint: /mappers/game_mapper
     environment:
       - OS_ACCUMULATORS_AMOUNT=2
       - DECADE_FILTER_AMOUNT=2
@@ -45,8 +45,8 @@ services:
 
   os_accumulator_1:
     container_name: os_accumulator_1
-    image: os_accumulator:new_version
-    entrypoint: /os_accumulator
+    image: os_accumulator:latest
+    entrypoint: /accumulators/os_accumulator
     depends_on:
       game_mapper:
         condition: service_started
@@ -57,8 +57,8 @@ services:
 
   os_accumulator_2:
     container_name: os_accumulator_2
-    image: os_accumulator:new_version
-    entrypoint: /os_accumulator
+    image: os_accumulator:latest
+    entrypoint: /accumulators/os_accumulator
     depends_on:
       game_mapper:
         condition: service_started
@@ -69,10 +69,10 @@ services:
 
   os_final_accumulator:
     container_name: os_final_accumulator
-    image: os_final_accumulator:new_version
-    entrypoint: /os_final_accumulator
+    image: os_final_accumulator:latest
+    entrypoint: /accumulators/os_final_accumulator
     environment:
-      - OS_ACCUMULATORS_AMOUNT=2
+      - NUM_PREVIOUS_OS_ACCUMULATORS=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -97,8 +97,8 @@ services:
 
   top_positive_reviews:
     container_name: top_positive_reviews
-    image: top_positive_reviews:new_version
-    entrypoint: /top_positive_reviews
+    image: top_positive_reviews:latest
+    entrypoint: /filters/top_positive_reviews
     environment:
       - INDIE_REVIEW_JOINERS_AMOUNT=2
     depends_on:
@@ -156,8 +156,8 @@ services:
 
   reviews_accumulator_1:
     container_name: reviews_accumulator_1
-    image: reviews_accumulator:new_version
-    entrypoint: /reviews_accumulator
+    image: reviews_accumulator:latest
+    entrypoint: /accumulators/reviews_accumulator
     environment:
       - ID=1
       - MAPPERS_AMOUNT=2
@@ -209,43 +209,13 @@ services:
     networks:
       - distributed_network
 
-  english_filter_2:
-    container_name: english_filter_2
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
-    environment:
-      - ID=2
-      - ACCUMULATORS_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_filter_3:
-    container_name: english_filter_3
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
-    environment:
-      - ID=3
-      - ACCUMULATORS_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
   english_reviews_accumulator_1:
     container_name: english_reviews_accumulator_1
     image: english_reviews_accumulator:latest
     entrypoint: /accumulators/english_reviews_accumulator
     environment:
       - ID=1
-      - FILTERS_AMOUNT=3
+      - FILTERS_AMOUNT=1
       - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
@@ -261,7 +231,7 @@ services:
     entrypoint: /accumulators/english_reviews_accumulator
     environment:
       - ID=2
-      - FILTERS_AMOUNT=3
+      - FILTERS_AMOUNT=1
       - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
@@ -303,8 +273,8 @@ services:
 
   action_positive_review_joiner_1:
     container_name: action_positive_review_joiner_1
-    image: action_positive_review_joiner:latest
-    entrypoint: /joiners/action_positive_review_joiner
+    image: action_positive_review_joiner:new_version
+    entrypoint: /action_positive_review_joiner
     environment:
       - ID=1
       - POSITIVE_REVIEWS_FILTERS_AMOUNT=2
@@ -318,8 +288,8 @@ services:
 
   action_positive_review_joiner_2:
     container_name: action_positive_review_joiner_2
-    image: action_positive_review_joiner:latest
-    entrypoint: /joiners/action_positive_review_joiner
+    image: action_positive_review_joiner:new_version
+    entrypoint: /action_positive_review_joiner
     environment:
       - ID=2
       - POSITIVE_REVIEWS_FILTERS_AMOUNT=2
@@ -361,8 +331,8 @@ services:
 
   indie_review_joiner_1:
     container_name: indie_review_joiner_1
-    image: indie_review_joiner:new_version
-    entrypoint: /indie_review_joiner
+    image: indie_review_joiner:latest
+    entrypoint: /joiners/indie_review_joiner
     environment:
       - ID=1
       - REVIEWS_ACCUMULATOR_AMOUNT=1
@@ -376,8 +346,8 @@ services:
 
   indie_review_joiner_2:
     container_name: indie_review_joiner_2
-    image: indie_review_joiner:new_version
-    entrypoint: /indie_review_joiner
+    image: indie_review_joiner:latest
+    entrypoint: /joiners/indie_review_joiner
     environment:
       - ID=2
       - REVIEWS_ACCUMULATOR_AMOUNT=1

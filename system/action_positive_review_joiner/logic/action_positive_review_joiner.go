@@ -1,4 +1,4 @@
-package indie_review_joiner
+package action_positive_review_joiner
 
 import (
 	sp "distribuidos-tp/internal/system_protocol"
@@ -11,7 +11,7 @@ import (
 
 var log = logging.MustGetLogger("log")
 
-type IndieReviewJoiner struct {
+type ActionPositiveReviewJoiner struct {
 	ReceiveMsg               func() (sp.MessageType, []byte, bool, error)
 	HandleGameReviewsMetrics func([]byte) ([]*reviews_accumulator.GameReviewsMetrics, error)
 	HandleGameNames          func([]byte) ([]*games.GameName, error)
@@ -19,8 +19,8 @@ type IndieReviewJoiner struct {
 	SendEof                  func() error
 }
 
-func NewIndieReviewJoiner(receiveMsg func() (sp.MessageType, []byte, bool, error), handleGameReviewsMetrics func([]byte) ([]*reviews_accumulator.GameReviewsMetrics, error), handleGameNames func([]byte) ([]*games.GameName, error), sendMetrics func(*j.JoinedActionGameReview) error, sendEof func() error) *IndieReviewJoiner {
-	return &IndieReviewJoiner{
+func NewActionPositiveReviewJoiner(receiveMsg func() (sp.MessageType, []byte, bool, error), handleGameReviewsMetrics func([]byte) ([]*reviews_accumulator.GameReviewsMetrics, error), handleGameNames func([]byte) ([]*games.GameName, error), sendMetrics func(*j.JoinedActionGameReview) error, sendEof func() error) *ActionPositiveReviewJoiner {
+	return &ActionPositiveReviewJoiner{
 		ReceiveMsg:               receiveMsg,
 		HandleGameReviewsMetrics: handleGameReviewsMetrics,
 		HandleGameNames:          handleGameNames,
@@ -29,13 +29,13 @@ func NewIndieReviewJoiner(receiveMsg func() (sp.MessageType, []byte, bool, error
 	}
 }
 
-func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
+func (a *ActionPositiveReviewJoiner) Run(positiveReviewsFiltersAmount int) {
+	remainingEOFs := positiveReviewsFiltersAmount + 1
+
 	accumulatedGameReviews := make(map[uint32]*j.JoinedActionGameReview)
 
-	remainingEOFs := accumulatorsAmount + 1
-
 	for {
-		msgType, msg, eof, err := i.ReceiveMsg()
+		msgType, msg, eof, err := a.ReceiveMsg()
 		if err != nil {
 			log.Errorf("Failed to receive message: %v", err)
 			return
@@ -46,8 +46,9 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 			if remainingEOFs > 0 {
 				continue
 			}
-			log.Info("Received all EOFs, sending EOFs")
-			err = i.SendEof()
+
+			log.Info("Received all EOFs, sending EOF to Writer")
+			err = a.SendEof()
 			if err != nil {
 				log.Errorf("Failed to send EOF: %v", err)
 				return
@@ -56,7 +57,7 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 
 		switch msgType {
 		case sp.MsgGameReviewsMetrics:
-			gamesReviewsMetrics, err := i.HandleGameReviewsMetrics(msg)
+			gamesReviewsMetrics, err := a.HandleGameReviewsMetrics(msg)
 			if err != nil {
 				log.Errorf("Failed to handle game reviews metrics: %v", err)
 				return
@@ -67,13 +68,13 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 					log.Infof("Joining review into indie game with ID: %v", gameReviewsMetrics.AppID)
 					joinedGameReviewsMsg.UpdateWithReview(gameReviewsMetrics)
 
-					err = i.SendMetrics(joinedGameReviewsMsg)
+					err = a.SendMetrics(joinedGameReviewsMsg)
 					if err != nil {
 						log.Errorf("Failed to send metrics: %v", err)
 						return
 					}
+					log.Infof("Sent review for game with ID: %v", gameReviewsMetrics.AppID)
 					delete(accumulatedGameReviews, gameReviewsMetrics.AppID)
-
 				} else {
 					log.Infof("Saving review with AppID %v for later join", gameReviewsMetrics.AppID)
 					accumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewsMetrics.AppID)
@@ -81,28 +82,30 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 			}
 
 		case sp.MsgGameNames:
-			indieGamesNames, err := i.HandleGameNames(msg)
+			actionGamesNames, err := a.HandleGameNames(msg)
 			if err != nil {
 				log.Errorf("Failed to handle game names: %v", err)
 				return
 			}
 
-			for _, indieGame := range indieGamesNames {
+			for _, actionGameName := range actionGamesNames {
+				if joinedGameReviewsMsg, exists := accumulatedGameReviews[actionGameName.AppId]; exists {
+					log.Infof("Joining action game into review with ID: %v", actionGameName.AppId)
+					joinedGameReviewsMsg.UpdateWithGame(actionGameName)
 
-				if joinedGameReviewsMsg, exists := accumulatedGameReviews[indieGame.AppId]; exists {
-					log.Infof("Joining indie game into review with ID: %v", indieGame.AppId)
-					joinedGameReviewsMsg.UpdateWithGame(indieGame)
-					err = i.SendMetrics(joinedGameReviewsMsg)
+					err = a.SendMetrics(joinedGameReviewsMsg)
 					if err != nil {
 						log.Errorf("Failed to send metrics: %v", err)
 						return
 					}
-					delete(accumulatedGameReviews, indieGame.AppId)
+					log.Infof("Sending review for game with ID: %v", actionGameName.AppId)
+					// delete the accumulated review
+					delete(accumulatedGameReviews, actionGameName.AppId)
 				} else {
-					log.Info("Saving indie game with AppID %v for later join", indieGame.AppId)
-					newJoinedActionGameReview := j.NewJoinedActionGameReview(indieGame.AppId)
-					newJoinedActionGameReview.UpdateWithGame(indieGame)
-					accumulatedGameReviews[indieGame.AppId] = newJoinedActionGameReview
+					log.Infof("Saving action game for later join with id %v", actionGameName.AppId)
+					newJoinedActionGameReview := j.NewJoinedActionGameReview(actionGameName.AppId)
+					newJoinedActionGameReview.UpdateWithGame(actionGameName)
+					accumulatedGameReviews[actionGameName.AppId] = newJoinedActionGameReview
 				}
 			}
 
@@ -111,7 +114,7 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 				continue
 			}
 			log.Errorf("Unexpected message type: %d", msgType)
-
 		}
 	}
+
 }
