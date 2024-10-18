@@ -31,6 +31,7 @@ docker-image-system:
 	docker build -f ./system/reviews_accumulator/Dockerfile -t "reviews_accumulator:new_version" .
 	docker build -f ./system/indie_review_joiner/Dockerfile -t "indie_review_joiner:new_version" .
 	docker build -f ./system/action_positive_review_joiner/Dockerfile -t "action_positive_review_joiner:new_version" .
+	docker build -f ./system/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:new_version" .
 
 .PHONY: docker-image-system
 
@@ -55,7 +56,7 @@ docker-client: docker-image-clients
 	docker run -d --name client \
 		-v ./cmd/client/client_data:/client_data \
 		--network distributed_network \
-		-e GAME_FILE_PATH=./client_data/games_50k.csv \
+		-e GAME_FILE_PATH=./client_data/games_90k.csv \
 		-e REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv \
 		client:latest
 .PHONY: docker-client

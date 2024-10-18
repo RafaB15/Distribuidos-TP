@@ -9,7 +9,7 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
-      test: ["CMD", "rabbitmqctl", "status"]
+      test: [ "CMD", "rabbitmqctl", "status" ]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -209,13 +209,28 @@ services:
     networks:
       - distributed_network
 
+  english_filter_2:
+    container_name: english_filter_2
+    image: english_filter:latest
+    entrypoint: /filters/english_filter
+    environment:
+      - ID=2
+      - ACCUMULATORS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
   english_reviews_accumulator_1:
     container_name: english_reviews_accumulator_1
     image: english_reviews_accumulator:latest
     entrypoint: /accumulators/english_reviews_accumulator
     environment:
       - ID=1
-      - FILTERS_AMOUNT=1
+      - FILTERS_AMOUNT=2
       - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
@@ -231,7 +246,7 @@ services:
     entrypoint: /accumulators/english_reviews_accumulator
     environment:
       - ID=2
-      - FILTERS_AMOUNT=1
+      - FILTERS_AMOUNT=2
       - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
@@ -243,8 +258,8 @@ services:
 
   positive_reviews_filter_1:
     container_name: positive_reviews_filter_1
-    image: positive_reviews_filter:latest
-    entrypoint: /filters/positive_reviews_filter
+    image: positive_reviews_filter:new_version
+    entrypoint: /positive_reviews_filter
     environment:
       - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
@@ -258,8 +273,8 @@ services:
 
   positive_reviews_filter_2:
     container_name: positive_reviews_filter_2
-    image: positive_reviews_filter:latest
-    entrypoint: /filters/positive_reviews_filter
+    image: positive_reviews_filter:new_version
+    entrypoint: /positive_reviews_filter
     environment:
       - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
