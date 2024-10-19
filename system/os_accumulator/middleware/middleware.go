@@ -94,3 +94,14 @@ func (m *Middleware) ReceiveGameOS() ([]*oa.GameOS, bool, error) {
 		return nil, false, nil
 	}
 }
+
+// Shutdown method to close the MiddlewareManager and related resources
+func (m *Middleware) Shutdown() error {
+
+	// Cerrar colas y exchanges
+	if err := m.Manager.CloseConnection(); err != nil {
+		return err
+	}
+
+	return nil
+}

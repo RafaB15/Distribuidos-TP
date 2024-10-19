@@ -54,6 +54,7 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 
 		// If there are no more EOFs, send the final top ten games
 		if remainingEOFs <= 0 {
+			log.Infof("Received all EOFs, sending final top ten games")
 			finalTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile("top_ten_games")
 			if err != nil {
 				log.Errorf("error uploading top ten games from file: %v", err)

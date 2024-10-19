@@ -5,7 +5,11 @@ import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	mom "distribuidos-tp/middleware"
 	"fmt"
+
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("log")
 
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
@@ -80,6 +84,12 @@ func (m *Middleware) SendFinalMetrics(gameMetrics *oa.GameOSMetrics) error {
 	if err != nil {
 		return err
 	}
+
+	err = m.WriterExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
+	if err != nil {
+		return err
+	}
+	log.Infof("sent EOF to writer")
 
 	return nil
 }

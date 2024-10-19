@@ -80,6 +80,7 @@ func main() {
 
 	go func() {
 		remmainingEOFs := actionNegativeReviewsJoinersAmount + actionPositiveReviewsJoinersAmount + 3
+		log.Infof("Remaining EOFs: %v", remmainingEOFs)
 	loop:
 		for d := range msgs {
 			msgType, err := sp.DeserializeMessageType(d.Body)
@@ -142,6 +143,7 @@ func main() {
 				log.Info("End Of File received")
 				remmainingEOFs--
 				if remmainingEOFs > 0 {
+					log.Infof("Remaining EOFs: %v", remmainingEOFs)
 					continue
 				}
 				log.Info("All EOFs received")

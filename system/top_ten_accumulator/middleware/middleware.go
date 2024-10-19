@@ -4,7 +4,11 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	mom "distribuidos-tp/middleware"
+
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("log")
 
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
@@ -91,6 +95,7 @@ func (m *Middleware) SendMsg(finalTopTenGames []*df.GameYearAndAvgPtf) error {
 	if err != nil {
 		return err
 	}
+	log.Infof("sent EOF to writer")
 
 	return nil
 }

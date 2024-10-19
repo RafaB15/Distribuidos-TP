@@ -45,13 +45,14 @@ func (t *TopPositiveReviews) Run(indieReviewJoinerAmount int) {
 				log.Errorf("Failed to send metrics: %v", err)
 				return
 			}
-			log.Info("Sent Top 5 positive reviews to writer")
+			log.Infof("Sent Top 5 positive reviews to writer")
 			err = t.SendEof()
 			if err != nil {
 				log.Errorf("Failed to send EOF: %v", err)
 				return
 			}
-			return
+			log.Info("Sent eof to writer")
+			continue
 		}
 
 		log.Infof("Received indie game with ID: %v", msg.AppId)
