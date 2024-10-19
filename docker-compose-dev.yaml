@@ -200,7 +200,22 @@ services:
     entrypoint: /filters/english_filter
     environment:
       - ID=1
-      - ACCUMULATORS_AMOUNT=4
+      - ACCUMULATORS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+  english_filter_2:
+    container_name: english_filter_2
+    image: english_filter:latest
+    entrypoint: /filters/english_filter
+    environment:
+      - ID=2
+      - ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -211,11 +226,11 @@ services:
 
   english_reviews_accumulator_1:
     container_name: english_reviews_accumulator_1
-    image: english_reviews_accumulator:latest
-    entrypoint: /accumulators/english_reviews_accumulator
+    image: english_reviews_accumulator:new_version
+    entrypoint: /english_reviews_accumulator
     environment:
       - ID=1
-      - FILTERS_AMOUNT=1
+      - FILTERS_AMOUNT=2
       - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
@@ -227,43 +242,11 @@ services:
 
   english_reviews_accumulator_2:
     container_name: english_reviews_accumulator_2
-    image: english_reviews_accumulator:latest
-    entrypoint: /accumulators/english_reviews_accumulator
+    image: english_reviews_accumulator:new_version
+    entrypoint: /english_reviews_accumulator
     environment:
       - ID=2
-      - FILTERS_AMOUNT=1
-      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_reviews_accumulator_3:
-    container_name: english_reviews_accumulator_3
-    image: english_reviews_accumulator:latest
-    entrypoint: /accumulators/english_reviews_accumulator
-    environment:
-      - ID=3
-      - FILTERS_AMOUNT=1
-      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_reviews_accumulator_4:
-    container_name: english_reviews_accumulator_4
-    image: english_reviews_accumulator:latest
-    entrypoint: /accumulators/english_reviews_accumulator
-    environment:
-      - ID=4
-      - FILTERS_AMOUNT=1
+      - FILTERS_AMOUNT=2
       - POSITIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
@@ -279,7 +262,7 @@ services:
     entrypoint: /positive_reviews_filter
     environment:
       - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
-      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=4
+      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -294,7 +277,7 @@ services:
     entrypoint: /positive_reviews_filter
     environment:
       - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
-      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=4
+      - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
