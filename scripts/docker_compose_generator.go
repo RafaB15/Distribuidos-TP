@@ -181,8 +181,8 @@ func main() {
 	serviceName = "percentile_accumulator"
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: percentile_accumulator:latest
-    entrypoint: /accumulators/percentile_accumulator
+    image: percentile_accumulator:new_version
+    entrypoint: /percentile_accumulator
     environment:
       - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=%d
       - NUM_PREVIOUS_ACCUMULATORS=%d

@@ -17,8 +17,8 @@ docker-image-system:
 	docker build -f ./cmd/steam_analyzer/filters/top_positive_reviews/Dockerfile -t "top_positive_reviews:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/english_reviews_accumulator/Dockerfile -t "english_reviews_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/reviews_accumulator/Dockerfile -t "reviews_accumulator:latest" .
-	docker build -f ./system/top_ten_accumulator/Dockerfile -t "top_ten_accumulator:new_version" .
-	docker build -f ./cmd/steam_analyzer/accumulators/percentile_accumulator/Dockerfile -t "percentile_accumulator:latest" .
+	docker build -f ./system/top_ten_accumulator/Dockerfile -t "top_ten_accumulator:new_version" .	
+	docker build -f ./system/percentile_accumulator/Dockerfile -t "percentile_accumulator:new_version" .
 	docker build -f ./cmd/steam_analyzer/filters/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:latest" .
 	docker build -f ./system/decade_filter/Dockerfile -t "decade_filter:new_version" .
 	docker build -f ./cmd/steam_analyzer/joiners/action_positive_review_joiner/Dockerfile -t "action_positive_review_joiner:latest" .

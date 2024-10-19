@@ -111,8 +111,8 @@ services:
 
   percentile_accumulator:
     container_name: percentile_accumulator
-    image: percentile_accumulator:latest
-    entrypoint: /accumulators/percentile_accumulator
+    image: percentile_accumulator:new_version
+    entrypoint: /percentile_accumulator
     environment:
       - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=2
       - NUM_PREVIOUS_ACCUMULATORS=1
