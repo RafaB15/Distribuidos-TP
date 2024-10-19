@@ -146,7 +146,7 @@ func main() {
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: top_ten_accumulator:latest
-    entrypoint: /accumulators/top_ten_accumulator
+    entrypoint: /top_ten_accumulator
     environment:
       - DECADE_FILTERS_AMOUNT=%d
     depends_on:
@@ -244,8 +244,8 @@ func main() {
 		serviceName := fmt.Sprintf("decade_filter_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: decade_filter:latest
-    entrypoint: /filters/decade_filter
+    image: decade_filter:new_version
+    entrypoint: /decade_filter
     depends_on:
       game_mapper:
         condition: service_started

@@ -30,7 +30,7 @@ const (
 var log = logging.MustGetLogger("log")
 
 func main() {
-
+	log.Info("Hola que tal")
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
@@ -84,7 +84,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-
+			log.Infof("Message type: %v", messageType)
 			switch messageType {
 			case sp.MsgEndOfFile:
 				nodesLeft -= 1
@@ -115,6 +115,7 @@ func main() {
 				break loop
 
 			}
+			// log.Infof("Nodes left: %v", nodesLeft)
 
 			if nodesLeft <= 0 {
 
@@ -127,7 +128,7 @@ func main() {
 				for _, game := range finalTopTenGames {
 					log.Infof("To send Game: %v, Year: %v, AvgPtf: %v", game.AppId, game.ReleaseYear, game.AvgPlaytimeForever)
 				}
-
+				log.Infof("Final top ten games: %v", finalTopTenGames)
 				srzGames := df.SerializeTopTenAvgPlaytimeForever(finalTopTenGames)
 				bytes := sp.SerializeTopTenDecadeAvgPtfQueryMsg(srzGames)
 

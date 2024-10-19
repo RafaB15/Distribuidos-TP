@@ -31,9 +31,9 @@ const (
 	OSGamesRoutingKey   = "os_games_key"
 	OSGamesExchangeType = "direct"
 
-	YearAndAvgPtfExchangeName = "year_and_avg_ptf_exchange"
+	YearAndAvgPtfExchangeName = "year_avg_ptf_exchange"
 	YearAndAvgPtfExchangeType = "direct"
-	YearAndAvgPtfRoutingKey   = "year_and_avg_ptf_key"
+	YearAndAvgPtfRoutingKey   = "year_avg_ptf_key"
 
 	IndieReviewJoinExchangeName     = "indie_review_join_exchange"
 	IndieReviewJoinExchangeType     = "direct"

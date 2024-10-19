@@ -17,10 +17,10 @@ docker-image-system:
 	docker build -f ./cmd/steam_analyzer/filters/top_positive_reviews/Dockerfile -t "top_positive_reviews:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/english_reviews_accumulator/Dockerfile -t "english_reviews_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/accumulators/reviews_accumulator/Dockerfile -t "reviews_accumulator:latest" .
-	docker build -f ./cmd/steam_analyzer/accumulators/top_ten_accumulator/Dockerfile -t "top_ten_accumulator:latest" .
+	docker build -f ./system/top_ten_accumulator/Dockerfile -t "top_ten_accumulator:new_version" .
 	docker build -f ./cmd/steam_analyzer/accumulators/percentile_accumulator/Dockerfile -t "percentile_accumulator:latest" .
 	docker build -f ./cmd/steam_analyzer/filters/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:latest" .
-	docker build -f ./cmd/steam_analyzer/filters/decade_filter/Dockerfile -t "decade_filter:latest" .
+	docker build -f ./system/decade_filter/Dockerfile -t "decade_filter:new_version" .
 	docker build -f ./cmd/steam_analyzer/joiners/action_positive_review_joiner/Dockerfile -t "action_positive_review_joiner:latest" .
 	docker build -f ./cmd/steam_analyzer/joiners/action_negative_review_joiner/Dockerfile -t "action_negative_review_joiner:latest" .
 	docker build -f ./cmd/steam_analyzer/joiners/indie_review_joiner/Dockerfile -t "indie_review_joiner:latest" .
@@ -58,7 +58,7 @@ docker-client: docker-image-clients
 		-v ./cmd/client/client_data:/client_data \
 		--network distributed_network \
 		-e GAME_FILE_PATH=./client_data/games_90k.csv \
-		-e REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv \
+		-e REVIEW_FILE_PATH=./client_data/steam_reviews_100k.csv \
 		client:latest
 .PHONY: docker-client
 
