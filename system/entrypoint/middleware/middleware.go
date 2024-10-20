@@ -90,7 +90,7 @@ func (m *Middleware) SendGamesEndOfFile(clientID int) error {
 	return nil
 }
 
-func (m *Middleware) SendReviewsEndOfFile(englishFiltersAmount int, reviewMappersAmount int, clientID int) error {
+func (m *Middleware) SendReviewsEndOfFile(clientID int, englishFiltersAmount int, reviewMappersAmount int) error {
 	for i := 0; i < englishFiltersAmount; i++ {
 		err := m.RawReviewsExchange.Publish(RawEnglishReviewsEofKey, sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {

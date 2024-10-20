@@ -112,5 +112,10 @@ func (m *Middleware) SendEndOfFiles(accumulatorsAmount int) error {
 		}
 	}
 
+	err := m.RawReviewsQueue.AckLastMessage()
+	if err != nil {
+		return fmt.Errorf("Failed to ack last message: %v", err)
+	}
+
 	return nil
 }
