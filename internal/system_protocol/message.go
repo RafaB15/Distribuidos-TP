@@ -3,9 +3,9 @@ package system_protocol
 import "errors"
 
 type Message struct {
-	MessageType MessageType
-	ClientID    int
-	Body        []byte
+	Type     MessageType
+	ClientID int
+	Body     []byte
 }
 
 func DeserializeMessage(message []byte) (*Message, error) {
@@ -17,9 +17,9 @@ func DeserializeMessage(message []byte) (*Message, error) {
 	clientID := int(message[1])
 
 	return &Message{
-		MessageType: messageType,
-		ClientID:    clientID,
-		Body:        message[2:],
+		Type:     messageType,
+		ClientID: clientID,
+		Body:     message[2:],
 	}, nil
 }
 

@@ -62,12 +62,12 @@ func (m *Middleware) ReceiveGameReviews() (int, []string, bool, error) {
 		return 0, nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
 	}
 	fmt.Printf("Received message from client %d\n", message.ClientID)
-	fmt.Printf("Received message type %d\n", message.MessageType)
+	fmt.Printf("Received message type %d\n", message.Type)
 	fmt.Printf("Received message body %d\n", len(message.Body))
 
 	var lines []string
 
-	switch message.MessageType {
+	switch message.Type {
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
 	case sp.MsgBatch:
@@ -76,7 +76,7 @@ func (m *Middleware) ReceiveGameReviews() (int, []string, bool, error) {
 			return message.ClientID, nil, false, err
 		}
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %d", message.MessageType)
+		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %d", message.Type)
 	}
 
 	return message.ClientID, lines, false, nil

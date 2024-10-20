@@ -65,7 +65,7 @@ func (m *Middleware) ReceiveReviews() ([]*r.Review, bool, error) {
 
 	fmt.Printf("Received message from client %d\n", message.ClientID)
 
-	switch message.MessageType {
+	switch message.Type {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 	case sp.MsgReviewInformation:
@@ -75,7 +75,7 @@ func (m *Middleware) ReceiveReviews() ([]*r.Review, bool, error) {
 		}
 		return reviews, false, nil
 	default:
-		return nil, false, fmt.Errorf("Unexpected message type: %v", message.MessageType)
+		return nil, false, fmt.Errorf("Unexpected message type: %v", message.Type)
 	}
 }
 

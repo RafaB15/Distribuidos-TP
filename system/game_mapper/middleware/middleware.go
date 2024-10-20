@@ -88,36 +88,36 @@ func NewMiddleware() (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameBatch() ([]string, bool, error) {
+func (m *Middleware) ReceiveGameBatch() (int, []string, bool, error) {
 	rawMsg, err := m.RawGamesQueue.Consume()
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
 	var lines []string
 
-	switch message.MessageType {
+	switch message.Type {
 	case sp.MsgEndOfFile:
-		return nil, true, nil
+		return message.ClientID, nil, true, nil
 	case sp.MsgBatch:
 		lines, err = sp.DeserializeMsgBatch(message.Body)
 		if err != nil {
-			return nil, false, err
+			return message.ClientID, nil, false, err
 		}
 	default:
-		return nil, false, fmt.Errorf("unexpected message type: %d", message.MessageType)
+		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %d", message.Type)
 	}
 
-	return lines, false, nil
+	return message.ClientID, lines, false, nil
 }
 
-func (m *Middleware) SendGamesOS(gamesOS []*oa.GameOS) error {
-	serializedGameOS := sp.SerializeMsgGameOSInformation(gamesOS)
+func (m *Middleware) SendGamesOS(clientID int, gamesOS []*oa.GameOS) error {
+	serializedGameOS := sp.SerializeMsgGameOSInformationV2(clientID, gamesOS)
 	err := m.OSGamesExchange.Publish(OSGamesRoutingKey, serializedGameOS)
 	if err != nil {
 		return fmt.Errorf("failed to publish games OS: %v", err)
@@ -162,9 +162,9 @@ func sendGamesNamesToReviewJoin(gamesNamesMap map[int][]*g.GameName, reviewJoinE
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int) error {
+func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int) error {
 	for i := 0; i < osAccumulatorsAmount; i++ {
-		err := m.OSGamesExchange.Publish(OSGamesRoutingKey, sp.SerializeMsgEndOfFile())
+		err := m.OSGamesExchange.Publish(OSGamesRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {
 			return err
 		}

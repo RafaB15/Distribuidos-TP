@@ -66,7 +66,7 @@ func (m *Middleware) ReceiveGameReviews() (int, []string, bool, error) {
 
 	var lines []string
 
-	switch message.MessageType {
+	switch message.Type {
 	case sp.MsgEndOfFile:
 		fmt.Println("Received end of file")
 		return message.ClientID, nil, true, nil
@@ -77,7 +77,7 @@ func (m *Middleware) ReceiveGameReviews() (int, []string, bool, error) {
 			return message.ClientID, nil, false, err
 		}
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %v", message.MessageType)
+		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %v", message.Type)
 	}
 
 	return message.ClientID, lines, false, nil

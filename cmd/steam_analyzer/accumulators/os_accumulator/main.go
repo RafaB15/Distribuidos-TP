@@ -97,7 +97,7 @@ func main() {
 				break loop
 
 			case sp.MsgGameOSInformation:
-				gamesOs, err := sp.DeserializeMsgGameOSInformation(messageBody)
+				gamesOs, err := sp.DeserializeMsgGameOSInformationV2(messageBody)
 
 				if err != nil {
 					return err

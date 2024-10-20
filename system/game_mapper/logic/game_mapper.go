@@ -28,12 +28,12 @@ const (
 
 var log = logging.MustGetLogger("log")
 
-type ReceiveGameBatchFunc func() ([]string, bool, error)
-type SendGamesOSFunc func([]*oa.GameOS) error
+type ReceiveGameBatchFunc func() (int, []string, bool, error)
+type SendGamesOSFunc func(int, []*oa.GameOS) error
 type SendGameYearAndAvgPtfFunc func([]*df.GameYearAndAvgPtf) error
 type SendIndieGamesNamesFunc func(map[int][]*g.GameName) error
 type SendActionGamesNamesFunc func(map[int][]*g.GameName) error
-type SendEndOfFileFunc func(int, int, int, int) error
+type SendEndOfFileFunc func(int, int, int, int, int) error
 
 type GameMapper struct {
 	ReceiveGameBatch      ReceiveGameBatchFunc
@@ -71,7 +71,7 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 		indieGamesNames := make(map[int][]*g.GameName)
 		actionGamesNames := make(map[int][]*g.GameName)
 
-		games, eof, err := gm.ReceiveGameBatch()
+		clientID, games, eof, err := gm.ReceiveGameBatch()
 		if err != nil {
 			log.Errorf("Failed to receive game batch: %v", err)
 			return
@@ -79,7 +79,7 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 
 		if eof {
 			log.Info("End of file received")
-			gm.SendEndOfFile(osAccumulatorsAmount, decadeFilterAmount, indieReviewJoinersAmount, actionReviewJoinersAmount)
+			gm.SendEndOfFile(clientID, osAccumulatorsAmount, decadeFilterAmount, indieReviewJoinersAmount, actionReviewJoinersAmount)
 			continue
 		}
 
@@ -111,7 +111,7 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 			}
 		}
 
-		err = gm.SendGamesOS(gamesOS)
+		err = gm.SendGamesOS(clientID, gamesOS)
 		if err != nil {
 			log.Errorf("Failed to send game os: %v", err)
 			return

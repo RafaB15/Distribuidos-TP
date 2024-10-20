@@ -10,13 +10,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-
-	"github.com/op/go-logging"
 )
 
 type MessageType byte
-
-var log = logging.MustGetLogger("log")
 
 const (
 	MsgEndOfFile MessageType = iota
@@ -128,7 +124,6 @@ func SerializeMsgGameOSInformation(gameOSList []*oa.GameOS) []byte {
 
 	return message
 }
-
 func DeserializeMsgGameOSInformation(message []byte) ([]*oa.GameOS, error) {
 	if len(message) < 3 {
 		return nil, errors.New("message too short to contain count")
@@ -491,6 +486,67 @@ func DeserializeLine(data []byte, offset int) (string, int, error) {
 	newOffset := offset + LineLengthBytesAmount + int(lineLength)
 
 	return line, newOffset, nil
+}
+
+// --------------------------------------------------------
+
+// Game Os Message
+func SerializeMsgGameOSInformationV2(clientID int, gameOSList []*oa.GameOS) []byte {
+
+	GameOSSize := 3     // Tamaño en bytes de un GameOS serializado
+	CountFieldSize := 2 // Tamaño del campo que guarda el conteo
+
+	count := len(gameOSList)
+
+	// Crear el cuerpo del mensaje con el tamaño adecuado
+	body := make([]byte, CountFieldSize+count*GameOSSize)            // Reservar espacio para el conteo y los GameOS serializados
+	binary.BigEndian.PutUint16(body[:CountFieldSize], uint16(count)) // Header con la cantidad de elementos
+
+	offset := CountFieldSize
+	for i, gameOS := range gameOSList {
+		serializedGameOS := oa.SerializeGameOS(gameOS)
+		copy(body[offset+i*GameOSSize:], serializedGameOS) // Copiar cada GameOS serializado
+	}
+
+	return SerializeMessage(MsgGameOSInformation, clientID, body)
+}
+
+// DeserializeMsgGameOSInformation takes a byte slice representing a message and
+// returns a slice of GameOS objects or an error if deserialization fails.
+func DeserializeMsgGameOSInformationV2(message []byte) ([]*oa.GameOS, error) {
+
+	GameOSSize := 3     // Tamaño en bytes de un GameOS serializado
+	CountFieldSize := 2 // Tamaño del campo que guarda el conteo
+
+	// Extract the number of GameOS records (count) from the first 2 bytes of the body
+	count := binary.BigEndian.Uint16(message[:CountFieldSize])
+	offset := CountFieldSize // Start reading the GameOS records after the 3-byte header
+
+	// Calculate the expected length based on the number of GameOS records
+	expectedLength := int(count) * GameOSSize
+
+	// Ensure the message contains enough bytes to match the expected length of GameOS records
+	if len(message[offset:]) < expectedLength {
+		return nil, errors.New("message length does not match expected count")
+	}
+
+	var gameOSList []*oa.GameOS
+
+	// Loop through the message to deserialize each GameOS record
+	for i := 0; i < int(count); i++ {
+		start := offset + i*GameOSSize
+		end := start + GameOSSize
+
+		// Deserialize the current GameOS record from the message slice
+		gameOS, err := oa.DeserializeGameOS(message[start:end])
+		if err != nil {
+			return nil, err // Return an error if deserialization of a GameOS record fails
+		}
+
+		gameOSList = append(gameOSList, gameOS)
+	}
+
+	return gameOSList, nil
 }
 
 // --------------------------------------------------------

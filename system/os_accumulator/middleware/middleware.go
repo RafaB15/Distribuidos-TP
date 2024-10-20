@@ -4,6 +4,7 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	mom "distribuidos-tp/middleware"
+	"fmt"
 )
 
 const (
@@ -67,23 +68,22 @@ func (m *Middleware) SendMetrics(gameMetrics *oa.GameOSMetrics) error {
 
 // Returns a slice of GameOS structs, a boolean indicating if the end of the file was reached and an error
 func (m *Middleware) ReceiveGameOS() ([]*oa.GameOS, bool, error) {
-	msg, err := m.OSGamesQueue.Consume()
+	rawMsg, err := m.OSGamesQueue.Consume()
 	if err != nil {
 		return nil, false, err
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
-
+	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
-	switch messageType {
+	switch message.Type {
 
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 	case sp.MsgGameOSInformation:
-		gamesOs, err := sp.DeserializeMsgGameOSInformation(msg)
+		gamesOs, err := sp.DeserializeMsgGameOSInformationV2(message.Body)
 
 		if err != nil {
 			return nil, false, err
