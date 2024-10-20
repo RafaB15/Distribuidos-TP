@@ -25,7 +25,11 @@ type EnglishReviewsFilter struct {
 	SendEnfOfFiles     func(int) error
 }
 
-func NewEnglishReviewsFilter(receiveGameReviews func() ([]string, bool, error), sendEnglishReviews func(map[int][]*r.Review) error, sendEndOfFiles func(int) error) *EnglishReviewsFilter {
+func NewEnglishReviewsFilter(
+	receiveGameReviews func() ([]string, bool, error),
+	sendEnglishReviews func(map[int][]*r.Review) error,
+	sendEndOfFiles func(int) error,
+) *EnglishReviewsFilter {
 	return &EnglishReviewsFilter{
 		ReceiveGameReviews: receiveGameReviews,
 		SendEnglishReviews: sendEnglishReviews,
@@ -44,6 +48,7 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int) {
 		}
 
 		if eof {
+			log.Info("Received end of file")
 			err = f.SendEnfOfFiles(accumulatorsAmount)
 			if err != nil {
 				log.Errorf("Failed to send end of files: %v", err)

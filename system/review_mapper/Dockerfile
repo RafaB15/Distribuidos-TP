@@ -7,17 +7,16 @@ WORKDIR /build/
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY system/entrypoint ./system/entrypoint
+COPY system/review_mapper ./system/review_mapper
 COPY middleware ./middleware
-COPY internal/client_protocol ./internal/client_protocol
 COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/entrypoint ./system/entrypoint
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/review_mapper ./system/review_mapper
 
 # Stage 2
 FROM busybox:latest
 
-COPY --from=builder /build/bin/entrypoint /entrypoint
+COPY --from=builder /build/bin/review_mapper /review_mapper
 
-ENTRYPOINT ["/entrypoint"]
+ENTRYPOINT ["/review_mapper"]

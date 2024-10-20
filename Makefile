@@ -32,6 +32,9 @@ docker-image-system:
 	docker build -f ./system/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:new_version" .
 	docker build -f ./system/action_negative_review_joiner/Dockerfile -t "action_negative_review_joiner:new_version" .
 	docker build -f ./system/english_reviews_accumulator/Dockerfile -t "english_reviews_accumulator:new_version" .
+	docker build -f ./system/english_reviews_filter/Dockerfile -t "english_reviews_filter:new_version" .
+	docker build -f ./system/review_mapper/Dockerfile -t "review_mapper:new_version" .
+	docker build -f ./system/entrypoint/Dockerfile -t "entrypoint:new_version" .
 
 .PHONY: docker-image-system
 
@@ -57,7 +60,7 @@ docker-client: docker-image-clients
 		-v ./cmd/client/client_data:/client_data \
 		--network distributed_network \
 		-e GAME_FILE_PATH=./client_data/games_90k.csv \
-		-e REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv \
+		-e REVIEW_FILE_PATH=./client_data/steam_reviews_100k.csv \
 		client:latest
 .PHONY: docker-client
 

@@ -4,106 +4,101 @@ import (
 	re "distribuidos-tp/internal/system_protocol/reviews"
 	u "distribuidos-tp/internal/utils"
 	"encoding/csv"
+	"io"
+	"strconv"
 	"strings"
 
 	"github.com/op/go-logging"
 )
 
 const (
-	REVIEW_ID_INDEX   = 0
-	REVIEW_VOTE_INDEX = 2
-
-	ReviewsRoutingKeyPrefix = "reviews_key_" //consultar
+	APP_ID_INDEX       = 0
+	REVIEW_SCORE_INDEX = 2
 )
 
 var log = logging.MustGetLogger("log")
 
 type ReviewMapper struct {
-	ReceiveReviewBatch func() ([]string, bool, error)
-	AccumulatorsAmount func() (int, error)
-	SendMetrics        func([]*re.Review, string) error
-	SendEof            func(int) error
+	ReceiveGameReviews func() ([]string, bool, error)
+	SendReviews        func(map[int][]*re.Review) error
+	SendEnfOfFiles     func(int) error
 }
 
-func NewReviewMapper(receiveReviewBatch func() ([]string, bool, error), accumulatorsAmount func() (int, error), sendMetrics func([]*re.Review, string) error, SendEof func(int) error) *ReviewMapper {
+func NewReviewMapper(
+	receiveReviewBatch func() ([]string, bool, error),
+	sendMetrics func(map[int][]*re.Review) error,
+	SendEof func(int) error,
+) *ReviewMapper {
 	return &ReviewMapper{
-		ReceiveReviewBatch: receiveReviewBatch,
-		AccumulatorsAmount: accumulatorsAmount,
-		SendMetrics:        sendMetrics,
-		SendEof:            SendEof,
+		ReceiveGameReviews: receiveReviewBatch,
+		SendReviews:        sendMetrics,
+		SendEnfOfFiles:     SendEof,
 	}
 }
 
-func (r *ReviewMapper) Run() {
-	routingKeyMap := make(map[string][]*re.Review)
-
-	accumulatorsAmount, err := r.AccumulatorsAmount()
-	if err != nil {
-		log.Errorf("Failed to get accumulators amount: %v", err)
-		return
-	}
-
+func (r *ReviewMapper) Run(accumulatorsAmount int) {
 	for {
-		reviews, eof, err := r.ReceiveReviewBatch()
+		reviews, eof, err := r.ReceiveGameReviews()
 		if err != nil {
 			log.Errorf("Failed to receive review batch: %v", err)
 			return
 		}
 
 		if eof {
-			for i := 0; i < accumulatorsAmount; i++ {
-				err = r.SendEof(i)
-				if err != nil {
-					log.Errorf("Failed to send EOF: %v", err)
-					return
-				}
-			}
-			// Do something
-
-		}
-
-		for _, review := range reviews {
-			records, err := getRecords(review)
+			log.Info("Received end of file")
+			err = r.SendEnfOfFiles(accumulatorsAmount)
 			if err != nil {
-				log.Errorf("Failed to read review: %v", err)
-				continue
-			}
-
-			review, err := re.NewReviewFromStrings(records[REVIEW_ID_INDEX], records[REVIEW_VOTE_INDEX]) //este import tambien hay que arreglarlo.
-			if err != nil {
-				log.Errorf("Failed to create review struct: %v", err)
-				continue
-			}
-
-			updateReviewsMap(review, routingKeyMap, accumulatorsAmount)
-
-		}
-
-		for routingKey, reviews := range routingKeyMap {
-			err := r.SendMetrics(reviews, routingKey)
-			if err != nil {
-				log.Errorf("Failed to send metrics: %v", err)
+				log.Errorf("Failed to send end of files: %v", err)
 				return
 			}
+			continue
 		}
+
+		reviewsMap, err := collectReviews(reviews, accumulatorsAmount)
+		if err != nil {
+			log.Errorf("Failed to handle message batch: %v", err)
+			return
+		}
+
+		err = r.SendReviews(reviewsMap)
+		if err != nil {
+			log.Errorf("Failed to send english reviews: %v", err)
+			return
+		}
+		log.Info("Sent reviews")
 	}
 
 }
 
-func getRecords(review string) ([]string, error) {
-	reader := csv.NewReader(strings.NewReader(review))
-	records, err := reader.Read()
+func collectReviews(reviews []string, accumulatorsAmount int) (map[int][]*re.Review, error) {
+	shardingKeyMap := make(map[int][]*re.Review)
 
-	if err != nil {
-		log.Errorf("Failed to read review: %v", err)
-		return nil, err
+	for _, line := range reviews {
+		reader := csv.NewReader(strings.NewReader(line))
+		records, err := reader.Read()
+
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		review, err := re.NewReviewFromStrings(records[APP_ID_INDEX], records[REVIEW_SCORE_INDEX])
+		if err != nil {
+			log.Error("Error creating review with text")
+			return nil, err
+		}
+
+		updateReviewsMap(review, shardingKeyMap, accumulatorsAmount)
+
 	}
 
-	return records, nil
+	return shardingKeyMap, nil
 }
 
-// ver si esto deberis estar aca o no
-func updateReviewsMap(review *re.Review, routingKeyMap map[string][]*re.Review, accumulatorsAmount int) {
-	routingKey := u.GetPartitioningKeyFromInt(int(review.AppId), accumulatorsAmount, ReviewsRoutingKeyPrefix)
-	routingKeyMap[routingKey] = append(routingKeyMap[routingKey], review)
+func updateReviewsMap(review *re.Review, routingKeyMap map[int][]*re.Review, accumulatorsAmount int) {
+	appIdStr := strconv.Itoa(int(review.AppId))
+	englishReviewShardingKey := u.CalculateShardingKey(appIdStr, accumulatorsAmount)
+	routingKeyMap[englishReviewShardingKey] = append(routingKeyMap[englishReviewShardingKey], review)
 }

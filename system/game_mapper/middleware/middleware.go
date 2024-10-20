@@ -89,28 +89,28 @@ func NewMiddleware() (*Middleware, error) {
 }
 
 func (m *Middleware) ReceiveGameBatch() ([]string, bool, error) {
-	msg, err := m.RawGamesQueue.Consume()
+	rawMsg, err := m.RawGamesQueue.Consume()
 	if err != nil {
 		return nil, false, err
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
+	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
 		return nil, false, err
 	}
 
 	var lines []string
 
-	switch messageType {
+	switch message.MessageType {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 	case sp.MsgBatch:
-		lines, err = sp.DeserializeBatch(msg)
+		lines, err = sp.DeserializeBatch(message.Body)
 		if err != nil {
 			return nil, false, err
 		}
 	default:
-		return nil, false, fmt.Errorf("unexpected message type: %d", messageType)
+		return nil, false, fmt.Errorf("unexpected message type: %d", message.MessageType)
 	}
 
 	return lines, false, nil

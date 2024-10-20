@@ -57,14 +57,6 @@ func SerializeBatchMsg(batch []byte) []byte {
 	return message
 }
 
-func DeserializeBatchMsg(message []byte) (string, error) {
-	if len(message) == 0 {
-		return "", errors.New("empty message")
-	}
-
-	return string(message[1:]), nil
-}
-
 func SerializeMsgGameYearAndAvgPtf(gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []byte {
 	count := len(gameYearAndAvgPtf)
 	message := make([]byte, 3+count*10)
@@ -401,22 +393,6 @@ func DeserializeBatch(data []byte) ([]string, error) {
 	return lines, nil
 }
 
-func DeserializeLine(data []byte, offset int) (string, int, error) {
-	if offset+LineLengthBytesAmount > len(data) {
-		return "", 0, errors.New("data too short to contain line length information")
-	}
-
-	lineLength := binary.BigEndian.Uint32(data[offset : offset+LineLengthBytesAmount])
-	if int(lineLength) > len(data)-offset-LineLengthBytesAmount {
-		return "", 0, errors.New("invalid line length information")
-	}
-
-	line := string(data[offset+LineLengthBytesAmount : offset+LineLengthBytesAmount+int(lineLength)])
-	newOffset := offset + LineLengthBytesAmount + int(lineLength)
-
-	return line, newOffset, nil
-}
-
 func SerializeMsgGameNames(gameNames []*g.GameName) ([]byte, error) {
 	count := len(gameNames)
 	headerSize := 3 // 1 byte for message type + 2 bytes for count
@@ -459,11 +435,60 @@ func DeserializeMsgGameNames(message []byte) ([]*g.GameName, error) {
 	return gameNames, nil
 }
 
-/*
-func DeserializeTimeout(data []byte) (bool, error) {
-	if bytes.Equal(data, []byte("timeout")) {
-		return true, nil
-	}
-	return false, errors.New("data is not a timeout")
+// ----------------------------------------------------------
+// ----------------------------------------------------------
+// ----------------------------------------------------------
+// ----------------------------------------------------------
+// REFACTOR ZONE
+
+// Message End of file
+func SerializeMsgEndOfFileV2(clientId int) []byte {
+	return SerializeMessage(MsgEndOfFile, clientId, nil)
 }
-*/
+
+// --------------------------------------------------------
+
+// Message Batch
+func SerializeMsgBatch(clientId int, data []byte) []byte {
+	return SerializeMessage(MsgBatch, clientId, data)
+}
+
+func DeserializeMsgBatch(data []byte) ([]string, error) {
+	if len(data) == 0 {
+		return []string{}, nil
+	}
+
+	numLines := int(data[0])
+
+	serializedLines := data[1:]
+	var lines []string
+
+	offset := 0
+
+	for i := 0; i < numLines; i++ {
+		line, newOffset, err := DeserializeLine(serializedLines, offset)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, line)
+		offset = newOffset
+	}
+
+	return lines, nil
+}
+
+func DeserializeLine(data []byte, offset int) (string, int, error) {
+	if offset+LineLengthBytesAmount > len(data) {
+		return "", 0, errors.New("data too short to contain line length information")
+	}
+
+	lineLength := binary.BigEndian.Uint32(data[offset : offset+LineLengthBytesAmount])
+	if int(lineLength) > len(data)-offset-LineLengthBytesAmount {
+		return "", 0, errors.New("invalid line length information")
+	}
+
+	line := string(data[offset+LineLengthBytesAmount : offset+LineLengthBytesAmount+int(lineLength)])
+	newOffset := offset + LineLengthBytesAmount + int(lineLength)
+
+	return line, newOffset, nil
+}

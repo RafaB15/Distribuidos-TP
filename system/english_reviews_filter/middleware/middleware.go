@@ -11,22 +11,20 @@ const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
 	RawReviewsExchangeName     = "raw_reviews_exchange"
-	RawReviewsExchangeType     = "fanout"
+	RawReviewsExchangeType     = "direct"
+	RawReviewsRoutingKey       = "raw_reviews_key"
+	RawEnglishReviewsEofKey    = "raw_english_reviews_eof_key"
 	RawEnglishReviewsQueueName = "raw_english_reviews_queue"
 
 	EnglishReviewsExchangeName     = "english_reviews_exchange"
 	EnglishReviewsExchangeType     = "direct"
 	EnglishReviewsRoutingKeyPrefix = "english_reviews_key_"
-
-	RawReviewsEofExchangeName           = "raw_reviews_eof_exchange"
-	RawReviewsEofExchangeType           = "fanout"
-	RawEnglishReviewsEofQueueNamePrefix = "raw_english_reviews_eof_queue_"
 )
 
 type Middleware struct {
-	RawEnglishReviewsQueue    *mom.Queue
-	RawEnglishReviewsEofQueue *mom.Queue
-	EnglishReviewsExchange    *mom.Exchange
+	Manager                *mom.MiddlewareManager
+	RawEnglishReviewsQueue *mom.Queue
+	EnglishReviewsExchange *mom.Exchange
 }
 
 func NewMiddleware(id int) (*Middleware, error) {
@@ -34,15 +32,9 @@ func NewMiddleware(id int) (*Middleware, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create middleware manager: %v", err)
 	}
-	defer manager.CloseConnection()
 
-	rawEnglishReviewsQueue, err := manager.CreateBoundQueue(RawEnglishReviewsQueueName, RawReviewsExchangeName, RawReviewsExchangeType, "", false)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create queue: %v", err)
-	}
-
-	rawEnglishReviewsEofQueueName := fmt.Sprintf("%s%d", RawEnglishReviewsEofQueueNamePrefix, id)
-	rawEnglishReviewsEofQueue, err := manager.CreateBoundQueue(rawEnglishReviewsEofQueueName, RawReviewsEofExchangeName, RawReviewsEofExchangeType, "", false)
+	routingKeys := []string{RawReviewsRoutingKey, RawEnglishReviewsEofKey}
+	rawEnglishReviewsQueue, err := manager.CreateBoundQueueMultipleRoutingKeys(RawEnglishReviewsQueueName, RawReviewsExchangeName, RawReviewsExchangeType, routingKeys, false)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create queue: %v", err)
 	}
@@ -53,35 +45,38 @@ func NewMiddleware(id int) (*Middleware, error) {
 	}
 
 	return &Middleware{
-		RawEnglishReviewsQueue:    rawEnglishReviewsQueue,
-		RawEnglishReviewsEofQueue: rawEnglishReviewsEofQueue,
-		EnglishReviewsExchange:    englishReviewsExchange,
+		Manager:                manager,
+		RawEnglishReviewsQueue: rawEnglishReviewsQueue,
+		EnglishReviewsExchange: englishReviewsExchange,
 	}, nil
 }
 
 func (m *Middleware) ReceiveGameReviews() ([]string, bool, error) {
-	msg, err := m.RawEnglishReviewsQueue.Consume()
+	rawMsg, err := m.RawEnglishReviewsQueue.Consume()
 	if err != nil {
 		return nil, false, fmt.Errorf("Failed to consume message: %v", err)
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
+	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
 	}
+	fmt.Printf("Received message from client %d\n", message.ClientID)
+	fmt.Printf("Received message type %d\n", message.MessageType)
+	fmt.Printf("Received message body %d\n", len(message.Body))
 
 	var lines []string
 
-	switch messageType {
+	switch message.MessageType {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 	case sp.MsgBatch:
-		lines, err = sp.DeserializeBatch(msg)
+		lines, err = sp.DeserializeMsgBatch(message.Body)
 		if err != nil {
 			return nil, false, err
 		}
 	default:
-		return nil, false, fmt.Errorf("unexpected message type: %d", messageType)
+		return nil, false, fmt.Errorf("unexpected message type: %d", message.MessageType)
 	}
 
 	return lines, false, nil

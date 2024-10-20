@@ -61,12 +61,58 @@ func NewMiddleware() (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) SendGamesBatch(id int, data []byte) error {
-	batch := sp.SerializeBatchMsg(data)
+func (m *Middleware) SendGamesBatch(clientID int, data []byte) error {
+	batch := sp.SerializeMsgBatch(clientID, data)
 	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, batch)
 	if err != nil {
 		return fmt.Errorf("Failed to publish message: %v", err)
 	}
 
 	return nil
+}
+
+func (m *Middleware) SendReviewsBatch(clientID int, data []byte) error {
+	batch := sp.SerializeMsgBatch(clientID, data)
+	err := m.RawReviewsExchange.Publish(RawReviewsRoutingKey, batch)
+	if err != nil {
+		return fmt.Errorf("Failed to publish message: %v", err)
+	}
+
+	return nil
+}
+
+func (m *Middleware) SendGamesEndOfFile(clientID int) error {
+	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
+	if err != nil {
+		return fmt.Errorf("Failed to publish message: %v", err)
+	}
+
+	return nil
+}
+
+func (m *Middleware) SendReviewsEndOfFile(englishFiltersAmount int, reviewMappersAmount int, clientID int) error {
+	for i := 0; i < englishFiltersAmount; i++ {
+		err := m.RawReviewsExchange.Publish(RawEnglishReviewsEofKey, sp.SerializeMsgEndOfFileV2(clientID))
+		if err != nil {
+			return fmt.Errorf("Failed to publish message: %v", err)
+		}
+	}
+
+	for i := 0; i < reviewMappersAmount; i++ {
+		err := m.RawReviewsExchange.Publish(RawReviewsEofKey, sp.SerializeMsgEndOfFileV2(clientID))
+		if err != nil {
+			return fmt.Errorf("Failed to publish message: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
+	msg, err := m.QueryResponseQueue.Consume()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to consume message: %v", err)
+	}
+
+	return msg, nil
 }
