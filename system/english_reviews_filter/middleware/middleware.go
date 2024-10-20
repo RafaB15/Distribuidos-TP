@@ -51,15 +51,15 @@ func NewMiddleware(id int) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameReviews() ([]string, bool, error) {
+func (m *Middleware) ReceiveGameReviews() (int, []string, bool, error) {
 	rawMsg, err := m.RawEnglishReviewsQueue.Consume()
 	if err != nil {
-		return nil, false, fmt.Errorf("Failed to consume message: %v", err)
+		return 0, nil, false, fmt.Errorf("Failed to consume message: %v", err)
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
+		return 0, nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
 	}
 	fmt.Printf("Received message from client %d\n", message.ClientID)
 	fmt.Printf("Received message type %d\n", message.MessageType)
@@ -69,24 +69,24 @@ func (m *Middleware) ReceiveGameReviews() ([]string, bool, error) {
 
 	switch message.MessageType {
 	case sp.MsgEndOfFile:
-		return nil, true, nil
+		return message.ClientID, nil, true, nil
 	case sp.MsgBatch:
 		lines, err = sp.DeserializeMsgBatch(message.Body)
 		if err != nil {
-			return nil, false, err
+			return message.ClientID, nil, false, err
 		}
 	default:
-		return nil, false, fmt.Errorf("unexpected message type: %d", message.MessageType)
+		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %d", message.MessageType)
 	}
 
-	return lines, false, nil
+	return message.ClientID, lines, false, nil
 }
 
-func (m *Middleware) SendEnglishReviews(reviewsMap map[int][]*r.Review) error {
+func (m *Middleware) SendEnglishReviews(clientID int, reviewsMap map[int][]*r.Review) error {
 	for shardingKey, reviews := range reviewsMap {
 		routingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, shardingKey)
 
-		serializedReviews := sp.SerializeMsgReviewInformation(reviews)
+		serializedReviews := sp.SerializeMsgReviewInformationV2(clientID, reviews)
 		err := m.EnglishReviewsExchange.Publish(routingKey, serializedReviews)
 		if err != nil {
 			return fmt.Errorf("Failed to publish message: %v", err)
@@ -101,10 +101,10 @@ func (m *Middleware) SendEnglishReviews(reviewsMap map[int][]*r.Review) error {
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(accumulatorsAmount int) error {
+func (m *Middleware) SendEndOfFiles(clientID int, accumulatorsAmount int) error {
 	for i := 1; i <= accumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, i)
-		err := m.EnglishReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
+		err := m.EnglishReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {
 			return fmt.Errorf("Failed to publish message: %v", err)
 		}

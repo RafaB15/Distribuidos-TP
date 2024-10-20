@@ -20,15 +20,15 @@ const (
 var log = logging.MustGetLogger("log")
 
 type EnglishReviewsFilter struct {
-	ReceiveGameReviews func() ([]string, bool, error)
-	SendEnglishReviews func(map[int][]*r.Review) error
-	SendEnfOfFiles     func(int) error
+	ReceiveGameReviews func() (int, []string, bool, error)
+	SendEnglishReviews func(clientID int, reviewsMap map[int][]*r.Review) error
+	SendEnfOfFiles     func(clientID int, accumulatorsAmount int) error
 }
 
 func NewEnglishReviewsFilter(
-	receiveGameReviews func() ([]string, bool, error),
-	sendEnglishReviews func(map[int][]*r.Review) error,
-	sendEndOfFiles func(int) error,
+	receiveGameReviews func() (int, []string, bool, error),
+	sendEnglishReviews func(int, map[int][]*r.Review) error,
+	sendEndOfFiles func(int, int) error,
 ) *EnglishReviewsFilter {
 	return &EnglishReviewsFilter{
 		ReceiveGameReviews: receiveGameReviews,
@@ -41,7 +41,7 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int) {
 	languageIdentifier := r.NewLanguageIdentifier()
 
 	for {
-		reviews, eof, err := f.ReceiveGameReviews()
+		clientID, reviews, eof, err := f.ReceiveGameReviews()
 		if err != nil {
 			log.Errorf("Failed to receive game reviews: %v", err)
 			return
@@ -49,7 +49,7 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int) {
 
 		if eof {
 			log.Info("Received end of file")
-			err = f.SendEnfOfFiles(accumulatorsAmount)
+			err = f.SendEnfOfFiles(clientID, accumulatorsAmount)
 			if err != nil {
 				log.Errorf("Failed to send end of files: %v", err)
 				return
@@ -63,7 +63,7 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int) {
 			return
 		}
 
-		err = f.SendEnglishReviews(reviewsMap)
+		err = f.SendEnglishReviews(clientID, reviewsMap)
 		if err != nil {
 			log.Errorf("Failed to send english reviews: %v", err)
 			return

@@ -53,27 +53,29 @@ func NewMiddleware(id int) (*Middleware, error) {
 }
 
 func (m *Middleware) ReceiveReviews() ([]*r.Review, bool, error) {
-	msg, err := m.EnglishReviewsQueue.Consume()
+	rawMsg, err := m.EnglishReviewsQueue.Consume()
 	if err != nil {
 		return nil, false, err
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
+	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, fmt.Errorf("Failed to deserialize message type: %v", err)
+		return nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
 	}
 
-	switch messageType {
+	fmt.Printf("Received message from client %d\n", message.ClientID)
+
+	switch message.MessageType {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 	case sp.MsgReviewInformation:
-		reviews, err := sp.DeserializeMsgReviewInformation(msg)
+		reviews, err := sp.DeserializeMsgReviewInformationV2(message.Body)
 		if err != nil {
 			return nil, false, fmt.Errorf("Failed to deserialize reviews: %v", err)
 		}
 		return reviews, false, nil
 	default:
-		return nil, false, fmt.Errorf("Unexpected message type: %v", messageType)
+		return nil, false, fmt.Errorf("Unexpected message type: %v", message.MessageType)
 	}
 }
 
