@@ -18,8 +18,11 @@ services:
 
   entrypoint:
     container_name: entrypoint
-    image: entrypoint:latest
+    image: entrypoint:new_version
     entrypoint: /entrypoint
+    environment:
+      - ENGLISH_FILTERS_AMOUNT=4
+      - REVIEW_MAPPERS_AMOUNT=2
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -126,8 +129,8 @@ services:
 
   review_mapper_1:
     container_name: review_mapper_1
-    image: review_mapper:latest
-    entrypoint: /mappers/review_mapper
+    image: review_mapper:new_version
+    entrypoint: /review_mapper
     environment:
       - ID=1
       - ACCUMULATORS_AMOUNT=1
@@ -141,8 +144,8 @@ services:
 
   review_mapper_2:
     container_name: review_mapper_2
-    image: review_mapper:latest
-    entrypoint: /mappers/review_mapper
+    image: review_mapper:new_version
+    entrypoint: /review_mapper
     environment:
       - ID=2
       - ACCUMULATORS_AMOUNT=1
@@ -196,8 +199,8 @@ services:
 
   english_filter_1:
     container_name: english_filter_1
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
+    image: english_reviews_filter:new_version
+    entrypoint: /english_reviews_filter
     environment:
       - ID=1
       - ACCUMULATORS_AMOUNT=2
@@ -211,8 +214,8 @@ services:
 
   english_filter_2:
     container_name: english_filter_2
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
+    image: english_reviews_filter:new_version
+    entrypoint: /english_reviews_filter
     environment:
       - ID=2
       - ACCUMULATORS_AMOUNT=2
@@ -226,8 +229,8 @@ services:
 
   english_filter_3:
     container_name: english_filter_3
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
+    image: english_reviews_filter:new_version
+    entrypoint: /english_reviews_filter
     environment:
       - ID=3
       - ACCUMULATORS_AMOUNT=2
@@ -241,8 +244,8 @@ services:
 
   english_filter_4:
     container_name: english_filter_4
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
+    image: english_reviews_filter:new_version
+    entrypoint: /english_reviews_filter
     environment:
       - ID=4
       - ACCUMULATORS_AMOUNT=2
