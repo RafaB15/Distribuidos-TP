@@ -105,7 +105,7 @@ func (m *Middleware) ReceiveGameBatch() ([]string, bool, error) {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 	case sp.MsgBatch:
-		lines, err = sp.DeserializeBatch(message.Body)
+		lines, err = sp.DeserializeMsgBatch(message.Body)
 		if err != nil {
 			return nil, false, err
 		}

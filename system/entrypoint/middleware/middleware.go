@@ -17,7 +17,7 @@ const (
 	RawReviewsExchangeType  = "direct"
 	RawReviewsRoutingKey    = "raw_reviews_key"
 	RawEnglishReviewsEofKey = "raw_english_reviews_eof_key"
-	RawReviewsEofKey        = "raw_english_reviews_eof_key"
+	RawReviewsEofKey        = "raw_reviews_eof_key"
 
 	QueryResponseQueueName    = "query_response_queue"
 	QueryResponseExchangeName = "query_response_exchange"
