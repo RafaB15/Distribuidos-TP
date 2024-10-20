@@ -19,15 +19,15 @@ const (
 var log = logging.MustGetLogger("log")
 
 type ReviewMapper struct {
-	ReceiveGameReviews func() ([]string, bool, error)
-	SendReviews        func(map[int][]*re.Review) error
-	SendEnfOfFiles     func(int) error
+	ReceiveGameReviews func() (int, []string, bool, error)
+	SendReviews        func(clientID int, reviewsMap map[int][]*re.Review) error
+	SendEnfOfFiles     func(clientID int, accumulatorsAmount int) error
 }
 
 func NewReviewMapper(
-	receiveReviewBatch func() ([]string, bool, error),
-	sendMetrics func(map[int][]*re.Review) error,
-	SendEof func(int) error,
+	receiveReviewBatch func() (int, []string, bool, error),
+	sendMetrics func(clientID int, reviewsMap map[int][]*re.Review) error,
+	SendEof func(clientID int, accumulatorsAmount int) error,
 ) *ReviewMapper {
 	return &ReviewMapper{
 		ReceiveGameReviews: receiveReviewBatch,
@@ -38,7 +38,7 @@ func NewReviewMapper(
 
 func (r *ReviewMapper) Run(accumulatorsAmount int) {
 	for {
-		reviews, eof, err := r.ReceiveGameReviews()
+		clientID, reviews, eof, err := r.ReceiveGameReviews()
 		if err != nil {
 			log.Errorf("Failed to receive review batch: %v", err)
 			return
@@ -46,7 +46,7 @@ func (r *ReviewMapper) Run(accumulatorsAmount int) {
 
 		if eof {
 			log.Info("Received end of file")
-			err = r.SendEnfOfFiles(accumulatorsAmount)
+			err = r.SendEnfOfFiles(clientID, accumulatorsAmount)
 			if err != nil {
 				log.Errorf("Failed to send end of files: %v", err)
 				return
@@ -60,7 +60,7 @@ func (r *ReviewMapper) Run(accumulatorsAmount int) {
 			return
 		}
 
-		err = r.SendReviews(reviewsMap)
+		err = r.SendReviews(clientID, reviewsMap)
 		if err != nil {
 			log.Errorf("Failed to send english reviews: %v", err)
 			return
