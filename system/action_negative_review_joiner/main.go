@@ -28,6 +28,6 @@ func main() {
 		return
 	}
 
-	negativeActionReviewJoiner := l.NewActionNegativeReviewJoiner(middleware.ReceiveMsg, m.HandleGameReviewMetrics, m.HandleGameNames, middleware.SendMetrics, middleware.SendEof)
+	negativeActionReviewJoiner := l.NewActionNegativeReviewJoiner(middleware.ReceiveMsg, middleware.SendMetrics, middleware.SendEof)
 	negativeActionReviewJoiner.Run()
 }

@@ -35,6 +35,6 @@ func main() {
 		return
 	}
 
-	reviewJoiner := l.NewIndieReviewJoiner(middleware.ReceiveMsg, m.HandleGameReviewMetrics, m.HandleGameNames, middleware.SendMetrics, middleware.SendEof)
+	reviewJoiner := l.NewIndieReviewJoiner(middleware.ReceiveMsg, middleware.SendMetrics, middleware.SendEof)
 	reviewJoiner.Run(accumulatorsAmount)
 }

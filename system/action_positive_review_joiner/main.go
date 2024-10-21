@@ -35,6 +35,6 @@ func main() {
 		return
 	}
 
-	positiveActionReviewJoiner := l.NewActionPositiveReviewJoiner(middleware.ReceiveMsg, m.HandleGameReviewMetrics, m.HandleGameNames, middleware.SendMetrics, middleware.SendEof)
+	positiveActionReviewJoiner := l.NewActionPositiveReviewJoiner(middleware.ReceiveMsg, middleware.SendMetrics, middleware.SendEof)
 	positiveActionReviewJoiner.Run(positiveReviewsFiltersAmount)
 }

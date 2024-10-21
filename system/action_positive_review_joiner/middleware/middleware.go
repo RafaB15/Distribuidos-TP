@@ -58,22 +58,37 @@ func NewMiddleware(id string) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMsg() (sp.MessageType, []byte, bool, error) {
+func (m *Middleware) ReceiveMsg() ([]*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error) {
 	msg, err := m.ActionReviewJoinQueue.Consume()
 	if err != nil {
-		return 0, nil, false, err
+		return nil, nil, false, err
 	}
 
 	messageType, err := sp.DeserializeMessageType(msg)
 	if err != nil {
-		return 0, nil, false, err
+		return nil, nil, false, err
 	}
 
-	if messageType == sp.MsgEndOfFile {
-		return messageType, nil, true, nil
-	}
+	switch messageType {
+	case sp.MsgGameNames:
+		games, err := HandleGameNames(msg)
+		if err != nil {
+			return nil, nil, false, err
+		}
+		return games, nil, false, nil
+	case sp.MsgGameReviewsMetrics:
+		reviews, err := HandleGameReviewMetrics(msg)
+		if err != nil {
+			return nil, nil, false, err
+		}
+		return nil, reviews, false, err
 
-	return messageType, msg, false, nil
+	case sp.MsgEndOfFile:
+		return nil, nil, true, nil
+
+	default:
+		return nil, nil, false, fmt.Errorf("Unknown type msg")
+	}
 
 }
 
