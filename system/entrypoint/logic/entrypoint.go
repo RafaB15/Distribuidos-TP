@@ -75,9 +75,9 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, englishFiltersAmount int, 
 		}
 	}
 
-	remainingQueires := 5
+	remainingQueries := 5
 
-	for remainingQueires > 0 {
+	for remainingQueries > 0 {
 		result, err := e.ReceiveQueryResult()
 		if err != nil {
 			log.Errorf("Error receiving query result for client %d: %v", clientID, err)
@@ -94,7 +94,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, englishFiltersAmount int, 
 			totalWritten += n
 		}
 
-		remainingQueires--
+		remainingQueries--
 	}
 
 	log.Infof("Client %d finished", clientID)

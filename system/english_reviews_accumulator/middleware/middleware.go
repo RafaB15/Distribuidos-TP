@@ -52,35 +52,35 @@ func NewMiddleware(id int) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveReviews() ([]*r.Review, bool, error) {
+func (m *Middleware) ReceiveReviews() (int, []*r.Review, bool, error) {
 	rawMsg, err := m.EnglishReviewsQueue.Consume()
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
+		return 0, nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
 	}
 
 	fmt.Printf("Received message from client %d\n", message.ClientID)
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return nil, true, nil
+		return message.ClientID, nil, true, nil
 	case sp.MsgReviewInformation:
 		reviews, err := sp.DeserializeMsgReviewInformationV2(message.Body)
 		if err != nil {
-			return nil, false, fmt.Errorf("Failed to deserialize reviews: %v", err)
+			return message.ClientID, nil, false, fmt.Errorf("Failed to deserialize reviews: %v", err)
 		}
-		return reviews, false, nil
+		return message.ClientID, reviews, false, nil
 	default:
-		return nil, false, fmt.Errorf("Unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, fmt.Errorf("Unexpected message type: %v", message.Type)
 	}
 }
 
-func (m *Middleware) SendAccumulatedReviews(metrics []*ra.GameReviewsMetrics) error {
-	serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(metrics)
+func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.GameReviewsMetrics) error {
+	serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatchV2(clientID, metrics)
 	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedMetricsBatch)
 	if err != nil {
 		return fmt.Errorf("Failed to publish accumulated reviews: %v", err)
@@ -88,9 +88,9 @@ func (m *Middleware) SendAccumulatedReviews(metrics []*ra.GameReviewsMetrics) er
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(positiveReviewsFilterAmount int) error {
+func (m *Middleware) SendEndOfFiles(clientID int, positiveReviewsFilterAmount int) error {
 	for i := 1; i <= positiveReviewsFilterAmount; i++ {
-		serializedEOF := sp.SerializeMsgEndOfFile()
+		serializedEOF := sp.SerializeMsgEndOfFileV2(clientID)
 		err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedEOF)
 		if err != nil {
 			return fmt.Errorf("Failed to publish end of file: %v", err)

@@ -50,27 +50,27 @@ func NewMiddleware() (*Middleware, error) {
 }
 
 func (m *Middleware) ReceiveGameReviewsMetrics() ([]*ra.GameReviewsMetrics, bool, error) {
-	msg, err := m.AccumulatedEnglishReviewsQueue.Consume()
+	rawMsg, err := m.AccumulatedEnglishReviewsQueue.Consume()
 	if err != nil {
 		return nil, false, err
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
+	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
 	}
 
-	switch messageType {
+	switch message.Type {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 	case sp.MsgGameReviewsMetrics:
-		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(msg)
+		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatchV2(message.Body)
 		if err != nil {
 			return nil, false, err
 		}
 		return gameReviewsMetrics, false, nil
 	default:
-		return nil, false, fmt.Errorf("Received unexpected message type: %v", messageType)
+		return nil, false, fmt.Errorf("Received unexpected message type: %v", message.Type)
 	}
 }
 

@@ -52,6 +52,7 @@ func main() {
 		}
 
 		go handleConnection(conn, englishFiltersAmount, reviewMappersAmount, clientID)
+		clientID++
 	}
 
 }

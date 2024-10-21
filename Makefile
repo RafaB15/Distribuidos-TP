@@ -49,7 +49,7 @@ docker-client: docker-image-clients
 		-v ./cmd/client/client_data:/client_data \
 		--network distributed_network \
 		-e GAME_FILE_PATH=./client_data/games_90k.csv \
-		-e REVIEW_FILE_PATH=./client_data/steam_reviews_100k.csv \
+		-e REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv \
 		client:latest
 .PHONY: docker-client
 

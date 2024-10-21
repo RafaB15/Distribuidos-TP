@@ -599,3 +599,51 @@ func DeserializeMsgReviewInformationV2(message []byte) ([]*r.Review, error) {
 
 	return reviews, nil
 }
+
+// --------------------------------------------------------
+
+// Message Game Reviews Metrics Batch
+
+func SerializeMsgGameReviewsMetricsBatchV2(clientID int, metrics []*m.GameReviewsMetrics) []byte {
+	gameReviewsMetricsSize := 12
+	amountSize := 2
+
+	count := len(metrics)
+	body := make([]byte, amountSize+count*gameReviewsMetricsSize)
+	binary.BigEndian.PutUint16(body[:amountSize], uint16(count))
+
+	offset := amountSize
+	for i, metric := range metrics {
+		serializedMetrics := m.SerializeGameReviewsMetrics(metric)
+		copy(body[offset+i*gameReviewsMetricsSize:], serializedMetrics)
+	}
+
+	return SerializeMessage(MsgGameReviewsMetrics, clientID, body)
+}
+
+func DeserializeMsgGameReviewsMetricsBatchV2(message []byte) ([]*m.GameReviewsMetrics, error) {
+	gameReviewsMetricsSize := 12
+	amountSize := 2
+
+	if len(message) < amountSize {
+		return nil, errors.New("message too short to contain count")
+	}
+
+	count := int(binary.BigEndian.Uint16(message[:amountSize]))
+	offset := amountSize
+	metrics := make([]*m.GameReviewsMetrics, count)
+
+	for i := 0; i < count; i++ {
+		if offset+gameReviewsMetricsSize > len(message) {
+			return nil, errors.New("message too short to contain all metrics")
+		}
+		metric, err := m.DeserializeGameReviewsMetrics(message[offset : offset+gameReviewsMetricsSize])
+		if err != nil {
+			return nil, err
+		}
+		metrics[i] = metric
+		offset += gameReviewsMetricsSize
+	}
+
+	return metrics, nil
+}

@@ -10,12 +10,12 @@ import (
 var log = logging.MustGetLogger("log")
 
 type EnglishReviewsAccumulator struct {
-	ReceiveReviews         func() ([]*r.Review, bool, error)
-	SendAccumulatedReviews func([]*ra.GameReviewsMetrics) error
-	SendEndOfFiles         func(int) error
+	ReceiveReviews         func() (int, []*r.Review, bool, error)
+	SendAccumulatedReviews func(int, []*ra.GameReviewsMetrics) error
+	SendEndOfFiles         func(int, int) error
 }
 
-func NewEnglishReviewsAccumulator(receiveReviews func() ([]*r.Review, bool, error), sendAccumulatedReviews func([]*ra.GameReviewsMetrics) error, sendEndOfFiles func(int) error) *EnglishReviewsAccumulator {
+func NewEnglishReviewsAccumulator(receiveReviews func() (int, []*r.Review, bool, error), sendAccumulatedReviews func(int, []*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int) error) *EnglishReviewsAccumulator {
 	return &EnglishReviewsAccumulator{
 		ReceiveReviews:         receiveReviews,
 		SendAccumulatedReviews: sendAccumulatedReviews,
@@ -24,33 +24,48 @@ func NewEnglishReviewsAccumulator(receiveReviews func() ([]*r.Review, bool, erro
 }
 
 func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, positiveReviewsFiltersAmount int) {
-	remainingEOFs := englishFiltersAmount
+	remainingEOFsMap := make(map[int]int)
 
-	accumulatedReviews := make(map[uint32]*ra.GameReviewsMetrics)
+	accumulatedReviews := make(map[int]map[uint32]*ra.GameReviewsMetrics)
 
 	for {
-		reviews, eof, err := a.ReceiveReviews()
+		clientID, reviews, eof, err := a.ReceiveReviews()
 		if err != nil {
 			log.Errorf("Failed to receive reviews: %v", err)
 			return
 		}
 
+		clientAccumulatedReviews, exists := accumulatedReviews[clientID]
+		if !exists {
+			clientAccumulatedReviews = make(map[uint32]*ra.GameReviewsMetrics)
+			accumulatedReviews[clientID] = clientAccumulatedReviews
+		}
+
 		if eof {
+			log.Info("Received EOF for client ", clientID)
+			remainingEOFs, exists := remainingEOFsMap[clientID]
+			if !exists {
+				remainingEOFs = englishFiltersAmount
+			}
+			log.Info("Remaining EOFs: ", remainingEOFs)
 			remainingEOFs--
-			log.Info("Received EOF")
+			remainingEOFsMap[clientID] = remainingEOFs
+			log.Info("Remaining EOFs AFTER: ", remainingEOFs)
+
+			log.Infof("Received EOF for client %d. Remaining EOFs: %d", clientID, remainingEOFs)
 			if remainingEOFs > 0 {
 				continue
 			}
 			log.Info("Received all EOFs")
 
-			metrics := idMapToList(accumulatedReviews)
-			err = a.SendAccumulatedReviews(metrics)
+			metrics := idMapToList(clientAccumulatedReviews)
+			err = a.SendAccumulatedReviews(clientID, metrics)
 			if err != nil {
 				log.Errorf("Failed to send accumulated reviews: %v", err)
 				return
 			}
 
-			err = a.SendEndOfFiles(positiveReviewsFiltersAmount)
+			err = a.SendEndOfFiles(clientID, positiveReviewsFiltersAmount)
 			if err != nil {
 				log.Errorf("Failed to send EOFs: %v", err)
 				return
@@ -59,7 +74,7 @@ func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, positiveReview
 		}
 
 		for _, review := range reviews {
-			if metrics, exists := accumulatedReviews[review.AppId]; exists {
+			if metrics, exists := clientAccumulatedReviews[review.AppId]; exists {
 				log.Info("Updating metrics for appID: ", review.AppId)
 				// Update existing metrics
 				metrics.UpdateWithReview(review)
@@ -68,7 +83,7 @@ func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, positiveReview
 				log.Info("Creating new metrics for appID: ", review.AppId)
 				newMetrics := ra.NewReviewsMetrics(review.AppId)
 				newMetrics.UpdateWithReview(review)
-				accumulatedReviews[review.AppId] = newMetrics
+				clientAccumulatedReviews[review.AppId] = newMetrics
 			}
 		}
 

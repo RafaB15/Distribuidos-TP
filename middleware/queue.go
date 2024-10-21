@@ -17,7 +17,7 @@ type Queue struct {
 func NewQueue(ch *amqp.Channel, name string, autoAck bool) (*Queue, error) {
 
 	err := ch.Qos(
-		1,     // prefetch count
+		10,    // prefetch count
 		0,     // prefetch size
 		false, // global
 	)
