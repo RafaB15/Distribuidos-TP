@@ -73,38 +73,38 @@ func NewMiddleware() (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveReviews() ([]*reviews.Review, bool, error) {
+func (m *Middleware) ReceiveReviews() (int, []*reviews.Review, bool, error) {
 	rawMsg, err := m.ReviewsQueue.Consume()
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
+		return 0, nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
 	}
 
 	fmt.Printf("Received message from client %d\n", message.ClientID)
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return nil, true, nil
+		return message.ClientID, nil, true, nil
 	case sp.MsgReviewInformation:
 		reviews, err := sp.DeserializeMsgReviewInformationV2(message.Body)
 		if err != nil {
-			return nil, false, fmt.Errorf("Failed to deserialize reviews: %v", err)
+			return message.ClientID, nil, false, fmt.Errorf("Failed to deserialize reviews: %v", err)
 		}
-		return reviews, false, nil
+		return message.ClientID, reviews, false, nil
 	default:
-		return nil, false, fmt.Errorf("Unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, fmt.Errorf("Unexpected message type: %v", message.Type)
 	}
 }
 
-func (m *Middleware) SendAccumulatedReviews(accumulatedReviews map[uint32]*r.GameReviewsMetrics) error {
+func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics) error {
 	keyMap := idMapToKeyMap(accumulatedReviews, GetIndieReviewJoinersAmount())
 
 	for routingKey, metrics := range keyMap {
-		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(metrics)
+		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatchV2(clientID, metrics)
 
 		err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, serializedMetricsBatch)
 		if err != nil {
@@ -121,15 +121,15 @@ func (m *Middleware) SendAccumulatedReviews(accumulatedReviews map[uint32]*r.Gam
 	return nil
 }
 
-func (m *Middleware) SendEof() error {
+func (m *Middleware) SendEof(clientID int) error {
 	indieReviewJoinerAmount := GetIndieReviewJoinersAmount()
-	err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFile())
+	err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
 	if err != nil {
 		return err
 	}
 
 	for nodeId := 1; nodeId <= indieReviewJoinerAmount; nodeId++ {
-		err = m.IndieReviewJoinExchange.Publish(fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFile())
+		err = m.IndieReviewJoinExchange.Publish(fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {
 			return err
 		}

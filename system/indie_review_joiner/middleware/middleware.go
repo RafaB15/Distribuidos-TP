@@ -59,25 +59,26 @@ func NewMiddleware(id int) (*Middleware, error) {
 }
 
 func (m *Middleware) ReceiveMsg() ([]*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error) {
-	msg, err := m.IndieReviewJoinQueue.Consume()
+	rawMsg, err := m.IndieReviewJoinQueue.Consume()
 	if err != nil {
 		return nil, nil, false, err
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
+	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
 		return nil, nil, false, err
 	}
 
-	switch messageType {
+	switch message.Type {
 	case sp.MsgGameNames:
-		games, err := HandleGameNames(msg)
+		games, err := HandleGameNames(message.Body)
 		if err != nil {
 			return nil, nil, false, err
 		}
 		return games, nil, false, nil
+
 	case sp.MsgGameReviewsMetrics:
-		reviews, err := HandleGameReviewMetrics(msg)
+		reviews, err := HandleGameReviewMetrics(message.Body)
 		if err != nil {
 			return nil, nil, false, err
 		}
@@ -93,7 +94,7 @@ func (m *Middleware) ReceiveMsg() ([]*games.GameName, []*reviews_accumulator.Gam
 }
 
 func HandleGameReviewMetrics(message []byte) ([]*reviews_accumulator.GameReviewsMetrics, error) {
-	reviews, err := sp.DeserializeMsgGameReviewsMetricsBatch(message)
+	reviews, err := sp.DeserializeMsgGameReviewsMetricsBatchV2(message)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +102,7 @@ func HandleGameReviewMetrics(message []byte) ([]*reviews_accumulator.GameReviews
 }
 
 func HandleGameNames(message []byte) ([]*games.GameName, error) {
-	gameNames, err := sp.DeserializeMsgGameNames(message)
+	gameNames, err := sp.DeserializeMsgGameNamesV2(message)
 	if err != nil {
 		return nil, err
 	}

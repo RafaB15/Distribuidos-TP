@@ -68,6 +68,7 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 					accumulatedGameReviews[indieGame.AppId] = newJoinedActionGameReview
 				}
 			}
+			continue
 		}
 
 		if reviews != nil {
@@ -88,6 +89,7 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 					accumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewsMetrics.AppID)
 				}
 			}
+			continue
 		}
 	}
 }

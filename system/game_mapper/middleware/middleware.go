@@ -136,19 +136,19 @@ func (m *Middleware) SendGameYearAndAvgPtf(gameYearAndAvgPtf []*df.GameYearAndAv
 	return nil
 }
 
-func (m *Middleware) SendIndieGamesNames(indieGamesNames map[int][]*g.GameName) error {
-	return sendGamesNamesToReviewJoin(indieGamesNames, m.IndieReviewJoinExchange, IndieReviewJoinRoutingKeyPrefix)
+func (m *Middleware) SendIndieGamesNames(clientID int, indieGamesNames map[int][]*g.GameName) error {
+	return sendGamesNamesToReviewJoin(clientID, indieGamesNames, m.IndieReviewJoinExchange, IndieReviewJoinRoutingKeyPrefix)
 }
 
-func (m *Middleware) SendActionGamesNames(actionGamesNames map[int][]*g.GameName) error {
-	return sendGamesNamesToReviewJoin(actionGamesNames, m.ActionReviewJoinExchange, ActionReviewJoinRoutingKeyPrefix)
+func (m *Middleware) SendActionGamesNames(clientID int, actionGamesNames map[int][]*g.GameName) error {
+	return sendGamesNamesToReviewJoin(clientID, actionGamesNames, m.ActionReviewJoinExchange, ActionReviewJoinRoutingKeyPrefix)
 }
 
-func sendGamesNamesToReviewJoin(gamesNamesMap map[int][]*g.GameName, reviewJoinExchange *mom.Exchange, keyPrefix string) error {
+func sendGamesNamesToReviewJoin(clientID int, gamesNamesMap map[int][]*g.GameName, reviewJoinExchange *mom.Exchange, keyPrefix string) error {
 	for shardingKey, gameName := range gamesNamesMap {
 		routingKey := fmt.Sprintf("%s%d", keyPrefix, shardingKey)
 
-		serializedGamesNames, err := sp.SerializeMsgGameNames(gameName)
+		serializedGamesNames, err := sp.SerializeMsgGameNamesV2(clientID, gameName)
 		if err != nil {
 			return fmt.Errorf("failed to serialize game names: %v", err)
 		}
@@ -179,7 +179,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 
 	for i := 1; i <= indieReviewJoinersAmount; i++ {
 		routingKey := u.GetPartitioningKeyFromInt(i, indieReviewJoinersAmount, IndieReviewJoinRoutingKeyPrefix)
-		err := m.IndieReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
+		err := m.IndieReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {
 			return err
 		}
@@ -187,7 +187,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 
 	for i := 1; i <= actionReviewJoinersAmount; i++ {
 		routingKey := u.GetPartitioningKeyFromInt(i, actionReviewJoinersAmount, ActionReviewJoinRoutingKeyPrefix)
-		err := m.ActionReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
+		err := m.ActionReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {
 			return err
 		}

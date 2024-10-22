@@ -647,3 +647,50 @@ func DeserializeMsgGameReviewsMetricsBatchV2(message []byte) ([]*m.GameReviewsMe
 
 	return metrics, nil
 }
+
+// --------------------------------------------------------
+
+// Message Game Names
+
+func SerializeMsgGameNamesV2(clientID int, gameNames []*g.GameName) ([]byte, error) {
+	count := len(gameNames)
+	headerSize := 2 // 2 bytes for count
+	body := make([]byte, headerSize)
+
+	binary.BigEndian.PutUint16(body[:headerSize], uint16(count))
+
+	offset := headerSize
+	for _, gameName := range gameNames {
+		serializedGameName, err := g.SerializeGameName(gameName)
+		if err != nil {
+			return nil, err
+		}
+		body = append(body, serializedGameName...)
+		offset += len(serializedGameName)
+	}
+
+	return SerializeMessage(MsgGameNames, clientID, body), nil
+}
+
+func DeserializeMsgGameNamesV2(message []byte) ([]*g.GameName, error) {
+	amountSize := 2
+
+	if len(message) < amountSize {
+		return nil, errors.New("message too short to contain count")
+	}
+
+	count := binary.BigEndian.Uint16(message[:amountSize])
+	offset := amountSize
+
+	var gameNames []*g.GameName
+	for i := 0; i < int(count); i++ {
+		gameName, err := g.DeserializeGameName(message[offset:])
+		if err != nil {
+			return nil, err
+		}
+		gameNames = append(gameNames, gameName)
+		offset += 6 + len(gameName.Name) // 4 bytes for AppId + 2 bytes for name length + name length
+	}
+
+	return gameNames, nil
+}

@@ -55,34 +55,34 @@ func NewMiddleware() (*Middleware, error) {
 
 }
 
-func (m *Middleware) ReceiveGameReviewsMetrics() ([]*ra.GameReviewsMetrics, bool, error) {
-	msg, err := m.AccumulatedReviewsQueue.Consume()
+func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics, bool, error) {
+	rawMsg, err := m.AccumulatedReviewsQueue.Consume()
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
+	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
-	switch messageType {
+	switch message.Type {
 	case sp.MsgEndOfFile:
-		return nil, true, nil
+		return message.ClientID, nil, true, nil
 	case sp.MsgGameReviewsMetrics:
-		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(msg)
+		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatchV2(message.Body)
 		if err != nil {
-			return nil, false, err
+			return message.ClientID, nil, false, err
 		}
-		return gameReviewsMetrics, false, nil
+		return message.ClientID, gameReviewsMetrics, false, nil
 	default:
-		return nil, false, fmt.Errorf("Received unexpected message type: %v", messageType)
+		return message.ClientID, nil, false, fmt.Errorf("Received unexpected message type: %v", message.Type)
 	}
 }
 
-func (m *Middleware) SendGameReviewsMetrics(accumulatedPercentileKeyMap map[string][]*ra.GameReviewsMetrics) error {
+func (m *Middleware) SendGameReviewsMetrics(clientID int, accumulatedPercentileKeyMap map[string][]*ra.GameReviewsMetrics) error {
 	for routingKey, metrics := range accumulatedPercentileKeyMap {
-		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(metrics)
+		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatchV2(clientID, metrics)
 
 		err := m.AccumulatedPercentileExchange.Publish(routingKey, serializedMetricsBatch)
 		if err != nil {
@@ -92,10 +92,10 @@ func (m *Middleware) SendGameReviewsMetrics(accumulatedPercentileKeyMap map[stri
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(actionNegativeReviewsJoinersAmount int, accumulatedPercentileReviewsRoutingKeyPrefix string) error {
+func (m *Middleware) SendEndOfFiles(clientID int, actionNegativeReviewsJoinersAmount int, accumulatedPercentileReviewsRoutingKeyPrefix string) error {
 	for i := 1; i <= actionNegativeReviewsJoinersAmount; i++ {
 		routingKey := fmt.Sprintf("%v%d", accumulatedPercentileReviewsRoutingKeyPrefix, i)
-		err := m.AccumulatedPercentileExchange.Publish(routingKey, sp.SerializeMsgEndOfFile())
+		err := m.AccumulatedPercentileExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {
 			return err
 		}

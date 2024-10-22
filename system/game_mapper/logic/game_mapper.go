@@ -31,8 +31,8 @@ var log = logging.MustGetLogger("log")
 type ReceiveGameBatchFunc func() (int, []string, bool, error)
 type SendGamesOSFunc func(int, []*oa.GameOS) error
 type SendGameYearAndAvgPtfFunc func([]*df.GameYearAndAvgPtf) error
-type SendIndieGamesNamesFunc func(map[int][]*g.GameName) error
-type SendActionGamesNamesFunc func(map[int][]*g.GameName) error
+type SendIndieGamesNamesFunc func(int, map[int][]*g.GameName) error
+type SendActionGamesNamesFunc func(int, map[int][]*g.GameName) error
 type SendEndOfFileFunc func(int, int, int, int, int) error
 
 type GameMapper struct {
@@ -123,13 +123,13 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 			return
 		}
 
-		err = gm.SendIndieGamesNames(indieGamesNames)
+		err = gm.SendIndieGamesNames(clientID, indieGamesNames)
 		if err != nil {
 			log.Errorf("Failed to send indie games names: %v", err)
 			return
 		}
 
-		err = gm.SendActionGamesNames(actionGamesNames)
+		err = gm.SendActionGamesNames(clientID, actionGamesNames)
 		if err != nil {
 			log.Errorf("Failed to send action games names: %v", err)
 			return

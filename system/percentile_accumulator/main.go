@@ -11,7 +11,7 @@ import (
 const (
 	ActionNegativeReviewsJoinersAmountEnvironmentVariableName = "ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT"
 	NumPreviousAccumulators                                   = "NUM_PREVIOUS_ACCUMULATORS"
-	FileName                                                  = "stored_reviews"
+	FileNamePrefix                                            = "stored_reviews_"
 	AccumulatedPercentileReviewsRoutingKeyPrefix              = "percentile_reviews_key_"
 )
 
@@ -41,5 +41,5 @@ func main() {
 		middleware.SendGameReviewsMetrics,
 		middleware.SendEndOfFiles,
 	)
-	positiveReviewsFilter.Run(actionNegativeReviewsJoinersAmount, AccumulatedPercentileReviewsRoutingKeyPrefix, previousAccumulators, FileName)
+	positiveReviewsFilter.Run(actionNegativeReviewsJoinersAmount, AccumulatedPercentileReviewsRoutingKeyPrefix, previousAccumulators, FileNamePrefix)
 }
