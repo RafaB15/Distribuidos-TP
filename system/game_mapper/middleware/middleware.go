@@ -126,8 +126,8 @@ func (m *Middleware) SendGamesOS(clientID int, gamesOS []*oa.GameOS) error {
 	return nil
 }
 
-func (m *Middleware) SendGameYearAndAvgPtf(gameYearAndAvgPtf []*df.GameYearAndAvgPtf) error {
-	serializedGameYearAndAvgPtf := sp.SerializeMsgGameYearAndAvgPtf(gameYearAndAvgPtf)
+func (m *Middleware) SendGameYearAndAvgPtf(clientID int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf) error {
+	serializedGameYearAndAvgPtf := sp.SerializeMsgGameYearAndAvgPtfV2(clientID, gameYearAndAvgPtf)
 	err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, serializedGameYearAndAvgPtf)
 	if err != nil {
 		return fmt.Errorf("failed to publish game year and avg ptf: %v", err)
@@ -171,7 +171,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 	}
 
 	for i := 0; i < decadeFilterAmount; i++ {
-		err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, sp.SerializeMsgEndOfFile())
+		err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {
 			return err
 		}

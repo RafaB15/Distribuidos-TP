@@ -551,6 +551,56 @@ func DeserializeMsgGameOSInformationV2(message []byte) ([]*oa.GameOS, error) {
 }
 
 // --------------------------------------------------------
+// Message GameYearAndAvgPtfInformation
+
+func SerializeMsgGameYearAndAvgPtfV2(clientId int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []byte {
+	gameYearAndAvgPtfSize := 10
+	amountSize := 2
+
+	count := len(gameYearAndAvgPtf)
+	message := make([]byte, amountSize+count*gameYearAndAvgPtfSize)
+	binary.BigEndian.PutUint16(message[:amountSize], uint16(count))
+
+	offset := amountSize
+	for i, game := range gameYearAndAvgPtf {
+		serializedGame := df.SerializeGameYearAndAvgPtf(game)
+		copy(message[offset+i*gameYearAndAvgPtfSize:], serializedGame)
+	}
+
+	return SerializeMessage(MsgGameYearAndAvgPtfInformation, clientId, message)
+}
+
+func DeserializeMsgGameYearAndAvgPtfV2(message []byte) ([]*df.GameYearAndAvgPtf, error) {
+	gameYearAndAvgPtfSize := 10
+	amountSize := 2
+
+	if len(message) < amountSize {
+		return nil, errors.New("message too short to contain count")
+	}
+
+	count := binary.BigEndian.Uint16(message[:amountSize])
+	offset := amountSize
+
+	expectedLength := int(count) * gameYearAndAvgPtfSize
+	if len(message[offset:]) < expectedLength {
+		return nil, errors.New("message length does not match expected count")
+	}
+
+	var gameYearAndAvgPtfList []*df.GameYearAndAvgPtf
+	for i := 0; i < int(count); i++ {
+		start := offset + i*gameYearAndAvgPtfSize
+		end := start + gameYearAndAvgPtfSize
+		game, err := df.DeserializeGameYearAndAvgPtf(message[start:end])
+		if err != nil {
+			return nil, err
+		}
+		gameYearAndAvgPtfList = append(gameYearAndAvgPtfList, game)
+	}
+
+	return gameYearAndAvgPtfList, nil
+}
+
+// --------------------------------------------------------
 
 // Message Review Information
 func SerializeMsgReviewInformationV2(clientID int, reviews []*r.Review) []byte {

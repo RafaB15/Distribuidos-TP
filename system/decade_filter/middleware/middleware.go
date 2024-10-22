@@ -51,23 +51,22 @@ func NewMiddleware() (*Middleware, error) {
 
 func (m *Middleware) ReceiveYearAvgPtf() ([]*df.GameYearAndAvgPtf, bool, error) {
 
-	msg, err := m.YearAvgPtfQueue.Consume()
+	rawMsg, err := m.YearAvgPtfQueue.Consume()
 	if err != nil {
 		return nil, false, err
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
-
+	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
 		return nil, false, err
 	}
 
-	switch messageType {
+	switch message.Type {
 
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 	case sp.MsgGameYearAndAvgPtfInformation:
-		gamesYearsAvgPtfs, err := sp.DeserializeMsgGameYearAndAvgPtf(msg)
+		gamesYearsAvgPtfs, err := sp.DeserializeMsgGameYearAndAvgPtfV2(message.Body)
 
 		if err != nil {
 			return nil, false, err
