@@ -49,22 +49,22 @@ func NewMiddleware() (*Middleware, error) {
 }
 
 func (m *Middleware) ReceiveMsg() (*j.JoinedActionGameReview, bool, error) {
-	msg, err := m.TopPositiveReviewsQueue.Consume()
+	rawMsg, err := m.TopPositiveReviewsQueue.Consume()
 	if err != nil {
 		return nil, false, err
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
+	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
 		return nil, false, err
 	}
 
-	switch messageType {
+	switch message.Type {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 
-	case sp.MsgQueryResolved:
-		joinedGame, err := sp.DeserializeMsgJoinedActionGameReviews(msg)
+	case sp.MsgJoinedActionGameReviews:
+		joinedGame, err := sp.DeserializeMsgJoinedActionGameReviewsV2(message.Body)
 		if err != nil {
 			return nil, false, err
 		}

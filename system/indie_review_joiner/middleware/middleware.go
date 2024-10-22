@@ -58,37 +58,37 @@ func NewMiddleware(id int) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMsg() ([]*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error) {
+func (m *Middleware) ReceiveMsg() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error) {
 	rawMsg, err := m.IndieReviewJoinQueue.Consume()
 	if err != nil {
-		return nil, nil, false, err
+		return 0, nil, nil, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, nil, false, err
+		return 0, nil, nil, false, err
 	}
 
 	switch message.Type {
 	case sp.MsgGameNames:
 		games, err := HandleGameNames(message.Body)
 		if err != nil {
-			return nil, nil, false, err
+			return message.ClientID, nil, nil, false, err
 		}
-		return games, nil, false, nil
+		return message.ClientID, games, nil, false, nil
 
 	case sp.MsgGameReviewsMetrics:
 		reviews, err := HandleGameReviewMetrics(message.Body)
 		if err != nil {
-			return nil, nil, false, err
+			return message.ClientID, nil, nil, false, err
 		}
-		return nil, reviews, false, err
+		return message.ClientID, nil, reviews, false, err
 
 	case sp.MsgEndOfFile:
-		return nil, nil, true, nil
+		return message.ClientID, nil, nil, true, nil
 
 	default:
-		return nil, nil, false, fmt.Errorf("Unknown type msg")
+		return message.ClientID, nil, nil, false, fmt.Errorf("Unknown type msg")
 	}
 
 }
@@ -109,8 +109,8 @@ func HandleGameNames(message []byte) ([]*games.GameName, error) {
 	return gameNames, nil
 }
 
-func (m *Middleware) SendMetrics(reviewsInformation *j.JoinedActionGameReview) error {
-	serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviews(reviewsInformation)
+func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedActionGameReview) error {
+	serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviewsV2(clientID, reviewsInformation)
 	if err != nil {
 		return err
 	}
@@ -118,8 +118,8 @@ func (m *Middleware) SendMetrics(reviewsInformation *j.JoinedActionGameReview) e
 	return m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, serializedMetrics)
 }
 
-func (m *Middleware) SendEof() error {
-	err := m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, sp.SerializeMsgEndOfFile())
+func (m *Middleware) SendEof(clientID int) error {
+	err := m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
 	if err != nil {
 		return err
 	}

@@ -26,6 +26,7 @@ const (
 	MsgGameReviewsMetrics
 	MsgGameNames
 	MsgIndiePositiveJoinedReviews
+	MsgJoinedActionGameReviews
 )
 
 // Size of the bytes to store the length of the payload
@@ -693,4 +694,30 @@ func DeserializeMsgGameNamesV2(message []byte) ([]*g.GameName, error) {
 	}
 
 	return gameNames, nil
+}
+
+// --------------------------------------------------------
+// Message Joined Action Game Reviews
+
+func SerializeMsgJoinedActionGameReviewsV2(clientID int, joinedActionGameReview *j.JoinedActionGameReview) ([]byte, error) {
+	messageLen := 4 + 4 + len(joinedActionGameReview.GameName) + 4
+	message := make([]byte, messageLen) //chequear cuando haga el mensaje de ActionGame
+
+	serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
+	if err != nil {
+		return nil, err
+	}
+	copy(message, serializedJoinedActionGameReview)
+
+	return SerializeMessage(MsgJoinedActionGameReviews, clientID, message), nil
+}
+
+func DeserializeMsgJoinedActionGameReviewsV2(data []byte) (*j.JoinedActionGameReview, error) {
+
+	metrics, err := j.DeserializeJoinedActionGameReview(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return metrics, nil
 }
