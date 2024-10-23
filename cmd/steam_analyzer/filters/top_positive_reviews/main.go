@@ -69,7 +69,7 @@ func main() {
 }
 
 func FilterTopPositiveReviews(topPositiveReviewsQueue *mom.Queue, writerExchange *mom.Exchange, indieReviewJoinerAmount int) error {
-	topPositiveIndieGames := make([]*j.JoinedActionGameReview, 0)
+	topPositiveIndieGames := make([]*j.JoinedPositiveGameReview, 0)
 	nodesLeft := indieReviewJoinerAmount
 	msgs, err := topPositiveReviewsQueue.Consume(true)
 	if err != nil {
@@ -106,7 +106,7 @@ loop:
 			break loop
 		case sp.MsgQueryResolved:
 			log.Infof("Received query resolved message in top positive reviews node")
-			indieGame, err := sp.DeserializeMsgJoinedActionGameReviews(messageBody)
+			indieGame, err := sp.DeserializeMsgJoinedPositiveGameReviews(messageBody)
 			if err != nil {
 				log.Errorf("Failed to deserialize message: %v", err)
 				return err

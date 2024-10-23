@@ -12,11 +12,11 @@ var log = logging.MustGetLogger("log")
 
 type IndieReviewJoiner struct {
 	ReceiveMsg  func() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error)
-	SendMetrics func(int, *j.JoinedActionGameReview) error
+	SendMetrics func(int, *j.JoinedPositiveGameReview) error
 	SendEof     func(int) error
 }
 
-func NewIndieReviewJoiner(receiveMsg func() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error), sendMetrics func(int, *j.JoinedActionGameReview) error, sendEof func(int) error) *IndieReviewJoiner {
+func NewIndieReviewJoiner(receiveMsg func() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error), sendMetrics func(int, *j.JoinedPositiveGameReview) error, sendEof func(int) error) *IndieReviewJoiner {
 	return &IndieReviewJoiner{
 		ReceiveMsg:  receiveMsg,
 		SendMetrics: sendMetrics,
@@ -26,7 +26,7 @@ func NewIndieReviewJoiner(receiveMsg func() (int, []*games.GameName, []*reviews_
 
 func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 	remainingEOFsMap := make(map[int]int)
-	accumulatedGameReviews := make(map[int]map[uint32]*j.JoinedActionGameReview)
+	accumulatedGameReviews := make(map[int]map[uint32]*j.JoinedPositiveGameReview)
 
 	for {
 		clientID, games, reviews, eof, err := i.ReceiveMsg()
@@ -37,7 +37,7 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 
 		clientAccumulatedGameReviews, exists := accumulatedGameReviews[clientID]
 		if !exists {
-			clientAccumulatedGameReviews = make(map[uint32]*j.JoinedActionGameReview)
+			clientAccumulatedGameReviews = make(map[uint32]*j.JoinedPositiveGameReview)
 			accumulatedGameReviews[clientID] = clientAccumulatedGameReviews
 		}
 
@@ -75,9 +75,9 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 					delete(clientAccumulatedGameReviews, indieGame.AppId)
 				} else {
 					log.Info("Saving indie game with AppID %v for later join", indieGame.AppId)
-					newJoinedActionGameReview := j.NewJoinedActionGameReview(indieGame.AppId)
-					newJoinedActionGameReview.UpdateWithGame(indieGame)
-					clientAccumulatedGameReviews[indieGame.AppId] = newJoinedActionGameReview
+					newJoinedPositiveGameReview := j.NewJoinedPositiveGameReview(indieGame.AppId)
+					newJoinedPositiveGameReview.UpdateWithGame(indieGame)
+					clientAccumulatedGameReviews[indieGame.AppId] = newJoinedPositiveGameReview
 				}
 			}
 			continue
@@ -98,7 +98,7 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 
 				} else {
 					log.Infof("Saving review with AppID %v for later join", gameReviewsMetrics.AppID)
-					clientAccumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewsMetrics.AppID)
+					clientAccumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedPositiveGameReview(gameReviewsMetrics.AppID)
 				}
 			}
 			continue

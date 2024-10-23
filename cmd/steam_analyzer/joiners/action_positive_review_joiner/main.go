@@ -77,7 +77,7 @@ func main() {
 func joinActionReviews(actionReviewJoinQueue *mom.Queue, writerExchange *mom.Exchange, positiveReviewsFiltersAmount int) error {
 	remainingEOFs := positiveReviewsFiltersAmount + 1
 
-	accumulatedGameReviews := make(map[uint32]*j.JoinedActionGameReview)
+	accumulatedGameReviews := make(map[uint32]*j.JoinedPositiveGameReview)
 	log.Info("Creating Accumulating reviews metrics")
 	msgs, err := actionReviewJoinQueue.Consume(true)
 	if err != nil {
@@ -119,7 +119,7 @@ loop:
 					log.Infof("Joining review into action game with ID: %v", gameReviewMetrics.AppID)
 					joinedGameReviewsMsg.UpdateWithReview(gameReviewMetrics)
 
-					serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviews(joinedGameReviewsMsg)
+					serializedMetrics, err := sp.SerializeMsgJoinedPositiveGameReviews(joinedGameReviewsMsg)
 					if err != nil {
 						log.Errorf("Failed to serialize action-review message: %v", err)
 					}
@@ -129,7 +129,7 @@ loop:
 					delete(accumulatedGameReviews, gameReviewMetrics.AppID)
 				} else {
 					log.Infof("Saving review for later join with id %v", gameReviewMetrics.AppID)
-					accumulatedGameReviews[gameReviewMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewMetrics.AppID)
+					accumulatedGameReviews[gameReviewMetrics.AppID] = j.NewJoinedPositiveGameReview(gameReviewMetrics.AppID)
 				}
 			}
 		case sp.MsgGameNames:
@@ -143,7 +143,7 @@ loop:
 				if joinedGameReviewsMsg, exists := accumulatedGameReviews[actionGame.AppId]; exists {
 					log.Infof("Joining action game into review with ID: %v", actionGame.AppId)
 					joinedGameReviewsMsg.UpdateWithGame(actionGame)
-					serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviews(joinedGameReviewsMsg)
+					serializedMetrics, err := sp.SerializeMsgJoinedPositiveGameReviews(joinedGameReviewsMsg)
 					if err != nil {
 						log.Errorf("Failed to serialize action-review message: %v", err)
 					}
@@ -153,9 +153,9 @@ loop:
 					delete(accumulatedGameReviews, actionGame.AppId)
 				} else {
 					log.Infof("Saving action game for later join with id %v", actionGame.AppId)
-					newJoinedActionGameReview := j.NewJoinedActionGameReview(actionGame.AppId)
-					newJoinedActionGameReview.UpdateWithGame(actionGame)
-					accumulatedGameReviews[actionGame.AppId] = newJoinedActionGameReview
+					newJoinedPositiveGameReview := j.NewJoinedPositiveGameReview(actionGame.AppId)
+					newJoinedPositiveGameReview.UpdateWithGame(actionGame)
+					accumulatedGameReviews[actionGame.AppId] = newJoinedPositiveGameReview
 				}
 			}
 		default:

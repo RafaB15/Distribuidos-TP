@@ -26,7 +26,7 @@ const (
 	MsgGameReviewsMetrics
 	MsgGameNames
 	MsgIndiePositiveJoinedReviews
-	MsgJoinedActionGameReviews
+	MsgJoinedPositiveGameReviews
 )
 
 // Size of the bytes to store the length of the payload
@@ -257,22 +257,22 @@ func DeserializeMsgReviewInformation(message []byte) ([]*r.Review, error) {
 	return reviews, nil
 }
 
-func SerializeMsgJoinedActionGameReviews(joinedActionGameReview *j.JoinedActionGameReview) ([]byte, error) {
+func SerializeMsgJoinedPositiveGameReviews(joinedActionGameReview *j.JoinedPositiveGameReview) ([]byte, error) {
 	messageLen := 4 + 4 + len(joinedActionGameReview.GameName) + 4
 	message := make([]byte, 2+messageLen) //chequear cuando haga el mensaje de ActionGame
 	message[0] = byte(MsgQueryResolved)
 	message[1] = byte(MsgActionPositiveReviewsQuery)
-	serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
+	serializedJoinedPositiveGameReview, err := j.SerializeJoinedPositiveGameReview(joinedActionGameReview)
 	if err != nil {
 		return nil, err
 	}
-	copy(message[2:], serializedJoinedActionGameReview)
+	copy(message[2:], serializedJoinedPositiveGameReview)
 	return message, nil
 }
 
-func DeserializeMsgJoinedActionGameReviews(data []byte) (*j.JoinedActionGameReview, error) {
+func DeserializeMsgJoinedPositiveGameReviews(data []byte) (*j.JoinedPositiveGameReview, error) {
 
-	metrics, err := j.DeserializeJoinedActionGameReview(data[2:]) //me salteo los 2 bytesde tipo de mensaje
+	metrics, err := j.DeserializeJoinedPositiveGameReview(data[2:]) //me salteo los 2 bytesde tipo de mensaje
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +280,7 @@ func DeserializeMsgJoinedActionGameReviews(data []byte) (*j.JoinedActionGameRevi
 	return metrics, nil
 }
 
-func SerializeMsgNegativeJoinedActionGameReviews(joinedActionNegativeGameReview *j.JoinedActionNegativeGameReview) ([]byte, error) {
+func SerializeMsgNegativeJoinedPositiveGameReviews(joinedActionNegativeGameReview *j.JoinedNegativeGameReview) ([]byte, error) {
 	serializedJoinedActionNegativeGameReview, err := j.SerializeJoinedActionNegativeGameReview(joinedActionNegativeGameReview)
 	message := make([]byte, 2+len(serializedJoinedActionNegativeGameReview)) //chequear cuando haga el mensaje de ActionGame
 	message[0] = byte(MsgQueryResolved)
@@ -292,9 +292,9 @@ func SerializeMsgNegativeJoinedActionGameReviews(joinedActionNegativeGameReview 
 	return message, nil
 }
 
-func DeserializeMsgNegativeJoinedActionGameReviews(data []byte) (*j.JoinedActionGameReview, error) {
+func DeserializeMsgNegativeJoinedPositiveGameReviews(data []byte) (*j.JoinedPositiveGameReview, error) {
 
-	metrics, err := j.DeserializeJoinedActionGameReview(data[2:]) //me salteo los 2 bytesde tipo de mensaje
+	metrics, err := j.DeserializeJoinedPositiveGameReview(data[2:]) //me salteo los 2 bytesde tipo de mensaje
 	if err != nil {
 		return nil, err
 	}
@@ -302,22 +302,22 @@ func DeserializeMsgNegativeJoinedActionGameReviews(data []byte) (*j.JoinedAction
 	return metrics, nil
 }
 
-func SerializeMsgJoinedIndieGameReviews(joinedActionGameReview *j.JoinedActionGameReview) ([]byte, error) {
+func SerializeMsgJoinedIndieGameReviews(joinedActionGameReview *j.JoinedPositiveGameReview) ([]byte, error) {
 	messageLen := 4 + 4 + len(joinedActionGameReview.GameName) + 4
 	message := make([]byte, 2+messageLen) //chequear cuando haga el mensaje de ActionGame
 	message[0] = byte(MsgQueryResolved)
 	message[1] = byte(MsgIndiePositiveJoinedReviewsQuery)
-	serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
+	serializedJoinedPositiveGameReview, err := j.SerializeJoinedPositiveGameReview(joinedActionGameReview)
 	if err != nil {
 		return nil, err
 	}
-	copy(message[2:], serializedJoinedActionGameReview)
+	copy(message[2:], serializedJoinedPositiveGameReview)
 	return message, nil
 }
 
-func DeserializeMsgJoinedIndieGameReviews(data []byte) (*j.JoinedActionGameReview, error) {
+func DeserializeMsgJoinedIndieGameReviews(data []byte) (*j.JoinedPositiveGameReview, error) {
 
-	metrics, err := j.DeserializeJoinedActionGameReview(data[2:]) //me salteo los 2 bytesde tipo de mensaje
+	metrics, err := j.DeserializeJoinedPositiveGameReview(data[2:]) //me salteo los 2 bytesde tipo de mensaje
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +325,7 @@ func DeserializeMsgJoinedIndieGameReviews(data []byte) (*j.JoinedActionGameRevie
 	return metrics, nil
 }
 
-func SerializeMsgJoinedIndieGameReviewsBatch(joinedActionGameReviews []*j.JoinedActionGameReview) []byte {
+func SerializeMsgJoinedIndieGameReviewsBatch(joinedActionGameReviews []*j.JoinedPositiveGameReview) []byte {
 	count := len(joinedActionGameReviews)
 	message := make([]byte, 3)
 	message[0] = byte(MsgQueryResolved)
@@ -334,18 +334,18 @@ func SerializeMsgJoinedIndieGameReviewsBatch(joinedActionGameReviews []*j.Joined
 
 	offset := 3
 	for _, joinedActionGameReview := range joinedActionGameReviews {
-		serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
+		serializedJoinedPositiveGameReview, err := j.SerializeJoinedPositiveGameReview(joinedActionGameReview)
 		if err != nil {
 			return nil
 		}
-		message = append(message, serializedJoinedActionGameReview...)
-		offset += len(serializedJoinedActionGameReview)
+		message = append(message, serializedJoinedPositiveGameReview...)
+		offset += len(serializedJoinedPositiveGameReview)
 	}
 
 	return message
 }
 
-func DeserializeMsgJoinedIndieGameReviewsBatch(message []byte) ([]*j.JoinedActionGameReview, error) {
+func DeserializeMsgJoinedIndieGameReviewsBatch(message []byte) ([]*j.JoinedPositiveGameReview, error) {
 	// Función asume que nos viene sin el primer header
 	if len(message) < 1 {
 		return nil, errors.New("message too short to contain count")
@@ -353,10 +353,10 @@ func DeserializeMsgJoinedIndieGameReviewsBatch(message []byte) ([]*j.JoinedActio
 
 	count := int(message[0])
 	offset := 1
-	joinedActionGameReviews := make([]*j.JoinedActionGameReview, count)
+	joinedActionGameReviews := make([]*j.JoinedPositiveGameReview, count)
 
 	for i := 0; i < count; i++ {
-		joinedActionGameReview, err := j.DeserializeJoinedActionGameReview(message[offset:])
+		joinedActionGameReview, err := j.DeserializeJoinedPositiveGameReview(message[offset:])
 		if err != nil {
 			return nil, err
 		}
@@ -749,22 +749,22 @@ func DeserializeMsgGameNamesV2(message []byte) ([]*g.GameName, error) {
 // --------------------------------------------------------
 // Message Joined Action Game Reviews
 
-func SerializeMsgJoinedActionGameReviewsV2(clientID int, joinedActionGameReview *j.JoinedActionGameReview) ([]byte, error) {
+func SerializeMsgJoinedPositiveGameReviewsV2(clientID int, joinedActionGameReview *j.JoinedPositiveGameReview) ([]byte, error) {
 	messageLen := 4 + 4 + len(joinedActionGameReview.GameName) + 4
 	message := make([]byte, messageLen) //chequear cuando haga el mensaje de ActionGame
 
-	serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
+	serializedJoinedPositiveGameReview, err := j.SerializeJoinedPositiveGameReview(joinedActionGameReview)
 	if err != nil {
 		return nil, err
 	}
-	copy(message, serializedJoinedActionGameReview)
+	copy(message, serializedJoinedPositiveGameReview)
 
-	return SerializeMessage(MsgJoinedActionGameReviews, clientID, message), nil
+	return SerializeMessage(MsgJoinedPositiveGameReviews, clientID, message), nil
 }
 
-func DeserializeMsgJoinedActionGameReviewsV2(data []byte) (*j.JoinedActionGameReview, error) {
+func DeserializeMsgJoinedPositiveGameReviewsV2(data []byte) (*j.JoinedPositiveGameReview, error) {
 
-	metrics, err := j.DeserializeJoinedActionGameReview(data)
+	metrics, err := j.DeserializeJoinedPositiveGameReview(data)
 	if err != nil {
 		return nil, err
 	}

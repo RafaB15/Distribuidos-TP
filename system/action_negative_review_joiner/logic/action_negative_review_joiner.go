@@ -12,11 +12,11 @@ var log = logging.MustGetLogger("log")
 
 type ActionNegativeReviewJoiner struct {
 	ReceiveMsg  func() ([]*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error)
-	SendMetrics func(*j.JoinedActionNegativeGameReview) error
+	SendMetrics func(*j.JoinedNegativeGameReview) error
 	SendEof     func() error
 }
 
-func NewActionNegativeReviewJoiner(receiveMsg func() ([]*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error), sendMetrics func(*j.JoinedActionNegativeGameReview) error, sendEof func() error) *ActionNegativeReviewJoiner {
+func NewActionNegativeReviewJoiner(receiveMsg func() ([]*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error), sendMetrics func(*j.JoinedNegativeGameReview) error, sendEof func() error) *ActionNegativeReviewJoiner {
 	return &ActionNegativeReviewJoiner{
 		ReceiveMsg:  receiveMsg,
 		SendMetrics: sendMetrics,
@@ -27,7 +27,7 @@ func NewActionNegativeReviewJoiner(receiveMsg func() ([]*games.GameName, []*revi
 func (a *ActionNegativeReviewJoiner) Run() {
 	remainingEOFs := 1 + 1
 
-	accumulatedGameReviews := make(map[uint32]*j.JoinedActionNegativeGameReview)
+	accumulatedGameReviews := make(map[uint32]*j.JoinedNegativeGameReview)
 
 	for {
 		games, reviews, eof, err := a.ReceiveMsg()
@@ -66,9 +66,9 @@ func (a *ActionNegativeReviewJoiner) Run() {
 					delete(accumulatedGameReviews, actionGameName.AppId)
 				} else {
 					log.Infof("Saving action game for later join with id %v", actionGameName.AppId)
-					newJoinedActionGameReview := j.NewJoinedActionNegativeGameReview(actionGameName.AppId)
-					newJoinedActionGameReview.UpdateWithGame(actionGameName)
-					accumulatedGameReviews[actionGameName.AppId] = newJoinedActionGameReview
+					newJoinedPositiveGameReview := j.NewJoinedActionNegativeGameReview(actionGameName.AppId)
+					newJoinedPositiveGameReview.UpdateWithGame(actionGameName)
+					accumulatedGameReviews[actionGameName.AppId] = newJoinedPositiveGameReview
 				}
 
 			}

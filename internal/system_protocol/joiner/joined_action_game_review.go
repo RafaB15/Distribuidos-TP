@@ -7,29 +7,29 @@ import (
 	"strconv"
 )
 
-type JoinedActionGameReview struct {
+type JoinedPositiveGameReview struct {
 	AppId           uint32
 	GameName        string
 	PositiveReviews int
 }
 
-func NewJoinedActionGameReview(appId uint32) *JoinedActionGameReview {
-	return &JoinedActionGameReview{
+func NewJoinedPositiveGameReview(appId uint32) *JoinedPositiveGameReview {
+	return &JoinedPositiveGameReview{
 		AppId:           appId,
 		GameName:        "",
 		PositiveReviews: 0,
 	}
 }
 
-func (m *JoinedActionGameReview) UpdateWithReview(review *ra.GameReviewsMetrics) {
+func (m *JoinedPositiveGameReview) UpdateWithReview(review *ra.GameReviewsMetrics) {
 	m.PositiveReviews += review.PositiveReviews
 }
 
-func (m *JoinedActionGameReview) UpdateWithGame(game *g.GameName) {
+func (m *JoinedPositiveGameReview) UpdateWithGame(game *g.GameName) {
 	m.GameName = game.Name
 }
 
-func SerializeJoinedActionGameReview(metrics *JoinedActionGameReview) ([]byte, error) {
+func SerializeJoinedPositiveGameReview(metrics *JoinedPositiveGameReview) ([]byte, error) {
 	totalLen := 4 + 2 + len(metrics.GameName) + 4
 	buf := make([]byte, totalLen)
 
@@ -45,7 +45,7 @@ func SerializeJoinedActionGameReview(metrics *JoinedActionGameReview) ([]byte, e
 	return buf, nil
 }
 
-func DeserializeJoinedActionGameReview(data []byte) (*JoinedActionGameReview, error) {
+func DeserializeJoinedPositiveGameReview(data []byte) (*JoinedPositiveGameReview, error) {
 
 	appId := binary.BigEndian.Uint32(data[0:4])
 
@@ -55,13 +55,13 @@ func DeserializeJoinedActionGameReview(data []byte) (*JoinedActionGameReview, er
 	positiveReviewsStart := 6 + gameNameLen
 	positiveReviews := int(binary.BigEndian.Uint32(data[positiveReviewsStart : positiveReviewsStart+4]))
 
-	return &JoinedActionGameReview{
+	return &JoinedPositiveGameReview{
 		AppId:           appId,
 		GameName:        gameName,
 		PositiveReviews: positiveReviews,
 	}, nil
 }
 
-func GetStrRepresentation(joinedActionGameReview *JoinedActionGameReview) string {
+func GetStrRepresentation(joinedActionGameReview *JoinedPositiveGameReview) string {
 	return "AppID: " + strconv.Itoa(int(joinedActionGameReview.AppId)) + ", GameName: " + joinedActionGameReview.GameName + ", PositiveReviews: " + strconv.Itoa(int(joinedActionGameReview.PositiveReviews)) + "\n"
 }

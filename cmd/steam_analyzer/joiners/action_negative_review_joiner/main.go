@@ -76,7 +76,7 @@ func main() {
 func joinActionReviews(actionReviewJoinQueue *mom.Queue, writerExchange *mom.Exchange) error {
 	remainingEOFs := 1 + 1 // 1 para el percentil y 1 para los juegos
 
-	accumulatedGameReviews := make(map[uint32]*j.JoinedActionNegativeGameReview)
+	accumulatedGameReviews := make(map[uint32]*j.JoinedNegativeGameReview)
 	log.Info("Creating Accumulating reviews metrics")
 	msgs, err := actionReviewJoinQueue.Consume(true)
 	if err != nil {
@@ -118,7 +118,7 @@ loop:
 					log.Infof("Joining review into action game with ID: %v", gameReviewMetrics.AppID)
 					joinedGameReviewsMsg.UpdateWithReview(gameReviewMetrics)
 
-					serializedMetrics, err := sp.SerializeMsgNegativeJoinedActionGameReviews(joinedGameReviewsMsg)
+					serializedMetrics, err := sp.SerializeMsgNegativeJoinedPositiveGameReviews(joinedGameReviewsMsg)
 					if err != nil {
 						log.Errorf("Failed to serialize action-review message: %v", err)
 					}
@@ -143,7 +143,7 @@ loop:
 				if joinedGameReviewsMsg, exists := accumulatedGameReviews[actionGame.AppId]; exists {
 					log.Infof("Joining action game into review with ID: %v", actionGame.AppId)
 					joinedGameReviewsMsg.UpdateWithGame(actionGame)
-					serializedMetrics, err := sp.SerializeMsgNegativeJoinedActionGameReviews(joinedGameReviewsMsg)
+					serializedMetrics, err := sp.SerializeMsgNegativeJoinedPositiveGameReviews(joinedGameReviewsMsg)
 					if err != nil {
 						log.Errorf("Failed to serialize action-review message: %v", err)
 					}
@@ -153,9 +153,9 @@ loop:
 					delete(accumulatedGameReviews, actionGame.AppId)
 				} else {
 					log.Infof("Saving action game for later join with id %v", actionGame.AppId)
-					newJoinedActionGameReview := j.NewJoinedActionNegativeGameReview(actionGame.AppId)
-					newJoinedActionGameReview.UpdateWithGame(actionGame)
-					accumulatedGameReviews[actionGame.AppId] = newJoinedActionGameReview
+					newJoinedPositiveGameReview := j.NewJoinedActionNegativeGameReview(actionGame.AppId)
+					newJoinedPositiveGameReview.UpdateWithGame(actionGame)
+					accumulatedGameReviews[actionGame.AppId] = newJoinedPositiveGameReview
 				}
 			}
 		default:

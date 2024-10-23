@@ -7,29 +7,29 @@ import (
 	"strconv"
 )
 
-type JoinedActionNegativeGameReview struct {
+type JoinedNegativeGameReview struct {
 	AppId           uint32
 	GameName        string
 	NegativeReviews int
 }
 
-func NewJoinedActionNegativeGameReview(appId uint32) *JoinedActionNegativeGameReview {
-	return &JoinedActionNegativeGameReview{
+func NewJoinedActionNegativeGameReview(appId uint32) *JoinedNegativeGameReview {
+	return &JoinedNegativeGameReview{
 		AppId:           appId,
 		GameName:        "",
 		NegativeReviews: 0,
 	}
 }
 
-func (m *JoinedActionNegativeGameReview) UpdateWithReview(review *ra.GameReviewsMetrics) {
+func (m *JoinedNegativeGameReview) UpdateWithReview(review *ra.GameReviewsMetrics) {
 	m.NegativeReviews += review.NegativeReviews
 }
 
-func (m *JoinedActionNegativeGameReview) UpdateWithGame(game *g.GameName) {
+func (m *JoinedNegativeGameReview) UpdateWithGame(game *g.GameName) {
 	m.GameName = game.Name
 }
 
-func SerializeJoinedActionNegativeGameReview(metrics *JoinedActionNegativeGameReview) ([]byte, error) {
+func SerializeJoinedActionNegativeGameReview(metrics *JoinedNegativeGameReview) ([]byte, error) {
 	totalLen := 4 + 2 + len(metrics.GameName) + 4
 	buf := make([]byte, totalLen)
 
@@ -45,7 +45,7 @@ func SerializeJoinedActionNegativeGameReview(metrics *JoinedActionNegativeGameRe
 	return buf, nil
 }
 
-func DeserializeJoinedActionNegativeGameReview(data []byte) (*JoinedActionNegativeGameReview, error) {
+func DeserializeJoinedActionNegativeGameReview(data []byte) (*JoinedNegativeGameReview, error) {
 
 	appId := binary.BigEndian.Uint32(data[0:4])
 
@@ -55,13 +55,13 @@ func DeserializeJoinedActionNegativeGameReview(data []byte) (*JoinedActionNegati
 	NegativeReviewsStart := 6 + gameNameLen
 	NegativeReviews := int(binary.BigEndian.Uint32(data[NegativeReviewsStart : NegativeReviewsStart+4]))
 
-	return &JoinedActionNegativeGameReview{
+	return &JoinedNegativeGameReview{
 		AppId:           appId,
 		GameName:        gameName,
 		NegativeReviews: NegativeReviews,
 	}, nil
 }
 
-func GetStrRepresentationNegativeGameReview(joinedActionNegativeGameReview *JoinedActionNegativeGameReview) string {
+func GetStrRepresentationNegativeGameReview(joinedActionNegativeGameReview *JoinedNegativeGameReview) string {
 	return "AppID: " + strconv.Itoa(int(joinedActionNegativeGameReview.AppId)) + ", GameName: " + joinedActionNegativeGameReview.GameName + ", NegativeReviews: " + strconv.Itoa(int(joinedActionNegativeGameReview.NegativeReviews)) + "\n"
 }

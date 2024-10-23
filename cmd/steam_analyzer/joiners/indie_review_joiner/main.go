@@ -76,7 +76,7 @@ func main() {
 
 func joinActionReviews(indieReviewJoinQueue *mom.Queue, topPositiveReviewsExchange *mom.Exchange, reviewsAccumulatorAmount int) error {
 	remainingEOFs := reviewsAccumulatorAmount + 1
-	accumulatedGameReviews := make(map[uint32]*j.JoinedActionGameReview)
+	accumulatedGameReviews := make(map[uint32]*j.JoinedPositiveGameReview)
 	log.Info("Creating Accumulating reviews metrics")
 	msgs, err := indieReviewJoinQueue.Consume(true)
 	if err != nil {
@@ -115,7 +115,7 @@ loop:
 					log.Infof("Joining review into indie game with ID: %v", gameReviewsMetrics.AppID)
 					joinedGameReviewsMsg.UpdateWithReview(gameReviewsMetrics)
 
-					serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviews(joinedGameReviewsMsg)
+					serializedMetrics, err := sp.SerializeMsgJoinedPositiveGameReviews(joinedGameReviewsMsg)
 					if err != nil {
 						log.Errorf("Failed to serialize indie-review message: %v", err)
 					}
@@ -124,7 +124,7 @@ loop:
 					delete(accumulatedGameReviews, gameReviewsMetrics.AppID)
 				} else {
 					log.Infof("Saving review with AppID %v for later join", gameReviewsMetrics.AppID)
-					accumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewsMetrics.AppID)
+					accumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedPositiveGameReview(gameReviewsMetrics.AppID)
 				}
 			}
 		case sp.MsgGameNames:
@@ -139,7 +139,7 @@ loop:
 				if joinedGameReviewsMsg, exists := accumulatedGameReviews[indieGame.AppId]; exists {
 					log.Infof("Joining indie game into review with ID: %v", indieGame.AppId)
 					joinedGameReviewsMsg.UpdateWithGame(indieGame)
-					serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviews(joinedGameReviewsMsg)
+					serializedMetrics, err := sp.SerializeMsgJoinedPositiveGameReviews(joinedGameReviewsMsg)
 					if err != nil {
 						log.Errorf("Failed to serialize indie-review message: %v", err)
 					}
@@ -148,9 +148,9 @@ loop:
 					delete(accumulatedGameReviews, indieGame.AppId)
 				} else {
 					log.Info("Saving indie game with AppID %v for later join", indieGame.AppId)
-					newJoinedActionGameReview := j.NewJoinedActionGameReview(indieGame.AppId)
-					newJoinedActionGameReview.UpdateWithGame(indieGame)
-					accumulatedGameReviews[indieGame.AppId] = newJoinedActionGameReview
+					newJoinedPositiveGameReview := j.NewJoinedPositiveGameReview(indieGame.AppId)
+					newJoinedPositiveGameReview.UpdateWithGame(indieGame)
+					accumulatedGameReviews[indieGame.AppId] = newJoinedPositiveGameReview
 				}
 			}
 		default:

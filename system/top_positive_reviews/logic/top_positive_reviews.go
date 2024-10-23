@@ -10,12 +10,12 @@ import (
 var log = logging.MustGetLogger("log")
 
 type TopPositiveReviews struct {
-	ReceiveMsg  func() (*j.JoinedActionGameReview, bool, error)
-	SendMetrics func([]*j.JoinedActionGameReview) error
+	ReceiveMsg  func() (*j.JoinedPositiveGameReview, bool, error)
+	SendMetrics func([]*j.JoinedPositiveGameReview) error
 	SendEof     func() error
 }
 
-func NewTopPositiveReviews(receiveMsg func() (*j.JoinedActionGameReview, bool, error), sendMetrics func([]*j.JoinedActionGameReview) error, sendEof func() error) *TopPositiveReviews {
+func NewTopPositiveReviews(receiveMsg func() (*j.JoinedPositiveGameReview, bool, error), sendMetrics func([]*j.JoinedPositiveGameReview) error, sendEof func() error) *TopPositiveReviews {
 	return &TopPositiveReviews{
 		ReceiveMsg:  receiveMsg,
 		SendMetrics: sendMetrics,
@@ -24,7 +24,7 @@ func NewTopPositiveReviews(receiveMsg func() (*j.JoinedActionGameReview, bool, e
 }
 
 func (t *TopPositiveReviews) Run(indieReviewJoinerAmount int) {
-	topPositiveIndieGames := make([]*j.JoinedActionGameReview, 0)
+	topPositiveIndieGames := make([]*j.JoinedPositiveGameReview, 0)
 	remainingEOFs := indieReviewJoinerAmount
 
 	for {

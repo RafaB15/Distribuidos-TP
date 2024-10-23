@@ -109,8 +109,8 @@ func HandleGameNames(message []byte) ([]*games.GameName, error) {
 	return gameNames, nil
 }
 
-func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedActionGameReview) error {
-	serializedMetrics, err := sp.SerializeMsgJoinedActionGameReviewsV2(clientID, reviewsInformation)
+func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedPositiveGameReview) error {
+	serializedMetrics, err := sp.SerializeMsgJoinedPositiveGameReviewsV2(clientID, reviewsInformation)
 	if err != nil {
 		return err
 	}

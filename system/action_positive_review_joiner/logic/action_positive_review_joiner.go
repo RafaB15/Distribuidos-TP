@@ -12,11 +12,11 @@ var log = logging.MustGetLogger("log")
 
 type ActionPositiveReviewJoiner struct {
 	ReceiveMsg  func() ([]*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error)
-	SendMetrics func(*j.JoinedActionGameReview) error
+	SendMetrics func(*j.JoinedPositiveGameReview) error
 	SendEof     func() error
 }
 
-func NewActionPositiveReviewJoiner(receiveMsg func() ([]*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error), sendMetrics func(*j.JoinedActionGameReview) error, sendEof func() error) *ActionPositiveReviewJoiner {
+func NewActionPositiveReviewJoiner(receiveMsg func() ([]*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error), sendMetrics func(*j.JoinedPositiveGameReview) error, sendEof func() error) *ActionPositiveReviewJoiner {
 	return &ActionPositiveReviewJoiner{
 		ReceiveMsg:  receiveMsg,
 		SendMetrics: sendMetrics,
@@ -27,7 +27,7 @@ func NewActionPositiveReviewJoiner(receiveMsg func() ([]*games.GameName, []*revi
 func (a *ActionPositiveReviewJoiner) Run(positiveReviewsFiltersAmount int) {
 	remainingEOFs := positiveReviewsFiltersAmount + 1
 
-	accumulatedGameReviews := make(map[uint32]*j.JoinedActionGameReview)
+	accumulatedGameReviews := make(map[uint32]*j.JoinedPositiveGameReview)
 
 	for {
 		games, reviews, eof, err := a.ReceiveMsg()
@@ -66,9 +66,9 @@ func (a *ActionPositiveReviewJoiner) Run(positiveReviewsFiltersAmount int) {
 					delete(accumulatedGameReviews, actionGameName.AppId)
 				} else {
 					log.Infof("Saving action game for later join with id %v", actionGameName.AppId)
-					newJoinedActionGameReview := j.NewJoinedActionGameReview(actionGameName.AppId)
-					newJoinedActionGameReview.UpdateWithGame(actionGameName)
-					accumulatedGameReviews[actionGameName.AppId] = newJoinedActionGameReview
+					newJoinedPositiveGameReview := j.NewJoinedPositiveGameReview(actionGameName.AppId)
+					newJoinedPositiveGameReview.UpdateWithGame(actionGameName)
+					accumulatedGameReviews[actionGameName.AppId] = newJoinedPositiveGameReview
 				}
 			}
 		}
@@ -88,7 +88,7 @@ func (a *ActionPositiveReviewJoiner) Run(positiveReviewsFiltersAmount int) {
 					delete(accumulatedGameReviews, gameReviewsMetrics.AppID)
 				} else {
 					log.Infof("Saving review with AppID %v for later join", gameReviewsMetrics.AppID)
-					accumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedActionGameReview(gameReviewsMetrics.AppID)
+					accumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedPositiveGameReview(gameReviewsMetrics.AppID)
 				}
 			}
 		}

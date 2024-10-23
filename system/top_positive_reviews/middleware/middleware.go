@@ -48,7 +48,7 @@ func NewMiddleware() (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMsg() (*j.JoinedActionGameReview, bool, error) {
+func (m *Middleware) ReceiveMsg() (*j.JoinedPositiveGameReview, bool, error) {
 	rawMsg, err := m.TopPositiveReviewsQueue.Consume()
 	if err != nil {
 		return nil, false, err
@@ -63,8 +63,8 @@ func (m *Middleware) ReceiveMsg() (*j.JoinedActionGameReview, bool, error) {
 	case sp.MsgEndOfFile:
 		return nil, true, nil
 
-	case sp.MsgJoinedActionGameReviews:
-		joinedGame, err := sp.DeserializeMsgJoinedActionGameReviewsV2(message.Body)
+	case sp.MsgJoinedPositiveGameReviews:
+		joinedGame, err := sp.DeserializeMsgJoinedPositiveGameReviewsV2(message.Body)
 		if err != nil {
 			return nil, false, err
 		}
@@ -76,7 +76,7 @@ func (m *Middleware) ReceiveMsg() (*j.JoinedActionGameReview, bool, error) {
 	}
 }
 
-func (m *Middleware) SendMetrics(topPositiveIndieGames []*j.JoinedActionGameReview) error {
+func (m *Middleware) SendMetrics(topPositiveIndieGames []*j.JoinedPositiveGameReview) error {
 	data := sp.SerializeMsgJoinedIndieGameReviewsBatch(topPositiveIndieGames)
 
 	err := m.WriterExchange.Publish(WriterRoutingKey, data)

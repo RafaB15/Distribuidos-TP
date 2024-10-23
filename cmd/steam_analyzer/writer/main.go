@@ -255,7 +255,7 @@ func handleActionEnfglish5kReviewsQuery(data []byte, name_file string) error {
 
 	defer file.Close()
 
-	game, err := jr.DeserializeJoinedActionGameReview(data)
+	game, err := jr.DeserializeJoinedPositiveGameReview(data)
 	if err != nil {
 		log.Errorf("Failed to deserialize joined action game review: %v", err)
 		return err
