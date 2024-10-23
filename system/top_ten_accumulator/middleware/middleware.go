@@ -54,31 +54,31 @@ func NewMiddleware() (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMsg() ([]*df.GameYearAndAvgPtf, bool, error) {
-	msg, err := m.TopTenAccumulatorQueue.Consume()
+func (m *Middleware) ReceiveMsg() (int, []*df.GameYearAndAvgPtf, bool, error) {
+	rawMsg, err := m.TopTenAccumulatorQueue.Consume()
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
+	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
-	switch messageType {
+	switch message.Type {
 	case sp.MsgEndOfFile:
-		return nil, true, nil
+		return message.ClientID, nil, true, nil
 
 	case sp.MsgFilteredYearAndAvgPtfInformation:
-		decadeGames, err := sp.DeserializeMsgGameYearAndAvgPtf(msg)
+		decadeGames, err := sp.DeserializeMsgGameYearAndAvgPtfV2(message.Body)
 		if err != nil {
-			return nil, false, err
+			return message.ClientID, nil, false, err
 		}
 
-		return decadeGames, false, nil
+		return message.ClientID, decadeGames, false, nil
 
 	default:
-		return nil, false, nil
+		return message.ClientID, nil, false, nil
 	}
 }
 

@@ -11,12 +11,12 @@ const DECADE = 2010
 var log = logging.MustGetLogger("log")
 
 type DecadeFilter struct {
-	ReceiveYearAvgPtf      func() ([]*df.GameYearAndAvgPtf, bool, error)
-	SendFilteredYearAvgPtf func([]*df.GameYearAndAvgPtf) error
-	SendEof                func() error
+	ReceiveYearAvgPtf      func() (int, []*df.GameYearAndAvgPtf, bool, error)
+	SendFilteredYearAvgPtf func(int, []*df.GameYearAndAvgPtf) error
+	SendEof                func(int) error
 }
 
-func NewDecadeFilter(receiveYearAvgPtf func() ([]*df.GameYearAndAvgPtf, bool, error), sendFilteredYearAvgPtf func([]*df.GameYearAndAvgPtf) error, sendEof func() error) *DecadeFilter {
+func NewDecadeFilter(receiveYearAvgPtf func() (int, []*df.GameYearAndAvgPtf, bool, error), sendFilteredYearAvgPtf func(int, []*df.GameYearAndAvgPtf) error, sendEof func(int) error) *DecadeFilter {
 	return &DecadeFilter{
 		ReceiveYearAvgPtf:      receiveYearAvgPtf,
 		SendFilteredYearAvgPtf: sendFilteredYearAvgPtf,
@@ -27,7 +27,7 @@ func NewDecadeFilter(receiveYearAvgPtf func() ([]*df.GameYearAndAvgPtf, bool, er
 func (d *DecadeFilter) Run() {
 	for {
 
-		yearAvgPtfSlice, eof, err := d.ReceiveYearAvgPtf()
+		clientID, yearAvgPtfSlice, eof, err := d.ReceiveYearAvgPtf()
 
 		if err != nil {
 			log.Errorf("failed to receive year and avg ptf: %v", err)
@@ -35,8 +35,8 @@ func (d *DecadeFilter) Run() {
 		}
 
 		if eof {
-			log.Infof("received EOF. Sending filtered year and avg ptf")
-			err = d.SendEof()
+			log.Infof("Received client %d EOF. Sending EOF to top ten accumulator", clientID)
+			err = d.SendEof(clientID)
 			if err != nil {
 				log.Errorf("failed to send EOF: %v", err)
 				return
@@ -46,7 +46,8 @@ func (d *DecadeFilter) Run() {
 
 		yearsAvgPtfFiltered := df.FilterByDecade(yearAvgPtfSlice, DECADE)
 
-		err = d.SendFilteredYearAvgPtf(yearsAvgPtfFiltered)
+		log.Infof("Sending ClientID %d filtered year and avg ptf to top ten accumulator", clientID)
+		err = d.SendFilteredYearAvgPtf(clientID, yearsAvgPtfFiltered)
 
 		if err != nil {
 			log.Errorf("failed to send filtered year and avg ptf: %v", err)

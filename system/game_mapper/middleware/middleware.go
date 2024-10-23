@@ -118,6 +118,7 @@ func (m *Middleware) ReceiveGameBatch() (int, []string, bool, error) {
 
 func (m *Middleware) SendGamesOS(clientID int, gamesOS []*oa.GameOS) error {
 	serializedGameOS := sp.SerializeMsgGameOSInformationV2(clientID, gamesOS)
+
 	err := m.OSGamesExchange.Publish(OSGamesRoutingKey, serializedGameOS)
 	if err != nil {
 		return fmt.Errorf("failed to publish games OS: %v", err)

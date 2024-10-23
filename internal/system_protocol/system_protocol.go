@@ -700,7 +700,6 @@ func DeserializeMsgGameReviewsMetricsBatchV2(message []byte) ([]*m.GameReviewsMe
 }
 
 // --------------------------------------------------------
-
 // Message Game Names
 
 func SerializeMsgGameNamesV2(clientID int, gameNames []*g.GameName) ([]byte, error) {
@@ -771,3 +770,36 @@ func DeserializeMsgJoinedPositiveGameReviewsV2(data []byte) (*j.JoinedPositiveGa
 
 	return metrics, nil
 }
+
+// Message Game Os Metrics
+
+func SerializeGameOSMetrics(clientID int, gameMetrics *oa.GameOSMetrics) []byte {
+	body := oa.SerializeGameOSMetrics(gameMetrics)
+	return SerializeMessage(MsgAccumulatedGameOSInformation, clientID, body)
+}
+
+func DeserializeMsgAccumulatedGameOSInformationV2(message []byte) (*oa.GameOSMetrics, error) {
+	return oa.DeserializeGameOSMetrics(message)
+}
+
+// --------------------------------------------------------
+
+// Message Filtered Game Year and Avg Ptf
+
+func SerializeMsgFilteredGameYearAndAvgPtfV2(clientID int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []byte {
+
+	gameYearAndAvgPtfSize := 10
+	count := len(gameYearAndAvgPtf)
+	message := make([]byte, 2+count*gameYearAndAvgPtfSize)
+	binary.BigEndian.PutUint16(message[:2], uint16(count))
+
+	offset := 2
+	for i, game := range gameYearAndAvgPtf {
+		serializedGame := df.SerializeGameYearAndAvgPtf(game)
+		copy(message[offset+i*10:], serializedGame)
+	}
+
+	return SerializeMessage(MsgFilteredYearAndAvgPtfInformation, clientID, message)
+}
+
+// Para el deserialize reutilizo la función de DeserializeMsgGameYearAndAvgPtfV2

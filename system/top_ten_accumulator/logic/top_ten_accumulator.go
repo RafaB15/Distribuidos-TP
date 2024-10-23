@@ -9,11 +9,11 @@ import (
 var log = logging.MustGetLogger("log")
 
 type TopTenAccumulator struct {
-	ReceiveMsg func() ([]*df.GameYearAndAvgPtf, bool, error)
+	ReceiveMsg func() (int, []*df.GameYearAndAvgPtf, bool, error)
 	SendMsg    func([]*df.GameYearAndAvgPtf) error
 }
 
-func NewTopTenAccumulator(receiveMsg func() ([]*df.GameYearAndAvgPtf, bool, error), sendMsg func([]*df.GameYearAndAvgPtf) error) *TopTenAccumulator {
+func NewTopTenAccumulator(receiveMsg func() (int, []*df.GameYearAndAvgPtf, bool, error), sendMsg func([]*df.GameYearAndAvgPtf) error) *TopTenAccumulator {
 	return &TopTenAccumulator{
 		ReceiveMsg: receiveMsg,
 		SendMsg:    sendMsg,
@@ -22,17 +22,42 @@ func NewTopTenAccumulator(receiveMsg func() ([]*df.GameYearAndAvgPtf, bool, erro
 
 func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 
-	remainingEOFs := decadeFilterAmount
+	// remainingEOFs := decadeFilterAmount
+	remainingEOFs := make(map[int]int)
+
 	for {
 
-		decadeGames, eof, err := t.ReceiveMsg()
+		clientID, decadeGames, eof, err := t.ReceiveMsg()
 		if err != nil {
 			log.Errorf("failed to receive message: %v", err)
 			return
 		}
 
+		log.Infof("Received decade games")
+
 		if eof {
-			remainingEOFs--
+
+			// Si no existe inicializo el contador de EOFs restantes
+			if _, ok := remainingEOFs[clientID]; !ok {
+				remainingEOFs[clientID] = decadeFilterAmount - 1
+			} else {
+				remainingEOFs[clientID]--
+
+				if remainingEOFs[clientID] <= 0 {
+					log.Infof("Received all EOFs of client %d, sending final top ten games", clientID)
+					finalTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile("top_ten_games")
+					if err != nil {
+						log.Errorf("error uploading top ten games from file: %v", err)
+						return
+					}
+					err = t.SendMsg(finalTopTenGames)
+					if err != nil {
+						log.Errorf("failed to send metrics: %v", err)
+						return
+					}
+
+				}
+			}
 		}
 
 		topTenGames := df.TopTenAvgPlaytimeForever(decadeGames)
@@ -52,19 +77,5 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 			return
 		}
 
-		// If there are no more EOFs, send the final top ten games
-		if remainingEOFs <= 0 {
-			log.Infof("Received all EOFs, sending final top ten games")
-			finalTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile("top_ten_games")
-			if err != nil {
-				log.Errorf("error uploading top ten games from file: %v", err)
-				return
-			}
-			err = t.SendMsg(finalTopTenGames)
-			if err != nil {
-				log.Errorf("failed to send metrics: %v", err)
-				return
-			}
-		}
 	}
 }

@@ -49,38 +49,39 @@ func NewMiddleware() (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveYearAvgPtf() ([]*df.GameYearAndAvgPtf, bool, error) {
+func (m *Middleware) ReceiveYearAvgPtf() (int, []*df.GameYearAndAvgPtf, bool, error) {
 
 	rawMsg, err := m.YearAvgPtfQueue.Consume()
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
+
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
 	switch message.Type {
 
 	case sp.MsgEndOfFile:
-		return nil, true, nil
+		return message.ClientID, nil, true, nil
 	case sp.MsgGameYearAndAvgPtfInformation:
 		gamesYearsAvgPtfs, err := sp.DeserializeMsgGameYearAndAvgPtfV2(message.Body)
 
 		if err != nil {
-			return nil, false, err
+			return message.ClientID, nil, false, err
 		}
 
-		return gamesYearsAvgPtfs, false, nil
+		return message.ClientID, gamesYearsAvgPtfs, false, nil
 	default:
-		return nil, false, nil
+		return message.ClientID, nil, false, nil
 	}
 
 }
 
-func (m *Middleware) SendFilteredYearAvgPtf(gamesYearsAvgPtfs []*df.GameYearAndAvgPtf) error {
-	data := sp.SerializeMsgFilteredGameYearAndAvgPtf(gamesYearsAvgPtfs)
+func (m *Middleware) SendFilteredYearAvgPtf(clientID int, gamesYearsAvgPtfs []*df.GameYearAndAvgPtf) error {
+	data := sp.SerializeMsgFilteredGameYearAndAvgPtfV2(clientID, gamesYearsAvgPtfs)
 
 	fmt.Printf("About to publish to top ten accumulator exchange\n")
 	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, data)
@@ -92,8 +93,9 @@ func (m *Middleware) SendFilteredYearAvgPtf(gamesYearsAvgPtfs []*df.GameYearAndA
 	return nil
 }
 
-func (m *Middleware) SendEof() error {
-	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, sp.SerializeMsgEndOfFile())
+func (m *Middleware) SendEof(clientID int) error {
+
+	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
 	if err != nil {
 		return err
 	}
