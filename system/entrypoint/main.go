@@ -60,7 +60,7 @@ func main() {
 func handleConnection(conn net.Conn, englishFiltersAmount int, reviewMappersAmount int, clientID int) {
 	defer conn.Close()
 
-	middleware, err := m.NewMiddleware()
+	middleware, err := m.NewMiddleware(clientID)
 	if err != nil {
 		fmt.Printf("Error creating middleware: %v for client %d\n", err, clientID)
 		return

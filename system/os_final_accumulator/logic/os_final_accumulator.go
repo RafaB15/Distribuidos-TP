@@ -10,11 +10,11 @@ var log = logging.MustGetLogger("log")
 
 type OSFinalAccumulator struct {
 	ReceiveGamesOSMetrics func() (int, *oa.GameOSMetrics, bool, error)
-	SendFinalMetrics      func(*oa.GameOSMetrics) error
+	SendFinalMetrics      func(int, *oa.GameOSMetrics) error
 	OSAccumulatorsAmount  int
 }
 
-func NewOSFinalAccumulator(receiveGamesOSMetrics func() (int, *oa.GameOSMetrics, bool, error), sendFinalMetrics func(*oa.GameOSMetrics) error, osAccumulatorsAmount int) *OSFinalAccumulator {
+func NewOSFinalAccumulator(receiveGamesOSMetrics func() (int, *oa.GameOSMetrics, bool, error), sendFinalMetrics func(int, *oa.GameOSMetrics) error, osAccumulatorsAmount int) *OSFinalAccumulator {
 	return &OSFinalAccumulator{
 		ReceiveGamesOSMetrics: receiveGamesOSMetrics,
 		SendFinalMetrics:      sendFinalMetrics,
@@ -41,7 +41,7 @@ func (o *OSFinalAccumulator) Run() {
 
 				if eofMap[clientID] <= 0 {
 					log.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
-					err = o.SendFinalMetrics(osMetricsMap[clientID])
+					err = o.SendFinalMetrics(clientID, osMetricsMap[clientID])
 					if err != nil {
 						log.Errorf("Failed to send final metrics: %v", err)
 						return

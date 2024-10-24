@@ -4,14 +4,6 @@ import "fmt"
 
 type Query byte
 
-const (
-	MsgOsResolvedQuery Query = iota
-	MsgTopTenDecadeAvgPtfQuery
-	MsgIndiePositiveJoinedReviewsQuery
-	MsgActionPositiveReviewsQuery
-	MsgActionNegativeReviewsQuery
-)
-
 func DeserializeQueryResolvedType(message []byte) (Query, error) {
 	if len(message) == 0 {
 		return 0, fmt.Errorf("empty message")

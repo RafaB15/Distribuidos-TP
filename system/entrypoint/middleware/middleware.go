@@ -2,6 +2,7 @@ package middleware
 
 import (
 	sp "distribuidos-tp/internal/system_protocol"
+	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	mom "distribuidos-tp/middleware"
 	"fmt"
 )
@@ -19,20 +20,20 @@ const (
 	RawEnglishReviewsEofKey = "raw_english_reviews_eof_key"
 	RawReviewsEofKey        = "raw_reviews_eof_key"
 
-	QueryResponseQueueName    = "query_response_queue"
-	QueryResponseExchangeName = "query_response_exchange"
-	QueryResponseExchangeType = "direct"
-	QueryResponseRoutingKey   = "query_response_key"
+	QueryResultsQueueName    = "query_results_queue"
+	QueryResultsExchangeName = "query_results_exchange"
+	QueryRoutingKeyPrefix    = "query_results_key_" // con el id del cliente
+	QueryExchangeType        = "direct"
 )
 
 type Middleware struct {
 	Manager            *mom.MiddlewareManager
 	RawGamesExchange   *mom.Exchange
 	RawReviewsExchange *mom.Exchange
-	QueryResponseQueue *mom.Queue
+	QueryResultsQueue  *mom.Queue
 }
 
-func NewMiddleware() (*Middleware, error) {
+func NewMiddleware(clientID int) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(MiddlewareURI)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create middleware manager: %v", err)
@@ -48,7 +49,8 @@ func NewMiddleware() (*Middleware, error) {
 		return nil, fmt.Errorf("Failed to declare exchange: %v", err)
 	}
 
-	queryResponseQueue, err := manager.CreateBoundQueue(QueryResponseQueueName, QueryResponseExchangeName, QueryResponseExchangeType, QueryResponseRoutingKey, true)
+	routingKey := fmt.Sprintf("%s%d", QueryRoutingKeyPrefix, clientID)
+	queryResultsQueue, err := manager.CreateBoundQueue(QueryResultsQueueName, QueryResultsExchangeName, QueryExchangeType, routingKey, true)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create queue: %v", err)
 	}
@@ -57,7 +59,7 @@ func NewMiddleware() (*Middleware, error) {
 		Manager:            manager,
 		RawGamesExchange:   rawGamesExchange,
 		RawReviewsExchange: rawReviewsExchange,
-		QueryResponseQueue: queryResponseQueue,
+		QueryResultsQueue:  queryResultsQueue,
 	}, nil
 }
 
@@ -109,10 +111,29 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, englishFiltersAmount int
 }
 
 func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
-	msg, err := m.QueryResponseQueue.Consume()
+	rawMsg, err := m.QueryResultsQueue.Consume()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to consume message: %v", err)
 	}
 
-	return msg, nil
+	queryResponseMessage, err := sp.DeserializeQuery(rawMsg)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
+	}
+
+	switch queryResponseMessage.Type {
+	case sp.MsgOsResolvedQuery:
+		return handleMsgOsResolvedQuery(queryResponseMessage.Body)
+	}
+
+	return rawMsg, nil
+}
+
+func handleMsgOsResolvedQuery(message []byte) ([]byte, error) {
+	gameOSMetrics, err := sp.DeserializeMsgOsResolvedQuery(message)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
+	}
+
+	return []byte(oa.GetStrRepresentation(gameOSMetrics)), nil
 }

@@ -19,15 +19,15 @@ const (
 	OSAccumulatorExchangeType = "direct"
 	OSAccumulatorQueueName    = "os_accumulator_queue"
 
-	WriterExchangeName = "writer_exchange"
-	WriterRoutingKey   = "writer_key"
-	WriterExchangeType = "direct"
+	QueryResultsExchangeName = "query_results_exchange"
+	QueryRoutingKeyPrefix    = "query_results_key_" // con el id del cliente
+	QueryExchangeType        = "direct"
 )
 
 type Middleware struct {
 	Manager            *mom.MiddlewareManager
 	OSAccumulatorQueue *mom.Queue
-	WriterExchange     *mom.Exchange
+	QueryExchange      *mom.Exchange
 }
 
 func NewMiddleware() (*Middleware, error) {
@@ -41,7 +41,7 @@ func NewMiddleware() (*Middleware, error) {
 		return nil, err
 	}
 
-	writerExchange, err := manager.CreateExchange(WriterExchangeName, WriterExchangeType)
+	queryExchange, err := manager.CreateExchange(QueryResultsExchangeName, QueryExchangeType)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func NewMiddleware() (*Middleware, error) {
 	return &Middleware{
 		Manager:            manager,
 		OSAccumulatorQueue: osAccumulatorQueue,
-		WriterExchange:     writerExchange,
+		QueryExchange:      queryExchange,
 	}, nil
 }
 
@@ -82,20 +82,14 @@ func (m *Middleware) ReceiveGamesOSMetrics() (int, *oa.GameOSMetrics, bool, erro
 
 }
 
-func (m *Middleware) SendFinalMetrics(gameMetrics *oa.GameOSMetrics) error {
-	data := oa.SerializeGameOSMetrics(gameMetrics)
-	msg := sp.SerializeOsResolvedQueryMsg(data)
+func (m *Middleware) SendFinalMetrics(clientID int, gameMetrics *oa.GameOSMetrics) error {
+	queryMessage := sp.SerializeMsgOsResolvedQuery(clientID, gameMetrics)
 
-	err := m.WriterExchange.Publish(WriterRoutingKey, msg)
+	routingKey := fmt.Sprintf("%s%d", QueryRoutingKeyPrefix, clientID)
+	err := m.QueryExchange.Publish(routingKey, queryMessage)
 	if err != nil {
 		return err
 	}
-
-	err = m.WriterExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
-	if err != nil {
-		return err
-	}
-	log.Infof("sent EOF to writer")
 
 	return nil
 }
