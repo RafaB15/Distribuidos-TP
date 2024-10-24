@@ -22,10 +22,10 @@ const (
 	RawReviewsRoutingKeyPrefix = "raw_reviews_key_"
 	RawEnglishReviewsKeyPrefix = "raw_english_reviews_key_"
 
-	QueryResultsQueueName    = "query_results_queue"
-	QueryResultsExchangeName = "query_results_exchange"
-	QueryRoutingKeyPrefix    = "query_results_key_" // con el id del cliente
-	QueryExchangeType        = "direct"
+	QueryResultsQueueNamePrefix = "query_results_queue_"
+	QueryResultsExchangeName    = "query_results_exchange"
+	QueryRoutingKeyPrefix       = "query_results_key_" // con el id del cliente
+	QueryExchangeType           = "direct"
 )
 
 type Middleware struct {
@@ -51,8 +51,9 @@ func NewMiddleware(clientID int) (*Middleware, error) {
 		return nil, fmt.Errorf("Failed to declare exchange: %v", err)
 	}
 
+	queryResultsQueueName := fmt.Sprintf("%s%d", QueryResultsQueueNamePrefix, clientID)
 	routingKey := fmt.Sprintf("%s%d", QueryRoutingKeyPrefix, clientID)
-	queryResultsQueue, err := manager.CreateBoundQueue(QueryResultsQueueName, QueryResultsExchangeName, QueryExchangeType, routingKey, true)
+	queryResultsQueue, err := manager.CreateBoundQueue(queryResultsQueueName, QueryResultsExchangeName, QueryExchangeType, routingKey, true)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create queue: %v", err)
 	}
@@ -147,21 +148,26 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 	case sp.MsgOsResolvedQuery:
 		fmt.Printf("Received OS resolved query\n")
 		return handleMsgOsResolvedQuery(queryResponseMessage.Body)
+
+	case sp.MsgTopTenDecadeAvgPtfQuery:
+		fmt.Printf("Received decade reviews query\n")
+		return handleMsgTopTenResolvedQuery(queryResponseMessage.Body)
+
 	case sp.MsgIndiePositiveJoinedReviewsQuery:
 		fmt.Printf("Received positive indie reviews query\n")
 		return handleMsgIndiePositiveResolvedQuery(queryResponseMessage.Body)
+
 	case sp.MsgActionPositiveReviewsQuery:
 		fmt.Printf("Received positive reviews query\n")
 		return handleMsgActionPositiveReviewsQuery(queryResponseMessage.Body)
+
 	case sp.MsgActionNegativeReviewsQuery:
 		fmt.Printf("Received negative reviews query\n")
 		return handleMsgActionNegativeReviewsQuery(queryResponseMessage.Body)
 
-	case sp.MsgTopTenDecadeAvgPtfQuery:
-		return handleMsgTopTenResolvedQuery(queryResponseMessage.Body)
-
+	default:
+		fmt.Printf("Received unknown query response\n")
 	}
-
 	return rawMsg, nil
 }
 

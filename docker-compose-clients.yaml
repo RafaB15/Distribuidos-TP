@@ -1,0 +1,37 @@
+services:
+  client1:
+    image: client:latest
+    container_name: client1
+    volumes:
+      - ./cmd/client/client_data:/client_data
+    networks:
+      - distributed_network
+    environment:
+      - GAME_FILE_PATH=./client_data/games_90k.csv
+      - REVIEW_FILE_PATH=./client_data/steam_reviews_1M.csv
+
+  client2:
+    image: client:latest
+    container_name: client2
+    volumes:
+      - ./cmd/client/client_data:/client_data
+    networks:
+      - distributed_network
+    environment:
+      - GAME_FILE_PATH=./client_data/games_90k.csv
+      - REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv
+
+  client3:
+    image: client:latest
+    container_name: client3
+    volumes:
+      - ./cmd/client/client_data:/client_data
+    networks:
+      - distributed_network
+    environment:
+      - GAME_FILE_PATH=./client_data/games_90k.csv
+      - REVIEW_FILE_PATH=./client_data/steam_reviews_100k.csv
+
+networks:
+  distributed_network:
+    external: true

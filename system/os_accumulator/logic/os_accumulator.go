@@ -24,7 +24,7 @@ func NewOSAccumulator(receiveGamesOS func() (int, []*oa.GameOS, bool, error), se
 }
 
 func (o *OSAccumulator) Run(ctx context.Context) {
-	osMetrics := oa.NewGameOSMetrics()
+	osMetricsMap := make(map[int]*oa.GameOSMetrics)
 
 	for {
 		select {
@@ -38,25 +38,32 @@ func (o *OSAccumulator) Run(ctx context.Context) {
 				return
 			}
 
+			clientOSMetrics, ok := osMetricsMap[clientID]
+
+			if !ok {
+				osMetricsMap[clientID] = oa.NewGameOSMetrics()
+				clientOSMetrics = osMetricsMap[clientID]
+			}
+
 			if eof {
-				log.Infof("Received EOF. Sending metrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
-				err = o.SendMetrics(clientID, osMetrics)
+				log.Infof("Received EOF. Sending metrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
+				err = o.SendMetrics(clientID, clientOSMetrics)
 				if err != nil {
 					log.Errorf("failed to send metrics: %v", err)
 				}
+
 				err = o.SendEof(clientID)
 				if err != nil {
 					log.Errorf("failed to send EOF: %v", err)
 				}
-
 				continue
 			}
 
 			for _, gameOS := range gamesOS {
-				osMetrics.AddGameOS(gameOS)
+				clientOSMetrics.AddGameOS(gameOS)
 			}
 
-			log.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
+			log.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
 		}
 	}
 }

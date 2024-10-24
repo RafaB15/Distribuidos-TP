@@ -65,3 +65,15 @@ all-down: docker-compose-down docker-client-remove
 generate_compose:
 	./generar-compose.sh config.json docker-compose-dev.yaml
 .PHONY: docker-client-remove
+
+docker-compose-clients:
+	docker-compose -f docker-compose-clients.yaml up -d
+.PHONY: docker-compose-clients
+
+docker-compose-clients-down:
+	docker-compose -f docker-compose-clients.yaml down
+.PHONY: docker-compose-clients-down
+
+docker-compose-clients-logs:
+	docker-compose -f docker-compose-clients.yaml logs -f
+.PHONY: docker-compose-clients-logs
