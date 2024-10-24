@@ -7,25 +7,24 @@ docker-compose-rabbit:
 .PHONY: docker-compose-rabbit
 
 docker-image-system:
-	docker build -f ./system/top_positive_reviews/Dockerfile -t "top_positive_reviews:new_version" .
-	docker build -f ./system/top_ten_accumulator/Dockerfile -t "top_ten_accumulator:new_version" .	
-	docker build -f ./system/percentile_accumulator/Dockerfile -t "percentile_accumulator:new_version" .
-	docker build -f ./system/decade_filter/Dockerfile -t "decade_filter:new_version" .
-	docker build -f ./cmd/steam_analyzer/writer/Dockerfile -t "writer:latest" .
-	docker build -f ./system/game_mapper/Dockerfile -t "game_mapper:new_version" .
-	docker build -f ./system/os_accumulator/Dockerfile -t "os_accumulator:new_version" .
-	docker build -f ./system/os_final_accumulator/Dockerfile -t "os_final_accumulator:new_version" .
-	docker build -f ./system/reviews_accumulator/Dockerfile -t "reviews_accumulator:new_version" .
-	docker build -f ./system/indie_review_joiner/Dockerfile -t "indie_review_joiner:new_version" .
-	docker build -f ./system/action_positive_review_joiner/Dockerfile -t "action_positive_review_joiner:new_version" .
-	docker build -f ./system/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:new_version" .
-	docker build -f ./system/action_negative_review_joiner/Dockerfile -t "action_negative_review_joiner:new_version" .
-	docker build -f ./system/english_reviews_accumulator/Dockerfile -t "english_reviews_accumulator:new_version" .
-	docker build -f ./system/english_reviews_filter/Dockerfile -t "english_reviews_filter:new_version" .
-	docker build -f ./system/review_mapper/Dockerfile -t "review_mapper:new_version" .
-	docker build -f ./system/entrypoint/Dockerfile -t "entrypoint:new_version" .
-	docker build -f ./system/final_positive_joiner/Dockerfile -t "final_positive_joiner:new_version" .
-	docker build -f ./system/final_negative_joiner/Dockerfile -t "final_negative_joiner:new_version" .
+	docker build -f ./system/top_positive_reviews/Dockerfile -t "top_positive_reviews:latest" .
+	docker build -f ./system/top_ten_accumulator/Dockerfile -t "top_ten_accumulator:latest" .	
+	docker build -f ./system/percentile_accumulator/Dockerfile -t "percentile_accumulator:latest" .
+	docker build -f ./system/decade_filter/Dockerfile -t "decade_filter:latest" .
+	docker build -f ./system/game_mapper/Dockerfile -t "game_mapper:latest" .
+	docker build -f ./system/os_accumulator/Dockerfile -t "os_accumulator:latest" .
+	docker build -f ./system/os_final_accumulator/Dockerfile -t "os_final_accumulator:latest" .
+	docker build -f ./system/reviews_accumulator/Dockerfile -t "reviews_accumulator:latest" .
+	docker build -f ./system/indie_review_joiner/Dockerfile -t "indie_review_joiner:latest" .
+	docker build -f ./system/action_positive_review_joiner/Dockerfile -t "action_positive_review_joiner:latest" .
+	docker build -f ./system/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:latest" .
+	docker build -f ./system/action_negative_review_joiner/Dockerfile -t "action_negative_review_joiner:latest" .
+	docker build -f ./system/english_reviews_accumulator/Dockerfile -t "english_reviews_accumulator:latest" .
+	docker build -f ./system/english_reviews_filter/Dockerfile -t "english_reviews_filter:latest" .
+	docker build -f ./system/review_mapper/Dockerfile -t "review_mapper:latest" .
+	docker build -f ./system/entrypoint/Dockerfile -t "entrypoint:latest" .
+	docker build -f ./system/final_positive_joiner/Dockerfile -t "final_positive_joiner:latest" .
+	docker build -f ./system/final_negative_joiner/Dockerfile -t "final_negative_joiner:latest" .
 	
 .PHONY: docker-image-system
 
