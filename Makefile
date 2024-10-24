@@ -25,7 +25,7 @@ docker-image-system:
 	docker build -f ./system/review_mapper/Dockerfile -t "review_mapper:new_version" .
 	docker build -f ./system/entrypoint/Dockerfile -t "entrypoint:new_version" .
 	docker build -f ./system/final_positive_joiner/Dockerfile -t "final_positive_joiner:new_version" .
-	# docker build -f ./system/final_negative_joiner/Dockerfile -t "final_negative_joiner:new_version" .
+	docker build -f ./system/final_negative_joiner/Dockerfile -t "final_negative_joiner:new_version" .
 	
 .PHONY: docker-image-system
 

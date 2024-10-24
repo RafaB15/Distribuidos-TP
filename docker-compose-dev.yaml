@@ -395,6 +395,20 @@ services:
     networks:
       - distributed_network
 
+  final_negative_joiner:
+    container_name: final_negative_joiner
+    image: final_negative_joiner:new_version
+    entrypoint: /final_negative_joiner
+    environment:
+      - ACTION_NEGATIVE_JOINERS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
   indie_review_joiner_1:
     container_name: indie_review_joiner_1
     image: indie_review_joiner:new_version

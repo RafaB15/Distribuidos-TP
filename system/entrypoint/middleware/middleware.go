@@ -133,6 +133,9 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 	case sp.MsgActionPositiveReviewsQuery:
 		fmt.Printf("Received positive reviews query\n")
 		return handleMsgActionPositiveReviewsQuery(queryResponseMessage.Body)
+	case sp.MsgActionNegativeReviewsQuery:
+		fmt.Printf("Received negative reviews query\n")
+		return handleMsgActionNegativeReviewsQuery(queryResponseMessage.Body)
 	}
 
 	return rawMsg, nil
@@ -173,4 +176,18 @@ func handleMsgActionPositiveReviewsQuery(message []byte) ([]byte, error) {
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
 	return sp.AssembleFinalQueryMsg(byte(sp.MsgActionPositiveReviewsQuery), []byte(stringRepresentation)), nil
+}
+
+func handleMsgActionNegativeReviewsQuery(message []byte) ([]byte, error) {
+	joinedReviews, err := sp.DeserializeMsgActionNegativeReviewsQuery(message)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
+	}
+
+	var stringRepresentation []byte
+	for _, review := range joinedReviews {
+		stringRep := j.GetStrRepresentationNegativeGameReview(review)
+		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
+	}
+	return sp.AssembleFinalQueryMsg(byte(sp.MsgActionNegativeReviewsQuery), []byte(stringRepresentation)), nil
 }
