@@ -828,3 +828,16 @@ func DeserializeMsgJoinedPositiveGameReviewsBatchV2(message []byte) ([]*j.Joined
 
 	return joinedActionGameReviews, nil
 }
+
+// --------------------------------------------------------
+// Message Final Query Results
+
+func AssembleFinalQueryMsg(messageType byte, body []byte) []byte {
+	length := len(body)
+	msg := make([]byte, 1+2+length)
+	msg[0] = messageType
+	binary.BigEndian.PutUint16(msg[1:3], uint16(length))
+	copy(msg[3:], body)
+
+	return msg
+}

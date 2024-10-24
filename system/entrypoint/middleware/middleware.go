@@ -117,6 +117,7 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 	}
 
 	queryResponseMessage, err := sp.DeserializeQuery(rawMsg)
+
 	if err != nil {
 		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
 	}
@@ -134,6 +135,7 @@ func handleMsgOsResolvedQuery(message []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
 	}
+	stringRepresentation := oa.GetStrRepresentation(gameOSMetrics)
 
-	return []byte(oa.GetStrRepresentation(gameOSMetrics)), nil
+	return sp.AssembleFinalQueryMsg(byte(sp.MsgOsResolvedQuery), []byte(stringRepresentation)), nil
 }
