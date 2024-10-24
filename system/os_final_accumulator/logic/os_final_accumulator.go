@@ -9,12 +9,12 @@ import (
 var log = logging.MustGetLogger("log")
 
 type OSFinalAccumulator struct {
-	ReceiveGamesOSMetrics func() (*oa.GameOSMetrics, error)
+	ReceiveGamesOSMetrics func() (int, *oa.GameOSMetrics, bool, error)
 	SendFinalMetrics      func(*oa.GameOSMetrics) error
 	OSAccumulatorsAmount  int
 }
 
-func NewOSFinalAccumulator(receiveGamesOSMetrics func() (*oa.GameOSMetrics, error), sendFinalMetrics func(*oa.GameOSMetrics) error, osAccumulatorsAmount int) *OSFinalAccumulator {
+func NewOSFinalAccumulator(receiveGamesOSMetrics func() (int, *oa.GameOSMetrics, bool, error), sendFinalMetrics func(*oa.GameOSMetrics) error, osAccumulatorsAmount int) *OSFinalAccumulator {
 	return &OSFinalAccumulator{
 		ReceiveGamesOSMetrics: receiveGamesOSMetrics,
 		SendFinalMetrics:      sendFinalMetrics,
@@ -23,28 +23,42 @@ func NewOSFinalAccumulator(receiveGamesOSMetrics func() (*oa.GameOSMetrics, erro
 }
 
 func (o *OSFinalAccumulator) Run() {
-	nodesLeft := o.OSAccumulatorsAmount
-
-	osMetrics := oa.NewGameOSMetrics()
+	osMetricsMap := make(map[int]*oa.GameOSMetrics)
+	eofMap := make(map[int]int)
 
 	for {
-		gamesOSMetrics, err := o.ReceiveGamesOSMetrics()
+		clientID, gamesOSMetrics, eof, err := o.ReceiveGamesOSMetrics()
 		if err != nil {
 			log.Errorf("Failed to receive game os metrics: %v", err)
 			return
 		}
+
+		if eof {
+			if _, ok := eofMap[clientID]; !ok {
+				eofMap[clientID] = o.OSAccumulatorsAmount - 1
+			} else {
+				eofMap[clientID]--
+
+				if eofMap[clientID] <= 0 {
+					log.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
+					err = o.SendFinalMetrics(osMetricsMap[clientID])
+					if err != nil {
+						log.Errorf("Failed to send final metrics: %v", err)
+						return
+					}
+				}
+			}
+			continue
+		}
+
+		if _, ok := osMetricsMap[clientID]; !ok {
+			osMetricsMap[clientID] = oa.NewGameOSMetrics()
+		}
+
+		osMetrics := osMetricsMap[clientID]
+
 		osMetrics.Merge(gamesOSMetrics)
 		log.Infof("Received Game Os Metrics Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
 
-		nodesLeft--
-		if nodesLeft > 0 {
-			continue
-		}
-		log.Infof("Sending final metrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
-		err = o.SendFinalMetrics(osMetrics)
-		if err != nil {
-			log.Errorf("Failed to send final metrics: %v", err)
-			return
-		}
 	}
 }

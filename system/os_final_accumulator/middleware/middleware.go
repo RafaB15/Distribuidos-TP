@@ -53,27 +53,33 @@ func NewMiddleware() (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveGamesOSMetrics() (*oa.GameOSMetrics, error) {
-	msg, err := m.OSAccumulatorQueue.Consume()
+func (m *Middleware) ReceiveGamesOSMetrics() (int, *oa.GameOSMetrics, bool, error) {
+	rawMsg, err := m.OSAccumulatorQueue.Consume()
 	if err != nil {
-		return nil, err
+		return 0, nil, false, err
 	}
 
-	messageType, err := sp.DeserializeMessageType(msg)
+	message, err := sp.DeserializeMessage(rawMsg)
+
 	if err != nil {
-		return nil, err
+		return 0, nil, false, err
 	}
 
-	if messageType != sp.MsgAccumulatedGameOSInformation {
-		return nil, fmt.Errorf("Received message of type %d, expected %d", messageType, sp.MsgAccumulatedGameOSInformation)
+	switch message.Type {
+	case sp.MsgAccumulatedGameOSInformation:
+		gameMetrics, err := sp.DeserializeMsgAccumulatedGameOSInformationV2(message.Body)
+		if err != nil {
+			return message.ClientID, nil, false, err
+		}
+
+		return message.ClientID, gameMetrics, false, nil
+
+	case sp.MsgEndOfFile:
+		return message.ClientID, nil, true, nil
+	default:
+		return message.ClientID, nil, false, fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
 
-	gameMetrics, err := sp.DeserializeMsgAccumulatedGameOSInformation(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	return gameMetrics, nil
 }
 
 func (m *Middleware) SendFinalMetrics(gameMetrics *oa.GameOSMetrics) error {

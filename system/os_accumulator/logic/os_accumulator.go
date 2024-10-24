@@ -10,14 +10,16 @@ import (
 var log = logging.MustGetLogger("log")
 
 type OSAccumulator struct {
-	ReceiveGamesOS func() ([]*oa.GameOS, bool, error)
-	SendMetrics    func(*oa.GameOSMetrics) error
+	ReceiveGamesOS func() (int, []*oa.GameOS, bool, error)
+	SendMetrics    func(int, *oa.GameOSMetrics) error
+	SendEof        func(int) error
 }
 
-func NewOSAccumulator(receiveGamesOS func() ([]*oa.GameOS, bool, error), sendMetrics func(*oa.GameOSMetrics) error) *OSAccumulator {
+func NewOSAccumulator(receiveGamesOS func() (int, []*oa.GameOS, bool, error), sendMetrics func(int, *oa.GameOSMetrics) error, sendEof func(int) error) *OSAccumulator {
 	return &OSAccumulator{
 		ReceiveGamesOS: receiveGamesOS,
 		SendMetrics:    sendMetrics,
+		SendEof:        sendEof,
 	}
 }
 
@@ -30,7 +32,7 @@ func (o *OSAccumulator) Run(ctx context.Context) {
 			log.Info("Context canceled, graceful shutdown.")
 			return
 		default:
-			gamesOS, eof, err := o.ReceiveGamesOS()
+			clientID, gamesOS, eof, err := o.ReceiveGamesOS()
 			if err != nil {
 				log.Errorf("Failed to receive game os: %v", err)
 				return
@@ -38,10 +40,15 @@ func (o *OSAccumulator) Run(ctx context.Context) {
 
 			if eof {
 				log.Infof("Received EOF. Sending metrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
-				err = o.SendMetrics(osMetrics)
+				err = o.SendMetrics(clientID, osMetrics)
 				if err != nil {
-					log.Errorf("Failed to send metrics: %v", err)
+					log.Errorf("failed to send metrics: %v", err)
 				}
+				err = o.SendEof(clientID)
+				if err != nil {
+					log.Errorf("failed to send EOF: %v", err)
+				}
+
 				continue
 			}
 

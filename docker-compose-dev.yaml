@@ -50,6 +50,8 @@ services:
     container_name: os_accumulator_1
     image: os_accumulator:new_version
     entrypoint: /os_accumulator
+    environment:
+      - ID=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -62,6 +64,8 @@ services:
     container_name: os_accumulator_2
     image: os_accumulator:new_version
     entrypoint: /os_accumulator
+    environment:
+      - ID=2
     depends_on:
       game_mapper:
         condition: service_started

@@ -29,7 +29,7 @@ const (
 var log = logging.MustGetLogger("log")
 
 type ReceiveGameBatchFunc func() (int, []string, bool, error)
-type SendGamesOSFunc func(int, []*oa.GameOS) error
+type SendGamesOSFunc func(int, int, []*oa.GameOS) error
 type SendGameYearAndAvgPtfFunc func(int, []*df.GameYearAndAvgPtf) error
 type SendIndieGamesNamesFunc func(int, map[int][]*g.GameName) error
 type SendActionGamesNamesFunc func(int, map[int][]*g.GameName) error
@@ -111,7 +111,7 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 			}
 		}
 
-		err = gm.SendGamesOS(clientID, gamesOS)
+		err = gm.SendGamesOS(clientID, osAccumulatorsAmount, gamesOS)
 		if err != nil {
 			log.Errorf("Failed to send game os: %v", err)
 			return

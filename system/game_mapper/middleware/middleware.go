@@ -18,9 +18,9 @@ const (
 	RawGamesExchangeType = "direct"
 	RawGamesQueueName    = "raw_games_queue"
 
-	OSGamesExchangeName = "os_games_exchange"
-	OSGamesRoutingKey   = "os_games_key"
-	OSGamesExchangeType = "direct"
+	OSGamesExchangeName     = "os_games_exchange"
+	OSGamesRoutingKeyPrefix = "os_games_key_"
+	OSGamesExchangeType     = "direct"
 
 	YearAndAvgPtfExchangeName = "year_avg_ptf_exchange"
 	YearAndAvgPtfExchangeType = "direct"
@@ -116,10 +116,15 @@ func (m *Middleware) ReceiveGameBatch() (int, []string, bool, error) {
 	return message.ClientID, lines, false, nil
 }
 
-func (m *Middleware) SendGamesOS(clientID int, gamesOS []*oa.GameOS) error {
+func (m *Middleware) SendGamesOS(clientID int, osAccumulatorsAmount int, gamesOS []*oa.GameOS) error {
 	serializedGameOS := sp.SerializeMsgGameOSInformationV2(clientID, gamesOS)
 
-	err := m.OSGamesExchange.Publish(OSGamesRoutingKey, serializedGameOS)
+	randomNode := u.GetRandomNumber(osAccumulatorsAmount)
+
+	routingKey := fmt.Sprintf("%s%d", OSGamesRoutingKeyPrefix, randomNode)
+
+	fmt.Printf("Publishing games OS to routingKey: %s for clientID: %d\n", routingKey, clientID)
+	err := m.OSGamesExchange.Publish(routingKey, serializedGameOS)
 	if err != nil {
 		return fmt.Errorf("failed to publish games OS: %v", err)
 	}
@@ -165,7 +170,9 @@ func sendGamesNamesToReviewJoin(clientID int, gamesNamesMap map[int][]*g.GameNam
 
 func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int) error {
 	for i := 0; i < osAccumulatorsAmount; i++ {
-		err := m.OSGamesExchange.Publish(OSGamesRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
+		routingKey := fmt.Sprintf("%s%d", OSGamesRoutingKeyPrefix, i+1)
+		fmt.Printf("Publishing EndOfFile to routingKey: %s for clientID: %d\n", routingKey, clientID)
+		err := m.OSGamesExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {
 			return err
 		}

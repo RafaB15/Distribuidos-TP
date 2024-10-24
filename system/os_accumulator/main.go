@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/os_accumulator/logic"
 	m "distribuidos-tp/system/os_accumulator/middleware"
 	"os"
@@ -11,12 +12,23 @@ import (
 	"github.com/op/go-logging"
 )
 
+const (
+	IdEnvironmentVariableName = "ID"
+)
+
 var log = logging.MustGetLogger("log")
 
 func main() {
-	middleware, err := m.NewMiddleware()
+
+	id, err := u.GetEnvInt(IdEnvironmentVariableName)
 	if err != nil {
-		log.Errorf("Failed to create middleware: %v", err)
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	middleware, err := m.NewMiddleware(id)
+	if err != nil {
+		log.Errorf("failed to create middleware: %v", err)
 		return
 	}
 
@@ -28,7 +40,7 @@ func main() {
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
 
-	osAccumulator := l.NewOSAccumulator(middleware.ReceiveGameOS, middleware.SendMetrics)
+	osAccumulator := l.NewOSAccumulator(middleware.ReceiveGameOS, middleware.SendMetrics, middleware.SendEof)
 
 	// Goroutine para manejar la señal y disparar la cancelación
 	go func() {
