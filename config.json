@@ -16,5 +16,7 @@
     "action_negative_review_joiner": 2,
     "action_positive_review_joiner": 2,
     "indie_review_joiner": 2,
-    "writer": 1
+    "writer": 1,
+    "final_positive_joiner": 1,
+    "final_negative_joiner": 1
 }

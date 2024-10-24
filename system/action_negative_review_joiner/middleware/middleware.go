@@ -23,16 +23,15 @@ const (
 
 	ActionNegativeReviewJoinQueueNamePrefix = "action_negative_review_join_queue_"
 
-	// lo que voy a estar mandando al writer (esto deberia estar ok porque es igual a todos los otros)
-	WriterExchangeName = "writer_exchange"
-	WriterRoutingKey   = "writer_key"
-	WriterExchangeType = "direct"
+	FinalNegativeJoinerExchangeName = "final_negative_joiner_exchange"
+	WriterRoutingKey                = "final_negative_joiner_key"
+	FinalNegativeJoinerExchangeType = "direct"
 )
 
 type Middleware struct {
-	Manager               *mom.MiddlewareManager
-	ActionReviewJoinQueue *mom.Queue
-	WriterExchange        *mom.Exchange
+	Manager                     *mom.MiddlewareManager
+	ActionReviewJoinQueue       *mom.Queue
+	FinalNegativeJoinerExchange *mom.Exchange
 }
 
 func NewMiddleware(id string) (*Middleware, error) {
@@ -51,59 +50,59 @@ func NewMiddleware(id string) (*Middleware, error) {
 		return nil, err
 	}
 
-	writerExchange, err := manager.CreateExchange(WriterExchangeName, WriterExchangeType)
+	finalNegativeJoinerExchange, err := manager.CreateExchange(FinalNegativeJoinerExchangeName, FinalNegativeJoinerExchangeType)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Middleware{
-		Manager:               manager,
-		ActionReviewJoinQueue: actionReviewJoinQueue,
-		WriterExchange:        writerExchange,
+		Manager:                     manager,
+		ActionReviewJoinQueue:       actionReviewJoinQueue,
+		FinalNegativeJoinerExchange: finalNegativeJoinerExchange,
 	}, nil
 }
 
-func (m *Middleware) ReceiveMsg() ([]*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error) {
+func (m *Middleware) ReceiveMsg() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error) {
 	rawMsg, err := m.ActionReviewJoinQueue.Consume()
 	if err != nil {
-		return nil, nil, false, err
+		return 0, nil, nil, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, nil, false, err
+		return 0, nil, nil, false, err
 	}
 
 	switch message.Type {
 	case sp.MsgGameNames:
 		games, err := HandleGameNames(message.Body)
 		if err != nil {
-			return nil, nil, false, err
+			return message.ClientID, nil, nil, false, err
 		}
-		return games, nil, false, nil
+		return message.ClientID, games, nil, false, nil
 	case sp.MsgGameReviewsMetrics:
 		reviews, err := HandleGameReviewMetrics(message.Body)
 		if err != nil {
-			return nil, nil, false, err
+			return message.ClientID, nil, nil, false, err
 		}
-		return nil, reviews, false, err
+		return message.ClientID, nil, reviews, false, err
 
 	case sp.MsgEndOfFile:
-		return nil, nil, true, nil
+		return message.ClientID, nil, nil, true, nil
 
 	default:
-		return nil, nil, false, fmt.Errorf("Unknown type msg")
+		return message.ClientID, nil, nil, false, fmt.Errorf("Unknown type msg")
 	}
 
 }
 
-func (m *Middleware) SendMetrics(reviewsInformation *j.JoinedNegativeGameReview) error {
+func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedNegativeGameReview) error {
 	serializedMetrics, err := sp.SerializeMsgNegativeJoinedPositiveGameReviews(reviewsInformation)
 	if err != nil {
 		return err
 	}
 
-	return m.WriterExchange.Publish(WriterRoutingKey, serializedMetrics)
+	return m.FinalNegativeJoinerExchange.Publish(WriterRoutingKey, serializedMetrics)
 }
 
 func HandleGameReviewMetrics(message []byte) ([]*reviews_accumulator.GameReviewsMetrics, error) {
@@ -122,8 +121,8 @@ func HandleGameNames(message []byte) ([]*games.GameName, error) {
 	return gameNames, nil
 }
 
-func (m *Middleware) SendEof() error {
-	err := m.WriterExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
+func (m *Middleware) SendEof(clientID int) error {
+	err := m.FinalNegativeJoinerExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
 	if err != nil {
 		return err
 	}

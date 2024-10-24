@@ -771,6 +771,8 @@ func DeserializeMsgJoinedPositiveGameReviewsV2(data []byte) (*j.JoinedPositiveGa
 	return metrics, nil
 }
 
+// --------------------------------------------------------
+
 // Message Game Os Metrics
 
 func SerializeGameOSMetrics(clientID int, gameMetrics *oa.GameOSMetrics) []byte {
@@ -780,4 +782,49 @@ func SerializeGameOSMetrics(clientID int, gameMetrics *oa.GameOSMetrics) []byte 
 
 func DeserializeMsgAccumulatedGameOSInformationV2(message []byte) (*oa.GameOSMetrics, error) {
 	return oa.DeserializeGameOSMetrics(message)
+}
+
+// --------------------------------------------------------
+// Message Joined Positive Game Reviews Batch
+
+func SerializeMsgJoinedPositiveGameReviewsBatchV2(clientID int, joinedActionGameReviews []*j.JoinedPositiveGameReview) ([]byte, error) {
+	count := len(joinedActionGameReviews)
+	headerSize := 2
+	body := make([]byte, headerSize) // 2 bytes para el count
+
+	binary.BigEndian.PutUint16(body[:headerSize], uint16(count))
+	offset := headerSize
+
+	for _, joinedActionGameReview := range joinedActionGameReviews {
+		serializedJoinedPositiveGameReview, err := j.SerializeJoinedPositiveGameReview(joinedActionGameReview)
+		if err != nil {
+			return nil, err
+		}
+		body = append(body, serializedJoinedPositiveGameReview...)
+		offset += len(serializedJoinedPositiveGameReview)
+	}
+
+	return SerializeMessage(MsgJoinedPositiveGameReviews, clientID, body), nil
+}
+
+func DeserializeMsgJoinedPositiveGameReviewsBatchV2(message []byte) ([]*j.JoinedPositiveGameReview, error) {
+	amountSize := 2
+	if len(message) < 2 {
+		return nil, errors.New("message too short to contain count")
+	}
+
+	count := int(binary.BigEndian.Uint16(message[:amountSize]))
+	offset := amountSize
+
+	var joinedActionGameReviews []*j.JoinedPositiveGameReview
+	for i := 0; i < count; i++ {
+		joinedActionGameReview, err := j.DeserializeJoinedPositiveGameReview(message[offset:])
+		if err != nil {
+			return nil, err
+		}
+		joinedActionGameReviews = append(joinedActionGameReviews, joinedActionGameReview)
+		offset += 4 + 2 + len(joinedActionGameReview.GameName) + 4
+	}
+
+	return joinedActionGameReviews, nil
 }
