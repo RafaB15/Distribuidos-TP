@@ -83,7 +83,7 @@ func ReceiveBatch(connection net.Conn) ([]byte, int, bool, error) {
 		return nil, 0, false, err
 	}
 	totalLength := binary.BigEndian.Uint32(lenghtToReadBytes)
-	log.Infof("Length to read: %v", totalLength)
+	// log.Infof("Length to read: %v", totalLength)
 
 	data, err := u.ReadExact(connection, int(totalLength))
 	if err != nil {
@@ -94,8 +94,8 @@ func ReceiveBatch(connection net.Conn) ([]byte, int, bool, error) {
 	fileType := int(data[0])
 	eofFlag := data[1]
 
-	log.Infof("File type: %d", fileType)
-	log.Infof("EOF flag: %d", eofFlag)
+	// log.Infof("File type: %d", fileType)
+	// log.Infof("EOF flag: %d", eofFlag)
 
 	return data[2:], fileType, eofFlag == 1, nil
 }

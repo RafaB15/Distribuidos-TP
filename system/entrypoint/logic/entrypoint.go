@@ -46,10 +46,10 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, englishFiltersAmount int, 
 		}
 
 		if fileOrigin == cp.GameFile {
-			log.Infof("Received game batch for client %d", clientID)
+			// log.Infof("Received game batch for client %d", clientID)
 			err = e.SendGamesBatch(clientID, data)
 		} else {
-			log.Infof("Received review batch for client %d", clientID)
+			// log.Infof("Received review batch for client %d", clientID)
 			err = e.SendReviewsBatch(clientID, data)
 		}
 

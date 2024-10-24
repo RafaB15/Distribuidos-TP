@@ -2,7 +2,10 @@ package system_protocol
 
 import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+
 	j "distribuidos-tp/internal/system_protocol/joiner"
+
+	df "distribuidos-tp/internal/system_protocol/decade_filter"
 )
 
 const (
@@ -64,4 +67,16 @@ func SerializeMsgActionNegativeReviewsQuery(clientID int, joinedReviews []*j.Joi
 
 func DeserializeMsgActionNegativeReviewsQuery(message []byte) ([]*j.JoinedNegativeGameReview, error) {
 	return j.DeserializeJoinedActionNegativeGameReviewsBatch(message)
+}
+
+// Message TopTenResolvedQuery
+
+func SerializeMsgTopTenResolvedQuery(clientID int, finalTopTenGames []*df.GameYearAndAvgPtf) []byte {
+	data := df.SerializeTopTenAvgPlaytimeForever(finalTopTenGames)
+	return SerializeQuery(MsgTopTenDecadeAvgPtfQuery, clientID, data)
+}
+
+func DeserializeMsgTopTenResolvedQuery(message []byte) ([]*df.GameYearAndAvgPtf, error) {
+	return df.DeserializeTopTenAvgPlaytimeForever(message)
+
 }

@@ -10,10 +10,10 @@ var log = logging.MustGetLogger("log")
 
 type TopTenAccumulator struct {
 	ReceiveMsg func() (int, []*df.GameYearAndAvgPtf, bool, error)
-	SendMsg    func([]*df.GameYearAndAvgPtf) error
+	SendMsg    func(int, []*df.GameYearAndAvgPtf) error
 }
 
-func NewTopTenAccumulator(receiveMsg func() (int, []*df.GameYearAndAvgPtf, bool, error), sendMsg func([]*df.GameYearAndAvgPtf) error) *TopTenAccumulator {
+func NewTopTenAccumulator(receiveMsg func() (int, []*df.GameYearAndAvgPtf, bool, error), sendMsg func(int, []*df.GameYearAndAvgPtf) error) *TopTenAccumulator {
 	return &TopTenAccumulator{
 		ReceiveMsg: receiveMsg,
 		SendMsg:    sendMsg,
@@ -50,7 +50,7 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 						log.Errorf("error uploading top ten games from file: %v", err)
 						return
 					}
-					err = t.SendMsg(finalTopTenGames)
+					err = t.SendMsg(clientID, finalTopTenGames)
 					if err != nil {
 						log.Errorf("failed to send metrics: %v", err)
 						return

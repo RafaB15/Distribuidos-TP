@@ -4,6 +4,7 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	mom "distribuidos-tp/middleware"
+	"fmt"
 
 	"github.com/op/go-logging"
 )
@@ -18,9 +19,9 @@ const (
 	TopTenAccumulatorRoutingKey   = "top_ten_accumulator_key"
 	TopTenAccumulatorQueueName    = "top_ten_accumulator_queue"
 
-	WriterExchangeName = "writer_exchange"
-	WriterRoutingKey   = "writer_key"
-	WriterExchangeType = "direct"
+	QueryResultsExchangeName = "query_results_exchange"
+	QueryRoutingKeyPrefix    = "query_results_key_" // con el id del cliente
+	QueryExchangeType        = "direct"
 
 	DecadeFiltersAmountEnvironmentVariableName = "DECADE_FILTERS_AMOUNT"
 )
@@ -42,7 +43,7 @@ func NewMiddleware() (*Middleware, error) {
 		return nil, err
 	}
 
-	writerExchange, err := manager.CreateExchange(WriterExchangeName, WriterExchangeType)
+	writerExchange, err := manager.CreateExchange(QueryResultsExchangeName, QueryExchangeType)
 	if err != nil {
 		return nil, err
 	}
@@ -82,20 +83,25 @@ func (m *Middleware) ReceiveMsg() (int, []*df.GameYearAndAvgPtf, bool, error) {
 	}
 }
 
-func (m *Middleware) SendMsg(finalTopTenGames []*df.GameYearAndAvgPtf) error {
-	srzGames := df.SerializeTopTenAvgPlaytimeForever(finalTopTenGames)
-	bytes := sp.SerializeTopTenDecadeAvgPtfQueryMsg(srzGames)
-	err := m.WriterExchange.Publish(WriterRoutingKey, bytes)
+func (m *Middleware) SendMsg(clientID int, finalTopTenGames []*df.GameYearAndAvgPtf) error {
+
+	queryMessage := sp.SerializeMsgTopTenResolvedQuery(clientID, finalTopTenGames)
+
+	routingKey := fmt.Sprintf("%s%d", QueryRoutingKeyPrefix, clientID)
+	// // debug
+
+	// queryResponseMessage, _ := sp.DeserializeQuery(queryMessage)
+	// log.Infof("Query Type %d", queryResponseMessage.Type)
+	// log.Infof("For client %d", queryResponseMessage.ClientID)
+
+	// // debug
+	log.Infof("Publishing message to routing key: %s", routingKey)
+
+	err := m.WriterExchange.Publish(routingKey, queryMessage)
 
 	if err != nil {
 		return err
 	}
-
-	err = m.WriterExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
-	if err != nil {
-		return err
-	}
-	log.Infof("sent EOF to writer")
 
 	return nil
 }

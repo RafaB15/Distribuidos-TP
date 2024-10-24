@@ -3,6 +3,7 @@ package middleware
 import (
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	j "distribuidos-tp/internal/system_protocol/joiner"
 	mom "distribuidos-tp/middleware"
 	"fmt"
@@ -120,9 +121,9 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 	queryResponseMessage, err := sp.DeserializeQuery(rawMsg)
 
 	if err != nil {
-		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
+		return nil, fmt.Errorf("failed to deserialize message: %v", err)
 	}
-
+	// fmt.Printf("Received query response of type: %d\n", queryResponseMessage.Type)
 	switch queryResponseMessage.Type {
 	case sp.MsgOsResolvedQuery:
 		fmt.Printf("Received OS resolved query\n")
@@ -136,6 +137,10 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 	case sp.MsgActionNegativeReviewsQuery:
 		fmt.Printf("Received negative reviews query\n")
 		return handleMsgActionNegativeReviewsQuery(queryResponseMessage.Body)
+
+	case sp.MsgTopTenDecadeAvgPtfQuery:
+		return handleMsgTopTenResolvedQuery(queryResponseMessage.Body)
+
 	}
 
 	return rawMsg, nil
@@ -148,6 +153,7 @@ func handleMsgOsResolvedQuery(message []byte) ([]byte, error) {
 	}
 	stringRepresentation := oa.GetStrRepresentation(gameOSMetrics)
 
+	// fmt.Println("String Representation:", stringRepresentation)
 	return sp.AssembleFinalQueryMsg(byte(sp.MsgOsResolvedQuery), []byte(stringRepresentation)), nil
 }
 
@@ -190,4 +196,21 @@ func handleMsgActionNegativeReviewsQuery(message []byte) ([]byte, error) {
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
 	return sp.AssembleFinalQueryMsg(byte(sp.MsgActionNegativeReviewsQuery), []byte(stringRepresentation)), nil
+
+}
+
+func handleMsgTopTenResolvedQuery(message []byte) ([]byte, error) {
+	decadeAvgPtfs, err := sp.DeserializeMsgTopTenResolvedQuery(message)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deserialize message: %v", err)
+	}
+	stringRepresentation := ""
+	for _, decadeAvgPtf := range decadeAvgPtfs {
+		stringRepresentation += df.GetStrRepresentation(decadeAvgPtf)
+
+	}
+	// fmt.Println("String Representation:", stringRepresentation)
+
+	return sp.AssembleFinalQueryMsg(byte(sp.MsgTopTenDecadeAvgPtfQuery), []byte(stringRepresentation)), nil
+
 }
