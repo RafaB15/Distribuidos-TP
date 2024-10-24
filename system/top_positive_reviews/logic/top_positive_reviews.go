@@ -64,6 +64,10 @@ func (t *TopPositiveReviews) Run(indieReviewJoinerAmount int) {
 				return
 			}
 			log.Info("Sent eof to writer")
+
+			delete(topPositiveIndieGames, clientID)
+			delete(remainingEOFsMap, clientID)
+
 			continue
 		}
 

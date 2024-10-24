@@ -56,6 +56,7 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 						return
 					}
 
+					delete(remainingEOFs, clientID)
 				}
 			}
 		}

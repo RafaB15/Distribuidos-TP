@@ -59,6 +59,8 @@ func (i *IndieReviewJoiner) Run(accumulatorsAmount int) {
 				log.Errorf("Failed to send EOF: %v", err)
 				return
 			}
+			delete(accumulatedGameReviews, clientID)
+			delete(remainingEOFsMap, clientID)
 		}
 
 		if games != nil {

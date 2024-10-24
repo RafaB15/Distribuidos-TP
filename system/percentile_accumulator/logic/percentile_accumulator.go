@@ -70,6 +70,10 @@ func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accu
 
 			p.SendGameReviewsMetrics(clientID, clientAccumulatedPercentileKeyMap)
 			p.SendEndOfFiles(clientID, actionNegativeReviewsJoinersAmount, accumulatedPercentileReviewsRoutingKeyPrefix)
+
+			delete(accumulatedPercentileKeyMap, clientID)
+			delete(remainingEOFsMap, clientID)
+
 			continue
 		}
 

@@ -68,6 +68,8 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int) {
 			log.Errorf("Failed to send english reviews: %v", err)
 			return
 		}
+
+		reviewsMap = nil
 	}
 }
 

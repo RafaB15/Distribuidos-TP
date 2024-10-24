@@ -70,6 +70,8 @@ func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, positiveReview
 				log.Errorf("Failed to send EOFs: %v", err)
 				return
 			}
+			delete(accumulatedReviews, clientID)
+			delete(remainingEOFsMap, clientID)
 			continue
 		}
 

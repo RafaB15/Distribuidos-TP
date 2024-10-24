@@ -60,7 +60,9 @@ func (f *FinalNegativeJoiner) Run(actionNegativeJoinersAmount int) {
 				return
 			}
 			log.Infof("Sent all negative joined game reviews from client %d to client", clientID)
-
+			delete(accumulatedGameReviews, clientID)
+			delete(remainingEOFsMap, clientID)
+			continue
 		}
 
 		log.Infof("Received joined negative game reviews from client %d", clientID)

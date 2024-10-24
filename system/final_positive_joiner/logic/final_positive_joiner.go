@@ -59,6 +59,10 @@ func (f *FinalPositiveJoiner) Run(actionPositiveJoinersAmount int) {
 				log.Errorf("Failed to send metrics: %v", err)
 				return
 			}
+
+			delete(accumulatedGameReviews, clientID)
+			delete(remainingEOFsMap, clientID)
+			continue
 		}
 
 		log.Infof("Received joined negative game reviews from client %d", clientID)

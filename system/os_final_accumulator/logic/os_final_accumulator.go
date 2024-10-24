@@ -46,6 +46,8 @@ func (o *OSFinalAccumulator) Run() {
 						log.Errorf("Failed to send final metrics: %v", err)
 						return
 					}
+					delete(osMetricsMap, clientID)
+					delete(eofMap, clientID)
 				}
 			}
 			continue

@@ -56,6 +56,10 @@ func (f *PositiveReviewsFilter) Run(actionReviewsJoinersAmount int, englishRevie
 			log.Infof("Received all EOFs for client %d", clientID)
 			f.SendEndOfFiles(clientID, actionReviewsJoinersAmount)
 			log.Infof("Sent all EOFs to Joiners from client: %d", clientID)
+
+			delete(positiveReviewsMap, clientID)
+			delete(remainingEOFsMap, clientID)
+
 			continue
 		}
 

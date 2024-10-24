@@ -56,6 +56,7 @@ func (o *OSAccumulator) Run(ctx context.Context) {
 				if err != nil {
 					log.Errorf("failed to send EOF: %v", err)
 				}
+				delete(osMetricsMap, clientID)
 				continue
 			}
 

@@ -66,6 +66,8 @@ func (r *ReviewMapper) Run(accumulatorsAmount int) {
 			return
 		}
 		log.Info("Sent reviews")
+
+		reviewsMap = nil
 	}
 
 }

@@ -65,6 +65,10 @@ func (ra *ReviewsAccumulator) Run(accumulatorsAmount int) {
 				log.Errorf("Error sending EOF: ", err)
 			}
 			log.Info("Sent EOFs")
+
+			delete(accumulatedReviews, clientID)
+			delete(remainingEOFsMap, clientID)
+			continue
 		}
 
 		for _, review := range reviews {
