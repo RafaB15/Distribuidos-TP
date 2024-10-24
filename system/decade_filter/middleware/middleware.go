@@ -81,7 +81,7 @@ func (m *Middleware) ReceiveYearAvgPtf() (int, []*df.GameYearAndAvgPtf, bool, er
 }
 
 func (m *Middleware) SendFilteredYearAvgPtf(clientID int, gamesYearsAvgPtfs []*df.GameYearAndAvgPtf) error {
-	data := sp.SerializeMsgFilteredGameYearAndAvgPtfV2(clientID, gamesYearsAvgPtfs)
+	data := sp.SerializeMsgGameYearAndAvgPtfV2(clientID, gamesYearsAvgPtfs)
 
 	fmt.Printf("About to publish to top ten accumulator exchange\n")
 	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, data)

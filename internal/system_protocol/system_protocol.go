@@ -781,25 +781,3 @@ func SerializeGameOSMetrics(clientID int, gameMetrics *oa.GameOSMetrics) []byte 
 func DeserializeMsgAccumulatedGameOSInformationV2(message []byte) (*oa.GameOSMetrics, error) {
 	return oa.DeserializeGameOSMetrics(message)
 }
-
-// --------------------------------------------------------
-
-// Message Filtered Game Year and Avg Ptf
-
-func SerializeMsgFilteredGameYearAndAvgPtfV2(clientID int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []byte {
-
-	gameYearAndAvgPtfSize := 10
-	count := len(gameYearAndAvgPtf)
-	message := make([]byte, 2+count*gameYearAndAvgPtfSize)
-	binary.BigEndian.PutUint16(message[:2], uint16(count))
-
-	offset := 2
-	for i, game := range gameYearAndAvgPtf {
-		serializedGame := df.SerializeGameYearAndAvgPtf(game)
-		copy(message[offset+i*10:], serializedGame)
-	}
-
-	return SerializeMessage(MsgFilteredYearAndAvgPtfInformation, clientID, message)
-}
-
-// Para el deserialize reutilizo la función de DeserializeMsgGameYearAndAvgPtfV2
