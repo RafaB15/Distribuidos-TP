@@ -9,7 +9,7 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
-      test: [ "CMD", "rabbitmqctl", "status" ]
+      test: ["CMD", "rabbitmqctl", "status"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -345,6 +345,20 @@ services:
     environment:
       - ID=2
       - POSITIVE_REVIEWS_FILTERS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+  final_positive_joiner:
+    container_name: final_positive_joiner
+    image: final_positive_joiner:new_version
+    entrypoint: /final_positive_joiner
+    environment:
+      - ACTION_POSITIVE_JOINERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started

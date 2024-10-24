@@ -3,6 +3,7 @@ package middleware
 import (
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	j "distribuidos-tp/internal/system_protocol/joiner"
 	mom "distribuidos-tp/middleware"
 	"fmt"
 )
@@ -124,7 +125,11 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 
 	switch queryResponseMessage.Type {
 	case sp.MsgOsResolvedQuery:
+		fmt.Printf("Received OS resolved query\n")
 		return handleMsgOsResolvedQuery(queryResponseMessage.Body)
+	case sp.MsgActionPositiveReviewsQuery:
+		fmt.Printf("Received positive reviews query\n")
+		return handleMsgActionPositiveReviewsQuery(queryResponseMessage.Body)
 	}
 
 	return rawMsg, nil
@@ -138,4 +143,18 @@ func handleMsgOsResolvedQuery(message []byte) ([]byte, error) {
 	stringRepresentation := oa.GetStrRepresentation(gameOSMetrics)
 
 	return sp.AssembleFinalQueryMsg(byte(sp.MsgOsResolvedQuery), []byte(stringRepresentation)), nil
+}
+
+func handleMsgActionPositiveReviewsQuery(message []byte) ([]byte, error) {
+	joinedReviews, err := sp.DeserializeMsgActionPositiveReviewsQuery(message)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
+	}
+
+	var stringRepresentation []byte
+	for _, review := range joinedReviews {
+		stringRep := j.GetStrRepresentation(review)
+		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
+	}
+	return sp.AssembleFinalQueryMsg(byte(sp.MsgActionPositiveReviewsQuery), []byte(stringRepresentation)), nil
 }

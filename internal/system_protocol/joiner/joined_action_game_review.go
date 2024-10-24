@@ -62,6 +62,43 @@ func DeserializeJoinedPositiveGameReview(data []byte) (*JoinedPositiveGameReview
 	}, nil
 }
 
+func SerializeJoinedPositiveGameReviewsBatch(joinedActionGameReviews []*JoinedPositiveGameReview) ([]byte, error) {
+	count := len(joinedActionGameReviews)
+	headerSize := 2
+	body := make([]byte, headerSize) // 2 bytes para el count
+
+	binary.BigEndian.PutUint16(body[:headerSize], uint16(count))
+	offset := headerSize
+
+	for _, joinedActionGameReview := range joinedActionGameReviews {
+		serializedJoinedPositiveGameReview, err := SerializeJoinedPositiveGameReview(joinedActionGameReview)
+		if err != nil {
+			return nil, err
+		}
+		body = append(body, serializedJoinedPositiveGameReview...)
+		offset += len(serializedJoinedPositiveGameReview)
+	}
+
+	return body, nil
+}
+
+func DeserializeJoinedPositiveGameReviewsBatch(data []byte) ([]*JoinedPositiveGameReview, error) {
+	count := binary.BigEndian.Uint16(data[:2])
+	offset := 2
+	joinedActionGameReviews := make([]*JoinedPositiveGameReview, 0)
+
+	for i := 0; i < int(count); i++ {
+		joinedActionGameReview, err := DeserializeJoinedPositiveGameReview(data[offset:])
+		if err != nil {
+			return nil, err
+		}
+		joinedActionGameReviews = append(joinedActionGameReviews, joinedActionGameReview)
+		offset += 4 + 2 + len(joinedActionGameReview.GameName) + 4
+	}
+
+	return joinedActionGameReviews, nil
+}
+
 func GetStrRepresentation(joinedActionGameReview *JoinedPositiveGameReview) string {
 	return "AppID: " + strconv.Itoa(int(joinedActionGameReview.AppId)) + ", GameName: " + joinedActionGameReview.GameName + ", PositiveReviews: " + strconv.Itoa(int(joinedActionGameReview.PositiveReviews)) + "\n"
 }

@@ -69,20 +69,21 @@ func (m *Middleware) ReceiveJoinedGameReviews() (int, *j.JoinedPositiveGameRevie
 		return message.ClientID, joinedPositiveGameReview, false, nil
 
 	case sp.MsgEndOfFile:
-		return 0, nil, true, nil
+		return message.ClientID, nil, true, nil
 
 	default:
-		return 0, nil, false, fmt.Errorf("Received unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, fmt.Errorf("Received unexpected message type: %v", message.Type)
 	}
 }
 
 func (m *Middleware) SendQueryResults(clientID int, queryResults []*j.JoinedPositiveGameReview) error {
-	serializedJoinedPositiveGameReviews, err := sp.SerializeMsgJoinedPositiveGameReviewsBatchV2(clientID, queryResults)
+	queryMessage, err := sp.SerializeMsgActionPositiveReviewsQuery(clientID, queryResults)
 	if err != nil {
 		return err
 	}
+
 	routingKey := QueryRoutingKeyPrefix + fmt.Sprint(clientID)
-	return m.QueryResultsExchange.Publish(routingKey, serializedJoinedPositiveGameReviews)
+	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
 }
 
 func (m *Middleware) SendEof(clientID int) error {
