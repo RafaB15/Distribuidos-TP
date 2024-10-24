@@ -4,6 +4,7 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	j "distribuidos-tp/internal/system_protocol/joiner"
 	mom "distribuidos-tp/middleware"
+	"fmt"
 )
 
 const (
@@ -14,15 +15,15 @@ const (
 	TopPositiveReviewsRoutingKey   = "top_positive_reviews_key"
 	TopPositiveReviewsQueueName    = "top_positive_reviews_queue"
 
-	WriterExchangeName = "writer_exchange"
-	WriterRoutingKey   = "writer_key"
-	WriterExchangeType = "direct"
+	QueryResultsExchangeName = "query_results_exchange"
+	QueryRoutingKeyPrefix    = "query_results_key_"
+	QueryExchangeType        = "direct"
 )
 
 type Middleware struct {
 	Manager                 *mom.MiddlewareManager
 	TopPositiveReviewsQueue *mom.Queue
-	WriterExchange          *mom.Exchange
+	QueryResultsExchange    *mom.Exchange
 }
 
 func NewMiddleware() (*Middleware, error) {
@@ -36,7 +37,7 @@ func NewMiddleware() (*Middleware, error) {
 		return nil, err
 	}
 
-	writerExchange, err := manager.CreateExchange(WriterExchangeName, WriterExchangeType)
+	queryResultsExchange, err := manager.CreateExchange(QueryResultsExchangeName, QueryExchangeType)
 	if err != nil {
 		return nil, err
 	}
@@ -44,49 +45,47 @@ func NewMiddleware() (*Middleware, error) {
 	return &Middleware{
 		Manager:                 manager,
 		TopPositiveReviewsQueue: topPositiveReviewsQueue,
-		WriterExchange:          writerExchange,
+		QueryResultsExchange:    queryResultsExchange,
 	}, nil
 }
 
-func (m *Middleware) ReceiveMsg() (*j.JoinedPositiveGameReview, bool, error) {
+func (m *Middleware) ReceiveMsg() (int, *j.JoinedPositiveGameReview, bool, error) {
 	rawMsg, err := m.TopPositiveReviewsQueue.Consume()
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return nil, false, err
+		return message.ClientID, nil, false, err
 	}
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return nil, true, nil
+		return message.ClientID, nil, true, nil
 
 	case sp.MsgJoinedPositiveGameReviews:
 		joinedGame, err := sp.DeserializeMsgJoinedPositiveGameReviewsV2(message.Body)
 		if err != nil {
-			return nil, false, err
+			return message.ClientID, nil, false, err
 		}
 
-		return joinedGame, false, nil
+		return message.ClientID, joinedGame, false, nil
 
 	default:
-		return nil, false, nil
+		return message.ClientID, nil, false, nil
 	}
 }
 
-func (m *Middleware) SendMetrics(topPositiveIndieGames []*j.JoinedPositiveGameReview) error {
-	data := sp.SerializeMsgJoinedIndieGameReviewsBatch(topPositiveIndieGames)
-
-	err := m.WriterExchange.Publish(WriterRoutingKey, data)
+func (m *Middleware) SendQueryResults(clientID int, topPositiveIndieGames []*j.JoinedPositiveGameReview) error {
+	queryMessage, err := sp.SerializeMsgIndiePositiveJoinedReviewsQuery(clientID, topPositiveIndieGames)
 	if err != nil {
 		return err
 	}
-
-	return nil
+	routingKey := QueryRoutingKeyPrefix + fmt.Sprint(clientID)
+	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
 }
 
 func (m *Middleware) SendEof() error {
-	return m.WriterExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile())
+	return m.QueryResultsExchange.Publish(QueryRoutingKeyPrefix, sp.SerializeMsgEndOfFile())
 }

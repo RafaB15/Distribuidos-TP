@@ -24,6 +24,20 @@ func DeserializeMsgOsResolvedQuery(message []byte) (*oa.GameOSMetrics, error) {
 	return oa.DeserializeGameOSMetrics(message)
 }
 
+// Message IndiePositiveJoinedReviewsQuery
+
+func SerializeMsgIndiePositiveJoinedReviewsQuery(clientID int, joinedReviews []*j.JoinedPositiveGameReview) ([]byte, error) {
+	data, err := j.SerializeJoinedPositiveGameReviewsBatch(joinedReviews)
+	if err != nil {
+		return nil, err
+	}
+	return SerializeQuery(MsgIndiePositiveJoinedReviewsQuery, clientID, data), nil
+}
+
+func DeserializeMsgIndiePositiveJoinedReviewsQuery(message []byte) ([]*j.JoinedPositiveGameReview, error) {
+	return j.DeserializeJoinedPositiveGameReviewsBatch(message)
+}
+
 // Message ActionPositiveReviewsQuery
 
 func SerializeMsgActionPositiveReviewsQuery(clientID int, joinedReviews []*j.JoinedPositiveGameReview) ([]byte, error) {

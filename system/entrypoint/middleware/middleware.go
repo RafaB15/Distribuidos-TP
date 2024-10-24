@@ -127,6 +127,9 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 	case sp.MsgOsResolvedQuery:
 		fmt.Printf("Received OS resolved query\n")
 		return handleMsgOsResolvedQuery(queryResponseMessage.Body)
+	case sp.MsgIndiePositiveJoinedReviewsQuery:
+		fmt.Printf("Received positive indie reviews query\n")
+		return handleMsgIndiePositiveResolvedQuery(queryResponseMessage.Body)
 	case sp.MsgActionPositiveReviewsQuery:
 		fmt.Printf("Received positive reviews query\n")
 		return handleMsgActionPositiveReviewsQuery(queryResponseMessage.Body)
@@ -143,6 +146,19 @@ func handleMsgOsResolvedQuery(message []byte) ([]byte, error) {
 	stringRepresentation := oa.GetStrRepresentation(gameOSMetrics)
 
 	return sp.AssembleFinalQueryMsg(byte(sp.MsgOsResolvedQuery), []byte(stringRepresentation)), nil
+}
+
+func handleMsgIndiePositiveResolvedQuery(message []byte) ([]byte, error) {
+	joinedReviews, err := sp.DeserializeMsgIndiePositiveJoinedReviewsQuery(message)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
+	}
+	var stringRepresentation []byte
+	for _, review := range joinedReviews {
+		stringRep := j.GetStrRepresentation(review)
+		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
+	}
+	return sp.AssembleFinalQueryMsg(byte(sp.MsgIndiePositiveJoinedReviewsQuery), []byte(stringRepresentation)), nil
 }
 
 func handleMsgActionPositiveReviewsQuery(message []byte) ([]byte, error) {
