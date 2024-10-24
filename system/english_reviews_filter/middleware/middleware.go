@@ -10,11 +10,10 @@ import (
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
-	RawReviewsExchangeName     = "raw_reviews_exchange"
-	RawReviewsExchangeType     = "direct"
-	RawReviewsRoutingKey       = "raw_reviews_key"
-	RawEnglishReviewsEofKey    = "raw_english_reviews_eof_key"
-	RawEnglishReviewsQueueName = "raw_english_reviews_queue"
+	RawReviewsExchangeName           = "raw_reviews_exchange"
+	RawReviewsExchangeType           = "direct"
+	RawEnglishReviewsKeyPrefix       = "raw_english_reviews_key_"
+	RawEnglishReviewsQueueNamePrefix = "raw_english_reviews_queue_"
 
 	EnglishReviewsExchangeName     = "english_reviews_exchange"
 	EnglishReviewsExchangeType     = "direct"
@@ -33,8 +32,10 @@ func NewMiddleware(id int) (*Middleware, error) {
 		return nil, fmt.Errorf("Failed to create middleware manager: %v", err)
 	}
 
-	routingKeys := []string{RawReviewsRoutingKey, RawEnglishReviewsEofKey}
-	rawEnglishReviewsQueue, err := manager.CreateBoundQueueMultipleRoutingKeys(RawEnglishReviewsQueueName, RawReviewsExchangeName, RawReviewsExchangeType, routingKeys, false)
+	rawEnglishReviewsQueueName := fmt.Sprintf("%s%d", RawEnglishReviewsQueueNamePrefix, id)
+	rawEnglishReviewsRoutingKey := fmt.Sprintf("%s%d", RawEnglishReviewsKeyPrefix, id)
+
+	rawEnglishReviewsQueue, err := manager.CreateBoundQueue(rawEnglishReviewsQueueName, RawReviewsExchangeName, RawReviewsExchangeType, rawEnglishReviewsRoutingKey, false)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create queue: %v", err)
 	}

@@ -5,6 +5,7 @@ import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	j "distribuidos-tp/internal/system_protocol/joiner"
+	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
 )
@@ -16,11 +17,10 @@ const (
 	RawGamesRoutingKey   = "raw_games_key"
 	RawGamesExchangeType = "direct"
 
-	RawReviewsExchangeName  = "raw_reviews_exchange"
-	RawReviewsExchangeType  = "direct"
-	RawReviewsRoutingKey    = "raw_reviews_key"
-	RawEnglishReviewsEofKey = "raw_english_reviews_eof_key"
-	RawReviewsEofKey        = "raw_reviews_eof_key"
+	RawReviewsExchangeName     = "raw_reviews_exchange"
+	RawReviewsExchangeType     = "direct"
+	RawReviewsRoutingKeyPrefix = "raw_reviews_key_"
+	RawEnglishReviewsKeyPrefix = "raw_english_reviews_key_"
 
 	QueryResultsQueueName    = "query_results_queue"
 	QueryResultsExchangeName = "query_results_exchange"
@@ -75,9 +75,26 @@ func (m *Middleware) SendGamesBatch(clientID int, data []byte) error {
 	return nil
 }
 
-func (m *Middleware) SendReviewsBatch(clientID int, data []byte) error {
-	batch := sp.SerializeMsgBatch(clientID, data)
-	err := m.RawReviewsExchange.Publish(RawReviewsRoutingKey, batch)
+func (m *Middleware) SendReviewsBatch(clientID int, englishFiltersAmount int, reviewMappersAmount int, data []byte) error {
+	reviewsBatch := sp.SerializeMsgBatch(clientID, data)
+
+	err := sendToReviewNode(englishFiltersAmount, m.RawReviewsExchange, RawEnglishReviewsKeyPrefix, reviewsBatch)
+	if err != nil {
+		return fmt.Errorf("Failed to publish message to english review accumulator: %v", err)
+	}
+
+	err = sendToReviewNode(reviewMappersAmount, m.RawReviewsExchange, RawReviewsRoutingKeyPrefix, reviewsBatch)
+	if err != nil {
+		return fmt.Errorf("Failed to publish message to review mapper: %v", err)
+	}
+
+	return nil
+}
+
+func sendToReviewNode(nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, data []byte) error {
+	nodeId := u.GetRandomNumber(nodesAmount)
+	routingKey := fmt.Sprintf("%s%d", routingKeyPrefix, nodeId)
+	err := exchange.Publish(routingKey, data)
 	if err != nil {
 		return fmt.Errorf("Failed to publish message: %v", err)
 	}
@@ -95,15 +112,17 @@ func (m *Middleware) SendGamesEndOfFile(clientID int) error {
 }
 
 func (m *Middleware) SendReviewsEndOfFile(clientID int, englishFiltersAmount int, reviewMappersAmount int) error {
-	for i := 0; i < englishFiltersAmount; i++ {
-		err := m.RawReviewsExchange.Publish(RawEnglishReviewsEofKey, sp.SerializeMsgEndOfFileV2(clientID))
+	for i := 1; i <= englishFiltersAmount; i++ {
+		englishRoutingKey := fmt.Sprintf("%s%d", RawEnglishReviewsKeyPrefix, i)
+		err := m.RawReviewsExchange.Publish(englishRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {
 			return fmt.Errorf("Failed to publish message: %v", err)
 		}
 	}
 
-	for i := 0; i < reviewMappersAmount; i++ {
-		err := m.RawReviewsExchange.Publish(RawReviewsEofKey, sp.SerializeMsgEndOfFileV2(clientID))
+	for i := 1; i <= reviewMappersAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", RawReviewsRoutingKeyPrefix, i)
+		err := m.RawReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
 		if err != nil {
 			return fmt.Errorf("Failed to publish message: %v", err)
 		}

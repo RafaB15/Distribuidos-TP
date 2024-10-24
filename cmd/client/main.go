@@ -120,7 +120,7 @@ func main() {
 			log.Errorf("Error reading query number from connection: %v", err)
 			return
 		}
-		log.Infof("Results for query %d:", queryNumber)
+		log.Infof("Results for query %d:", queryNumber+1)
 
 		var length uint16
 		err = binary.Read(conn, binary.BigEndian, &length)

@@ -10,11 +10,10 @@ import (
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
-	RawReviewsExchangeName  = "raw_reviews_exchange"
-	RawReviewsExchangeType  = "direct"
-	RawReviewsRoutingKey    = "raw_reviews_key"
-	RawReviewsEofRoutingKey = "raw_reviews_eof_key"
-	RawReviewsQueueName     = "raw_reviews_queue"
+	RawReviewsExchangeName     = "raw_reviews_exchange"
+	RawReviewsExchangeType     = "direct"
+	RawReviewsRoutingKeyPrefix = "raw_reviews_key_"
+	RawReviewsQueueNamePrefix  = "raw_reviews_queue_"
 
 	ReviewsExchangeName     = "reviews_exchange"
 	ReviewsExchangeType     = "direct"
@@ -27,14 +26,16 @@ type Middleware struct {
 	ReviewsExchange *mom.Exchange
 }
 
-func NewMiddleware() (*Middleware, error) {
+func NewMiddleware(id int) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, err
 	}
 
-	routingKeys := []string{RawReviewsRoutingKey, RawReviewsEofRoutingKey}
-	rawReviewsQueue, err := manager.CreateBoundQueueMultipleRoutingKeys(RawReviewsQueueName, RawReviewsExchangeName, RawReviewsExchangeType, routingKeys, false)
+	rawReviewsQueueName := fmt.Sprintf("%s%d", RawReviewsQueueNamePrefix, id)
+	rawReviewsRoutingKey := fmt.Sprintf("%s%d", RawReviewsRoutingKeyPrefix, id)
+
+	rawReviewsQueue, err := manager.CreateBoundQueue(rawReviewsQueueName, RawReviewsExchangeName, RawReviewsExchangeType, rawReviewsRoutingKey, false)
 	if err != nil {
 		return nil, err
 	}

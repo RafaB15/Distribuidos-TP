@@ -12,7 +12,7 @@ var log = logging.MustGetLogger("log")
 
 type EntryPoint struct {
 	SendGamesBatch       func(int, []byte) error
-	SendReviewsBatch     func(int, []byte) error
+	SendReviewsBatch     func(int, int, int, []byte) error
 	SendGamesEndOfFile   func(int) error
 	SendReviewsEndOfFile func(int, int, int) error
 	ReceiveQueryResult   func() ([]byte, error)
@@ -20,7 +20,7 @@ type EntryPoint struct {
 
 func NewEntryPoint(
 	sendGamesBatch func(int, []byte) error,
-	sendReviewsBatch func(int, []byte) error,
+	sendReviewsBatch func(int, int, int, []byte) error,
 	sendGamesEndOfFile func(int) error,
 	sendReviewsEndOfFile func(int, int, int) error,
 	receiveQueryResponse func() ([]byte, error),
@@ -50,7 +50,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, englishFiltersAmount int, 
 			err = e.SendGamesBatch(clientID, data)
 		} else {
 			// log.Infof("Received review batch for client %d", clientID)
-			err = e.SendReviewsBatch(clientID, data)
+			err = e.SendReviewsBatch(clientID, englishFiltersAmount, reviewMappersAmount, data)
 		}
 
 		if err != nil {
