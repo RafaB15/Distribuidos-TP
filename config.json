@@ -10,11 +10,12 @@
     "review_mapper": 2,
     "reviews_accumulator": 1,
     "decade_filter": 2,
-    "english_filter": 1,
-    "english_reviews_accumulator": 4,
+    "english_filter": 4,
+    "english_reviews_accumulator": 2,
     "positive_reviews_filter": 2,
     "action_negative_review_joiner": 2,
     "action_positive_review_joiner": 2,
     "indie_review_joiner": 2,
-    "writer": 1
+    "final_positive_joiner": 1,
+    "final_negative_joiner": 1
 }

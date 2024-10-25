@@ -1,4 +1,4 @@
-cmd/client/client_data/*
+client/client_data/*
 **/Dockerfile
 .git
 .gitignore

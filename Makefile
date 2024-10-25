@@ -7,28 +7,29 @@ docker-compose-rabbit:
 .PHONY: docker-compose-rabbit
 
 docker-image-system:
-	docker build -f ./cmd/steam_analyzer/entrypoint/Dockerfile -t "entrypoint:latest" .
-	docker build -f ./cmd/steam_analyzer/mappers/game_mapper/Dockerfile -t "game_mapper:latest" .
-	docker build -f ./cmd/steam_analyzer/mappers/review_mapper/Dockerfile -t "review_mapper:latest" .
-	docker build -f ./cmd/steam_analyzer/accumulators/os_accumulator/Dockerfile -t "os_accumulator:latest" .
-	docker build -f ./cmd/steam_analyzer/accumulators/neg_review_accumulator/Dockerfile -t "neg_review_accumulator:latest" .
-	docker build -f ./cmd/steam_analyzer/accumulators/os_final_accumulator/Dockerfile -t "os_final_accumulator:latest" .
-	docker build -f ./cmd/steam_analyzer/filters/english_filter/Dockerfile -t "english_filter:latest" .
-	docker build -f ./cmd/steam_analyzer/filters/top_positive_reviews/Dockerfile -t "top_positive_reviews:latest" .
-	docker build -f ./cmd/steam_analyzer/accumulators/english_reviews_accumulator/Dockerfile -t "english_reviews_accumulator:latest" .
-	docker build -f ./cmd/steam_analyzer/accumulators/reviews_accumulator/Dockerfile -t "reviews_accumulator:latest" .
-	docker build -f ./cmd/steam_analyzer/accumulators/top_ten_accumulator/Dockerfile -t "top_ten_accumulator:latest" .
-	docker build -f ./cmd/steam_analyzer/accumulators/percentile_accumulator/Dockerfile -t "percentile_accumulator:latest" .
-	docker build -f ./cmd/steam_analyzer/filters/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:latest" .
-	docker build -f ./cmd/steam_analyzer/filters/decade_filter/Dockerfile -t "decade_filter:latest" .
-	docker build -f ./cmd/steam_analyzer/joiners/action_positive_review_joiner/Dockerfile -t "action_positive_review_joiner:latest" .
-	docker build -f ./cmd/steam_analyzer/joiners/action_negative_review_joiner/Dockerfile -t "action_negative_review_joiner:latest" .
-	docker build -f ./cmd/steam_analyzer/joiners/indie_review_joiner/Dockerfile -t "indie_review_joiner:latest" .
-	docker build -f ./cmd/steam_analyzer/writer/Dockerfile -t "writer:latest" .
+	docker build -f ./system/top_positive_reviews/Dockerfile -t "top_positive_reviews:latest" .
+	docker build -f ./system/top_ten_accumulator/Dockerfile -t "top_ten_accumulator:latest" .	
+	docker build -f ./system/percentile_accumulator/Dockerfile -t "percentile_accumulator:latest" .
+	docker build -f ./system/decade_filter/Dockerfile -t "decade_filter:latest" .
+	docker build -f ./system/game_mapper/Dockerfile -t "game_mapper:latest" .
+	docker build -f ./system/os_accumulator/Dockerfile -t "os_accumulator:latest" .
+	docker build -f ./system/os_final_accumulator/Dockerfile -t "os_final_accumulator:latest" .
+	docker build -f ./system/reviews_accumulator/Dockerfile -t "reviews_accumulator:latest" .
+	docker build -f ./system/indie_review_joiner/Dockerfile -t "indie_review_joiner:latest" .
+	docker build -f ./system/action_positive_review_joiner/Dockerfile -t "action_positive_review_joiner:latest" .
+	docker build -f ./system/positive_reviews_filter/Dockerfile -t "positive_reviews_filter:latest" .
+	docker build -f ./system/action_negative_review_joiner/Dockerfile -t "action_negative_review_joiner:latest" .
+	docker build -f ./system/english_reviews_accumulator/Dockerfile -t "english_reviews_accumulator:latest" .
+	docker build -f ./system/english_reviews_filter/Dockerfile -t "english_reviews_filter:latest" .
+	docker build -f ./system/review_mapper/Dockerfile -t "review_mapper:latest" .
+	docker build -f ./system/entrypoint/Dockerfile -t "entrypoint:latest" .
+	docker build -f ./system/final_positive_joiner/Dockerfile -t "final_positive_joiner:latest" .
+	docker build -f ./system/final_negative_joiner/Dockerfile -t "final_negative_joiner:latest" .
+	
 .PHONY: docker-image-system
 
 docker-compose-up: docker-image-system
-	docker compose -f docker-compose-dev.yaml up -d
+	docker compose -f docker-compose-dev.yaml up -d --build
 .PHONY: docker-compose-up
 
 docker-compose-down:
@@ -41,15 +42,15 @@ docker-compose-logs:
 .PHONY: docker-compose-logs
 
 docker-image-clients:
-	docker build -f ./cmd/client/Dockerfile -t "client:latest" .
+	docker build -f ./client/Dockerfile -t "client:latest" .
 .PHONY: docker-image-client 
 
 docker-client: docker-image-clients
 	docker run -d --name client \
-		-v ./cmd/client/client_data:/client_data \
+		-v ./client/client_data:/client_data \
 		--network distributed_network \
 		-e GAME_FILE_PATH=./client_data/games_90k.csv \
-		-e REVIEW_FILE_PATH=./client_data/steam_reviews_100k.csv \
+		-e REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv \
 		client:latest
 .PHONY: docker-client
 
@@ -63,3 +64,15 @@ all-down: docker-compose-down docker-client-remove
 generate_compose:
 	./generar-compose.sh config.json docker-compose-dev.yaml
 .PHONY: docker-client-remove
+
+docker-compose-clients:
+	docker-compose -f docker-compose-clients.yaml up -d
+.PHONY: docker-compose-clients
+
+docker-compose-clients-down:
+	docker-compose -f docker-compose-clients.yaml down
+.PHONY: docker-compose-clients-down
+
+docker-compose-clients-logs:
+	docker-compose -f docker-compose-clients.yaml logs -f
+.PHONY: docker-compose-clients-logs

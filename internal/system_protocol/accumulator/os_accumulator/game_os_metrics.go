@@ -100,5 +100,5 @@ func (g *GameOSMetrics) AddGameOS(gameOS *GameOS) {
 }
 
 func GetStrRepresentation(gameOs *GameOSMetrics) string {
-	return "Linux: " + strconv.Itoa(int(gameOs.Linux)) + "\n" + " Windows: " + strconv.Itoa(int(gameOs.Windows)) + "\n" + " Mac: " + strconv.Itoa(int(gameOs.Mac)) + "\n"
+	return "Linux: " + strconv.Itoa(int(gameOs.Linux)) + "\n" + "Windows: " + strconv.Itoa(int(gameOs.Windows)) + "\n" + "Mac: " + strconv.Itoa(int(gameOs.Mac)) + "\n"
 }

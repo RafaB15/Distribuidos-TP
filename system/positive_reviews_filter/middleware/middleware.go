@@ -1,0 +1,96 @@
+package middleware
+
+import (
+	sp "distribuidos-tp/internal/system_protocol"
+	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	mom "distribuidos-tp/middleware"
+	"fmt"
+)
+
+const (
+	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
+
+	AccumulatedEnglishReviewsExchangeName = "accumulated_english_reviews_exchange"
+	AccumulatedEnglishReviewsExchangeType = "direct"
+	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews_key"
+	AccumulatedEnglishReviewQueueName     = "accumulated_english_reviews_queue"
+
+	PositiveJoinReviewsExchangeName     = "action_review_join_exchange"
+	PositiveJoinReviewsExchangeType     = "direct"
+	PositiveJoinReviewsRoutingKeyPrefix = "positive_reviews_key_"
+)
+
+type Middleware struct {
+	Manager                        *mom.MiddlewareManager
+	AccumulatedEnglishReviewsQueue *mom.Queue
+	PositiveJoinedReviewsExchange  *mom.Exchange
+}
+
+func NewMiddleware() (*Middleware, error) {
+	manager, err := mom.NewMiddlewareManager(middlewareURI)
+	if err != nil {
+		return nil, err
+	}
+
+	accumulatedEnglishReviewsQueue, err := manager.CreateBoundQueue(AccumulatedEnglishReviewQueueName, AccumulatedEnglishReviewsExchangeName, AccumulatedEnglishReviewsExchangeType, AccumulatedEnglishReviewsRoutingKey, true)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create queue: %v", err)
+	}
+
+	positiveJoinedEnglishReviewsExchange, err := manager.CreateExchange(PositiveJoinReviewsExchangeName, PositiveJoinReviewsExchangeType)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to declare exchange: %v", err)
+	}
+
+	return &Middleware{
+		Manager:                        manager,
+		AccumulatedEnglishReviewsQueue: accumulatedEnglishReviewsQueue,
+		PositiveJoinedReviewsExchange:  positiveJoinedEnglishReviewsExchange,
+	}, nil
+}
+
+func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics, bool, error) {
+	rawMsg, err := m.AccumulatedEnglishReviewsQueue.Consume()
+	if err != nil {
+		return 0, nil, false, err
+	}
+
+	message, err := sp.DeserializeMessage(rawMsg)
+	if err != nil {
+		return 0, nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
+	}
+
+	switch message.Type {
+	case sp.MsgEndOfFile:
+		return message.ClientID, nil, true, nil
+	case sp.MsgGameReviewsMetrics:
+		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(message.Body)
+		if err != nil {
+			return message.ClientID, nil, false, err
+		}
+		return message.ClientID, gameReviewsMetrics, false, nil
+	default:
+		return message.ClientID, nil, false, fmt.Errorf("Received unexpected message type: %v", message.Type)
+	}
+}
+
+func (m *Middleware) SendGameReviewsMetrics(clientID int, positiveReviewsMap map[int][]*ra.GameReviewsMetrics) error {
+	for shardingKey, gameReviewsMetrics := range positiveReviewsMap {
+		routingKey := fmt.Sprintf("%s%d", PositiveJoinReviewsRoutingKeyPrefix, shardingKey)
+		serializedGameReviewsMetrics := sp.SerializeMsgGameReviewsMetricsBatch(clientID, gameReviewsMetrics)
+		err := m.PositiveJoinedReviewsExchange.Publish(routingKey, serializedGameReviewsMetrics)
+		if err != nil {
+			return fmt.Errorf("Failed to publish game reviews metrics: %v", err)
+		}
+	}
+	return nil
+}
+
+func (m *Middleware) SendEndOfFiles(clientID int, actionReviewsJoinersAmount int) error {
+	for i := 1; i <= actionReviewsJoinersAmount; i++ {
+		serializedEOF := sp.SerializeMsgEndOfFile(clientID)
+		routingKey := fmt.Sprintf("%s%d", PositiveJoinReviewsRoutingKeyPrefix, i)
+		m.PositiveJoinedReviewsExchange.Publish(routingKey, serializedEOF)
+	}
+	return nil
+}

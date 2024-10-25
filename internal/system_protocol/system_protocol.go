@@ -9,109 +9,179 @@ import (
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/binary"
 	"errors"
-	"fmt"
-
-	"github.com/op/go-logging"
 )
 
 type MessageType byte
-
-var log = logging.MustGetLogger("log")
 
 const (
 	MsgEndOfFile MessageType = iota
 	MsgGameOSInformation
 	MsgAccumulatedGameOSInformation
 	MsgGameYearAndAvgPtfInformation
-	MsgFilteredYearAndAvgPtfInformation
 	MsgBatch
 	MsgReviewInformation
 	MsgQueryResolved
 	MsgGameReviewsMetrics
 	MsgGameNames
-	MsgIndiePositiveJoinedReviews
+	MsgJoinedPositiveGameReviews
+	MsgJoinedNegativeGameReviews
 )
 
-// Size of the bytes to store the length of the payload
-const LineLengthBytesAmount = 4
+// SerializeMsgEndOfFile Message End of file
+func SerializeMsgEndOfFile(clientId int) []byte {
+	return SerializeMessage(MsgEndOfFile, clientId, nil)
+}
 
-// Size of the bytes to store the number of lines in the payload
-const LinesNumberBytesAmount = 1
+// --------------------------------------------------------
 
-// Size of the bytes to store the origin of the file
-const FileOriginBytesAmount = 1
+// SerializeMsgBatch Message Batch
+func SerializeMsgBatch(clientId int, data []byte) []byte {
+	return SerializeMessage(MsgBatch, clientId, data)
+}
 
-func DeserializeMessageType(message []byte) (MessageType, error) {
-	if len(message) == 0 {
-		return 0, fmt.Errorf("empty message")
+func DeserializeMsgBatch(data []byte) ([]string, error) {
+	if len(data) == 0 {
+		return []string{}, nil
 	}
 
-	return MessageType(message[0]), nil
+	numLines := int(data[0])
 
-}
+	serializedLines := data[1:]
+	var lines []string
 
-func SerializeBatchMsg(batch []byte) []byte {
-	message := make([]byte, 1+len(batch))
-	message[0] = byte(MsgBatch)
-	copy(message[1:], batch)
-	return message
-}
+	offset := 0
 
-func DeserializeBatchMsg(message []byte) (string, error) {
-	if len(message) == 0 {
-		return "", errors.New("empty message")
+	for i := 0; i < numLines; i++ {
+		line, newOffset, err := DeserializeLine(serializedLines, offset)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, line)
+		offset = newOffset
 	}
 
-	return string(message[1:]), nil
+	return lines, nil
 }
 
-func SerializeMsgGameYearAndAvgPtf(gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []byte {
+func DeserializeLine(data []byte, offset int) (string, int, error) {
+	lineLengthBytesAmount := 4
+
+	if offset+lineLengthBytesAmount > len(data) {
+		return "", 0, errors.New("data too short to contain line length information")
+	}
+
+	lineLength := binary.BigEndian.Uint32(data[offset : offset+lineLengthBytesAmount])
+	if int(lineLength) > len(data)-offset-lineLengthBytesAmount {
+		return "", 0, errors.New("invalid line length information")
+	}
+
+	line := string(data[offset+lineLengthBytesAmount : offset+lineLengthBytesAmount+int(lineLength)])
+	newOffset := offset + lineLengthBytesAmount + int(lineLength)
+
+	return line, newOffset, nil
+}
+
+// --------------------------------------------------------
+
+// SerializeMsgGameOSInformation Game Os Message
+func SerializeMsgGameOSInformation(clientID int, gameOSList []*oa.GameOS) []byte {
+
+	GameOSSize := 3     // Tamaño en bytes de un GameOS serializado
+	CountFieldSize := 2 // Tamaño del campo que guarda el conteo
+
+	count := len(gameOSList)
+
+	// Crear el cuerpo del mensaje con el tamaño adecuado
+	body := make([]byte, CountFieldSize+count*GameOSSize)            // Reservar espacio para el conteo y los GameOS serializados
+	binary.BigEndian.PutUint16(body[:CountFieldSize], uint16(count)) // Header con la cantidad de elementos
+
+	offset := CountFieldSize
+	for i, gameOS := range gameOSList {
+		serializedGameOS := oa.SerializeGameOS(gameOS)
+		copy(body[offset+i*GameOSSize:], serializedGameOS) // Copiar cada GameOS serializado
+	}
+
+	return SerializeMessage(MsgGameOSInformation, clientID, body)
+}
+
+// DeserializeMsgGameOSInformation takes a byte slice representing a message and
+// returns a slice of GameOS objects or an error if deserialization fails.
+func DeserializeMsgGameOSInformation(message []byte) ([]*oa.GameOS, error) {
+
+	GameOSSize := 3     // Tamaño en bytes de un GameOS serializado
+	CountFieldSize := 2 // Tamaño del campo que guarda el conteo
+
+	// Extract the number of GameOS records (count) from the first 2 bytes of the body
+	count := binary.BigEndian.Uint16(message[:CountFieldSize])
+	offset := CountFieldSize // Start reading the GameOS records after the 3-byte header
+
+	// Calculate the expected length based on the number of GameOS records
+	expectedLength := int(count) * GameOSSize
+
+	// Ensure the message contains enough bytes to match the expected length of GameOS records
+	if len(message[offset:]) < expectedLength {
+		return nil, errors.New("message length does not match expected count")
+	}
+
+	var gameOSList []*oa.GameOS
+
+	// Loop through the message to deserialize each GameOS record
+	for i := 0; i < int(count); i++ {
+		start := offset + i*GameOSSize
+		end := start + GameOSSize
+
+		// Deserialize the current GameOS record from the message slice
+		gameOS, err := oa.DeserializeGameOS(message[start:end])
+		if err != nil {
+			return nil, err // Return an error if deserialization of a GameOS record fails
+		}
+
+		gameOSList = append(gameOSList, gameOS)
+	}
+
+	return gameOSList, nil
+}
+
+// --------------------------------------------------------
+// Message GameYearAndAvgPtfInformation
+
+func SerializeMsgGameYearAndAvgPtf(clientId int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []byte {
+	gameYearAndAvgPtfSize := 10
+	amountSize := 2
+
 	count := len(gameYearAndAvgPtf)
-	message := make([]byte, 3+count*10)
-	message[0] = byte(MsgGameYearAndAvgPtfInformation)
-	binary.BigEndian.PutUint16(message[1:3], uint16(count))
+	message := make([]byte, amountSize+count*gameYearAndAvgPtfSize)
+	binary.BigEndian.PutUint16(message[:amountSize], uint16(count))
 
-	offset := 3
+	offset := amountSize
 	for i, game := range gameYearAndAvgPtf {
 		serializedGame := df.SerializeGameYearAndAvgPtf(game)
-		copy(message[offset+i*10:], serializedGame)
+		copy(message[offset+i*gameYearAndAvgPtfSize:], serializedGame)
 	}
 
-	return message
-}
-
-func SerializeMsgFilteredGameYearAndAvgPtf(gameYearAndAvgPtf []*df.GameYearAndAvgPtf) []byte {
-	count := len(gameYearAndAvgPtf)
-	message := make([]byte, 3+count*10)
-	message[0] = byte(MsgFilteredYearAndAvgPtfInformation)
-	binary.BigEndian.PutUint16(message[1:3], uint16(count))
-
-	offset := 3
-	for i, game := range gameYearAndAvgPtf {
-		serializedGame := df.SerializeGameYearAndAvgPtf(game)
-		copy(message[offset+i*10:], serializedGame)
-	}
-
-	return message
+	return SerializeMessage(MsgGameYearAndAvgPtfInformation, clientId, message)
 }
 
 func DeserializeMsgGameYearAndAvgPtf(message []byte) ([]*df.GameYearAndAvgPtf, error) {
-	if len(message) < 3 {
+	gameYearAndAvgPtfSize := 10
+	amountSize := 2
+
+	if len(message) < amountSize {
 		return nil, errors.New("message too short to contain count")
 	}
 
-	count := binary.BigEndian.Uint16(message[1:3])
-	offset := 3
+	count := binary.BigEndian.Uint16(message[:amountSize])
+	offset := amountSize
 
-	expectedLength := int(count) * 10
+	expectedLength := int(count) * gameYearAndAvgPtfSize
 	if len(message[offset:]) < expectedLength {
 		return nil, errors.New("message length does not match expected count")
 	}
 
 	var gameYearAndAvgPtfList []*df.GameYearAndAvgPtf
 	for i := 0; i < int(count); i++ {
-		start := offset + i*10
-		end := start + 10
+		start := offset + i*gameYearAndAvgPtfSize
+		end := start + gameYearAndAvgPtfSize
 		game, err := df.DeserializeGameYearAndAvgPtf(message[start:end])
 		if err != nil {
 			return nil, err
@@ -122,143 +192,47 @@ func DeserializeMsgGameYearAndAvgPtf(message []byte) ([]*df.GameYearAndAvgPtf, e
 	return gameYearAndAvgPtfList, nil
 }
 
-func SerializeMsgGameOSInformation(gameOSList []*oa.GameOS) []byte {
-	count := len(gameOSList)
-	message := make([]byte, 3+count*3)
-	message[0] = byte(MsgGameOSInformation)
-	binary.BigEndian.PutUint16(message[1:3], uint16(count))
+// --------------------------------------------------------
 
-	offset := 3
-	for i, gameOS := range gameOSList {
-		serializedGameOS := oa.SerializeGameOS(gameOS)
-		copy(message[offset+i*3:], serializedGameOS)
-	}
+// SerializeMsgReviewInformation Message Review Information
+func SerializeMsgReviewInformation(clientID int, reviews []*r.Review) []byte {
+	reviewSize := 5
+	amountSize := 2
 
-	return message
-}
-
-func DeserializeMsgGameOSInformation(message []byte) ([]*oa.GameOS, error) {
-	if len(message) < 3 {
-		return nil, errors.New("message too short to contain count")
-	}
-
-	count := binary.BigEndian.Uint16(message[1:3])
-	offset := 3
-
-	expectedLength := int(count) * 3
-	if len(message[offset:]) < expectedLength {
-		return nil, errors.New("message length does not match expected count")
-	}
-
-	var gameOSList []*oa.GameOS
-	for i := 0; i < int(count); i++ {
-		start := offset + i*3
-		end := start + 3
-		gameOS, err := oa.DeserializeGameOS(message[start:end])
-		if err != nil {
-			return nil, err
-		}
-		gameOSList = append(gameOSList, gameOS)
-	}
-
-	return gameOSList, nil
-}
-
-func SerializeMsgGameReviewsMetricsBatch(metrics []*m.GameReviewsMetrics) []byte {
-	count := len(metrics)
-	message := make([]byte, 3+count*12)
-	message[0] = byte(MsgGameReviewsMetrics)
-	binary.BigEndian.PutUint16(message[1:3], uint16(count))
-
-	offset := 3
-	for i, metric := range metrics {
-		serializedMetrics := m.SerializeGameReviewsMetrics(metric)
-		copy(message[offset+i*12:], serializedMetrics)
-	}
-
-	return message
-}
-
-func DeserializeMsgGameReviewsMetricsBatch(message []byte) ([]*m.GameReviewsMetrics, error) {
-	if len(message) < 3 {
-		return nil, errors.New("message too short to contain count")
-	}
-
-	count := int(binary.BigEndian.Uint16(message[1:3]))
-	offset := 3
-	metrics := make([]*m.GameReviewsMetrics, count)
-
-	for i := 0; i < count; i++ {
-		if offset+12 > len(message) {
-			return nil, errors.New("message too short to contain all metrics")
-		}
-		metric, err := m.DeserializeGameReviewsMetrics(message[offset : offset+12])
-		if err != nil {
-			return nil, err
-		}
-		metrics[i] = metric
-		offset += 12
-	}
-
-	return metrics, nil
-}
-
-func SerializeMsgAccumulatedGameOSInfo(data []byte) ([]byte, error) {
-	message := make([]byte, 1+12)
-	message[0] = byte(MsgAccumulatedGameOSInformation)
-	copy(message[1:], data)
-	return message, nil
-}
-
-func DeserializeMsgAccumulatedGameOSInformation(message []byte) (*oa.GameOSMetrics, error) {
-	if len(message) < 13 {
-		return nil, errors.New("message too short to contain metrics")
-	}
-
-	metrics, err := oa.DeserializeGameOSMetrics(message[1:])
-	if err != nil {
-		return nil, err
-	}
-
-	return metrics, nil
-}
-
-func SerializeMsgEndOfFile() []byte {
-	return []byte{byte(MsgEndOfFile)}
-}
-
-func SerializeMsgReviewInformation(reviews []*r.Review) []byte {
 	count := len(reviews)
-	message := make([]byte, 3+count*5)
-	message[0] = byte(MsgReviewInformation)
-	binary.BigEndian.PutUint16(message[1:3], uint16(count))
+	body := make([]byte, amountSize+count*reviewSize)
 
-	offset := 3
+	binary.BigEndian.PutUint16(body[:amountSize], uint16(count))
+
+	offset := amountSize
 	for i, review := range reviews {
 		serializedReview := review.Serialize()
-		copy(message[offset+i*5:], serializedReview)
+		copy(body[offset+i*reviewSize:], serializedReview)
 	}
 
-	return message
+	return SerializeMessage(MsgReviewInformation, clientID, body)
 }
 
 func DeserializeMsgReviewInformation(message []byte) ([]*r.Review, error) {
-	if len(message) < 3 {
+	reviewSize := 5
+	amountSize := 2
+
+	if len(message) < amountSize {
 		return nil, errors.New("message too short to contain count")
 	}
 
-	count := binary.BigEndian.Uint16(message[1:3])
-	offset := 3
+	count := binary.BigEndian.Uint16(message[:amountSize])
+	offset := amountSize
 
-	expectedLength := int(count) * 5
+	expectedLength := int(count) * reviewSize
 	if len(message[offset:]) < expectedLength {
 		return nil, errors.New("message length does not match expected count")
 	}
 
 	var reviews []*r.Review
 	for i := 0; i < int(count); i++ {
-		start := offset + i*5
-		end := start + 5
+		start := offset + i*reviewSize
+		end := start + reviewSize
 		review, err := r.DeserializeReview(message[start:end])
 		if err != nil {
 			return nil, err
@@ -269,161 +243,63 @@ func DeserializeMsgReviewInformation(message []byte) ([]*r.Review, error) {
 	return reviews, nil
 }
 
-func SerializeMsgJoinedActionGameReviews(joinedActionGameReview *j.JoinedActionGameReview) ([]byte, error) {
-	messageLen := 4 + 4 + len(joinedActionGameReview.GameName) + 4
-	message := make([]byte, 2+messageLen) //chequear cuando haga el mensaje de ActionGame
-	message[0] = byte(MsgQueryResolved)
-	message[1] = byte(MsgActionPositiveReviewsQuery)
-	serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
-	if err != nil {
-		return nil, err
-	}
-	copy(message[2:], serializedJoinedActionGameReview)
-	return message, nil
-}
+// --------------------------------------------------------
 
-func DeserializeMsgJoinedActionGameReviews(data []byte) (*j.JoinedActionGameReview, error) {
+// Message Game Reviews Metrics Batch
 
-	metrics, err := j.DeserializeJoinedActionGameReview(data[2:]) //me salteo los 2 bytesde tipo de mensaje
-	if err != nil {
-		return nil, err
+func SerializeMsgGameReviewsMetricsBatch(clientID int, metrics []*m.GameReviewsMetrics) []byte {
+	gameReviewsMetricsSize := 12
+	amountSize := 2
+
+	count := len(metrics)
+	body := make([]byte, amountSize+count*gameReviewsMetricsSize)
+	binary.BigEndian.PutUint16(body[:amountSize], uint16(count))
+
+	offset := amountSize
+	for i, metric := range metrics {
+		serializedMetrics := m.SerializeGameReviewsMetrics(metric)
+		copy(body[offset+i*gameReviewsMetricsSize:], serializedMetrics)
 	}
 
-	return metrics, nil
+	return SerializeMessage(MsgGameReviewsMetrics, clientID, body)
 }
 
-func SerializeMsgNegativeJoinedActionGameReviews(joinedActionNegativeGameReview *j.JoinedActionNegativeGameReview) ([]byte, error) {
-	serializedJoinedActionNegativeGameReview, err := j.SerializeJoinedActionNegativeGameReview(joinedActionNegativeGameReview)
-	message := make([]byte, 2+len(serializedJoinedActionNegativeGameReview)) //chequear cuando haga el mensaje de ActionGame
-	message[0] = byte(MsgQueryResolved)
-	message[1] = byte(MsgActionNegativeReviewsQuery)
-	if err != nil {
-		return nil, err
-	}
-	copy(message[2:], serializedJoinedActionNegativeGameReview)
-	return message, nil
-}
+func DeserializeMsgGameReviewsMetricsBatch(message []byte) ([]*m.GameReviewsMetrics, error) {
+	gameReviewsMetricsSize := 12
+	amountSize := 2
 
-func DeserializeMsgNegativeJoinedActionGameReviews(data []byte) (*j.JoinedActionGameReview, error) {
-
-	metrics, err := j.DeserializeJoinedActionGameReview(data[2:]) //me salteo los 2 bytesde tipo de mensaje
-	if err != nil {
-		return nil, err
-	}
-
-	return metrics, nil
-}
-
-func SerializeMsgJoinedIndieGameReviews(joinedActionGameReview *j.JoinedActionGameReview) ([]byte, error) {
-	messageLen := 4 + 4 + len(joinedActionGameReview.GameName) + 4
-	message := make([]byte, 2+messageLen) //chequear cuando haga el mensaje de ActionGame
-	message[0] = byte(MsgQueryResolved)
-	message[1] = byte(MsgIndiePositiveJoinedReviewsQuery)
-	serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
-	if err != nil {
-		return nil, err
-	}
-	copy(message[2:], serializedJoinedActionGameReview)
-	return message, nil
-}
-
-func DeserializeMsgJoinedIndieGameReviews(data []byte) (*j.JoinedActionGameReview, error) {
-
-	metrics, err := j.DeserializeJoinedActionGameReview(data[2:]) //me salteo los 2 bytesde tipo de mensaje
-	if err != nil {
-		return nil, err
-	}
-
-	return metrics, nil
-}
-
-func SerializeMsgJoinedIndieGameReviewsBatch(joinedActionGameReviews []*j.JoinedActionGameReview) []byte {
-	count := len(joinedActionGameReviews)
-	message := make([]byte, 3)
-	message[0] = byte(MsgQueryResolved)
-	message[1] = byte(MsgIndiePositiveJoinedReviewsQuery)
-	message[2] = byte(count)
-
-	offset := 3
-	for _, joinedActionGameReview := range joinedActionGameReviews {
-		serializedJoinedActionGameReview, err := j.SerializeJoinedActionGameReview(joinedActionGameReview)
-		if err != nil {
-			return nil
-		}
-		message = append(message, serializedJoinedActionGameReview...)
-		offset += len(serializedJoinedActionGameReview)
-	}
-
-	return message
-}
-
-func DeserializeMsgJoinedIndieGameReviewsBatch(message []byte) ([]*j.JoinedActionGameReview, error) {
-	// Función asume que nos viene sin el primer header
-	if len(message) < 1 {
+	if len(message) < amountSize {
 		return nil, errors.New("message too short to contain count")
 	}
 
-	count := int(message[0])
-	offset := 1
-	joinedActionGameReviews := make([]*j.JoinedActionGameReview, count)
+	count := int(binary.BigEndian.Uint16(message[:amountSize]))
+	offset := amountSize
+	metrics := make([]*m.GameReviewsMetrics, count)
 
 	for i := 0; i < count; i++ {
-		joinedActionGameReview, err := j.DeserializeJoinedActionGameReview(message[offset:])
+		if offset+gameReviewsMetricsSize > len(message) {
+			return nil, errors.New("message too short to contain all metrics")
+		}
+		metric, err := m.DeserializeGameReviewsMetrics(message[offset : offset+gameReviewsMetricsSize])
 		if err != nil {
 			return nil, err
 		}
-		joinedActionGameReviews[i] = joinedActionGameReview
-		offset += 4 + 2 + len([]byte(joinedActionGameReview.GameName)) + 4
+		metrics[i] = metric
+		offset += gameReviewsMetricsSize
 	}
 
-	return joinedActionGameReviews, nil
+	return metrics, nil
 }
 
-func DeserializeBatch(data []byte) ([]string, error) {
+// --------------------------------------------------------
+// Message Game Names
 
-	if len(data) == 0 {
-		return []string{}, nil
-	}
-
-	numLines := int(data[1])
-
-	serializedLines := data[2:]
-	var lines []string
-
-	offset := 0
-
-	for i := 0; i < numLines; i++ {
-		line, newOffset, _ := DeserializeLine(serializedLines, offset)
-		lines = append(lines, line)
-		offset = newOffset
-	}
-
-	return lines, nil
-}
-
-func DeserializeLine(data []byte, offset int) (string, int, error) {
-	if offset+LineLengthBytesAmount > len(data) {
-		return "", 0, errors.New("data too short to contain line length information")
-	}
-
-	lineLength := binary.BigEndian.Uint32(data[offset : offset+LineLengthBytesAmount])
-	if int(lineLength) > len(data)-offset-LineLengthBytesAmount {
-		return "", 0, errors.New("invalid line length information")
-	}
-
-	line := string(data[offset+LineLengthBytesAmount : offset+LineLengthBytesAmount+int(lineLength)])
-	newOffset := offset + LineLengthBytesAmount + int(lineLength)
-
-	return line, newOffset, nil
-}
-
-func SerializeMsgGameNames(gameNames []*g.GameName) ([]byte, error) {
+func SerializeMsgGameNames(clientID int, gameNames []*g.GameName) ([]byte, error) {
 	count := len(gameNames)
-	headerSize := 3 // 1 byte for message type + 2 bytes for count
-	message := make([]byte, headerSize)
+	headerSize := 2 // 2 bytes for count
+	body := make([]byte, headerSize)
 
-	message[0] = byte(MsgGameNames)
-	binary.BigEndian.PutUint16(message[1:3], uint16(count))
+	binary.BigEndian.PutUint16(body[:headerSize], uint16(count))
 
 	offset := headerSize
 	for _, gameName := range gameNames {
@@ -431,20 +307,22 @@ func SerializeMsgGameNames(gameNames []*g.GameName) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		message = append(message, serializedGameName...)
+		body = append(body, serializedGameName...)
 		offset += len(serializedGameName)
 	}
 
-	return message, nil
+	return SerializeMessage(MsgGameNames, clientID, body), nil
 }
 
 func DeserializeMsgGameNames(message []byte) ([]*g.GameName, error) {
-	if len(message) < 3 {
+	amountSize := 2
+
+	if len(message) < amountSize {
 		return nil, errors.New("message too short to contain count")
 	}
 
-	count := binary.BigEndian.Uint16(message[1:3])
-	offset := 3
+	count := binary.BigEndian.Uint16(message[:amountSize])
+	offset := amountSize
 
 	var gameNames []*g.GameName
 	for i := 0; i < int(count); i++ {
@@ -457,4 +335,83 @@ func DeserializeMsgGameNames(message []byte) ([]*g.GameName, error) {
 	}
 
 	return gameNames, nil
+}
+
+// --------------------------------------------------------
+// Message Joined Positive Action Game Reviews
+
+func SerializeMsgJoinedPositiveGameReviews(clientID int, joinedActionGameReview *j.JoinedPositiveGameReview) ([]byte, error) {
+	messageLen := 4 + 4 + len(joinedActionGameReview.GameName) + 4
+	message := make([]byte, messageLen) //chequear cuando haga el mensaje de ActionGame
+
+	serializedJoinedPositiveGameReview, err := j.SerializeJoinedPositiveGameReview(joinedActionGameReview)
+	if err != nil {
+		return nil, err
+	}
+	copy(message, serializedJoinedPositiveGameReview)
+
+	return SerializeMessage(MsgJoinedPositiveGameReviews, clientID, message), nil
+}
+
+func DeserializeMsgJoinedPositiveGameReviews(data []byte) (*j.JoinedPositiveGameReview, error) {
+
+	metrics, err := j.DeserializeJoinedPositiveGameReview(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return metrics, nil
+}
+
+// --------------------------------------------------------
+
+// Message Joined Negative Action Game Reviews
+
+func SerializeMsgNegativeJoinedPositiveGameReviews(clientID int, joinedActionNegativeGameReview *j.JoinedNegativeGameReview) ([]byte, error) {
+	messageLen := 4 + 4 + len(joinedActionNegativeGameReview.GameName) + 4
+	message := make([]byte, messageLen) //chequear cuando haga el mensaje de ActionGame
+
+	serializedJoinedNegativeGameReview, err := j.SerializeJoinedActionNegativeGameReview(joinedActionNegativeGameReview)
+	if err != nil {
+		return nil, err
+	}
+	copy(message, serializedJoinedNegativeGameReview)
+
+	return SerializeMessage(MsgJoinedNegativeGameReviews, clientID, message), nil
+}
+
+func DeserializeMsgNegativeJoinedPositiveGameReviewsV2(data []byte) (*j.JoinedNegativeGameReview, error) {
+
+	metrics, err := j.DeserializeJoinedActionNegativeGameReview(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return metrics, nil
+}
+
+// --------------------------------------------------------
+
+// Message Game Os Metrics
+
+func SerializeGameOSMetrics(clientID int, gameMetrics *oa.GameOSMetrics) []byte {
+	body := oa.SerializeGameOSMetrics(gameMetrics)
+	return SerializeMessage(MsgAccumulatedGameOSInformation, clientID, body)
+}
+
+func DeserializeMsgAccumulatedGameOSInformationV2(message []byte) (*oa.GameOSMetrics, error) {
+	return oa.DeserializeGameOSMetrics(message)
+}
+
+// --------------------------------------------------------
+// Message Final Query Results
+
+func AssembleFinalQueryMsg(messageType byte, body []byte) []byte {
+	length := len(body)
+	msg := make([]byte, 1+2+length)
+	msg[0] = messageType
+	binary.BigEndian.PutUint16(msg[1:3], uint16(length))
+	copy(msg[3:], body)
+
+	return msg
 }

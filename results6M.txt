@@ -1,0 +1,697 @@
+2024/10/16 00:43:24 Sent reviews batch
+2024/10/16 00:43:24 End of reviews file
+2024/10/16 00:43:24 Results for query 1:
+2024/10/16 00:43:24 Received message: 
+Linux: 12307
+ Windows: 92534
+ Mac: 17703
+
+
+2024/10/16 00:43:24 Results for query 2:
+2024/10/16 00:43:24 Received message: 
+AppId: 404580 ReleaseYear: 2015 AvgPlaytimeForever: 68357
+AppId: 554640 ReleaseYear: 2016 AvgPlaytimeForever: 49555
+AppId: 831980 ReleaseYear: 2019 AvgPlaytimeForever: 34798
+AppId: 989450 ReleaseYear: 2019 AvgPlaytimeForever: 33343
+AppId: 629910 ReleaseYear: 2018 AvgPlaytimeForever: 31708
+AppId: 353130 ReleaseYear: 2016 AvgPlaytimeForever: 27080
+AppId: 305940 ReleaseYear: 2018 AvgPlaytimeForever: 26827
+AppId: 557400 ReleaseYear: 2017 AvgPlaytimeForever: 19196
+AppId: 719890 ReleaseYear: 2018 AvgPlaytimeForever: 17147
+AppId: 252490 ReleaseYear: 2018 AvgPlaytimeForever: 16623
+
+
+2024/10/16 00:45:04 Results for query 3:
+2024/10/16 00:45:04 Received message: 
+AppID: 105600, GameName: Terraria, PositiveReviews: 82227
+AppID: 252950, GameName: Rocket League®, PositiveReviews: 51084
+AppID: 391540, GameName: Undertale, PositiveReviews: 49812
+AppID: 220200, GameName: Kerbal Space Program, PositiveReviews: 25361
+AppID: 212680, GameName: FTL: Faster Than Light, PositiveReviews: 25103
+
+
+2024/10/16 01:01:28 Results for query 4:
+2024/10/16 01:01:28 Received message: 
+AppID: 219150, GameName: Hotline Miami, PositiveReviews: 17996
+AppID: 236390, GameName: War Thunder, PositiveReviews: 5804
+AppID: 205100, GameName: Dishonored, PositiveReviews: 17875
+AppID: 107100, GameName: Bastion, PositiveReviews: 14308
+AppID: 113400, GameName: APB Reloaded, PositiveReviews: 7350
+AppID: 440, GameName: Team Fortress 2, PositiveReviews: 10607
+AppID: 333930, GameName: Dirty Bomb®, PositiveReviews: 13708
+AppID: 214490, GameName: Alien: Isolation, PositiveReviews: 9274
+AppID: 323470, GameName: DRAGON BALL XENOVERSE, PositiveReviews: 5541
+AppID: 322170, GameName: Geometry Dash, PositiveReviews: 12517
+AppID: 1250, GameName: Killing Floor, PositiveReviews: 20857
+AppID: 381210, GameName: Dead by Daylight, PositiveReviews: 11905
+AppID: 252950, GameName: Rocket League®, PositiveReviews: 50218
+AppID: 113200, GameName: The Binding of Isaac, PositiveReviews: 19330
+AppID: 35450, GameName: Red Orchestra 2: Heroes of Stalingrad with Rising Storm, PositiveReviews: 9023
+AppID: 219640, GameName: Chivalry: Medieval Warfare, PositiveReviews: 17137
+AppID: 224260, GameName: No More Room in Hell, PositiveReviews: 14273
+AppID: 239140, GameName: Dying Light, PositiveReviews: 13232
+AppID: 104900, GameName: ORION: Prelude, PositiveReviews: 8508
+AppID: 322500, GameName: SUPERHOT, PositiveReviews: 5041
+AppID: 204360, GameName: Castle Crashers®, PositiveReviews: 14066
+AppID: 620, GameName: Portal 2, PositiveReviews: 37736
+AppID: 220, GameName: Half-Life 2, PositiveReviews: 6374
+AppID: 227940, GameName: Heroes & Generals, PositiveReviews: 15210
+AppID: 223470, GameName: POSTAL 2, PositiveReviews: 9796
+AppID: 24960, GameName: Battlefield: Bad Company™ 2, PositiveReviews: 5401
+AppID: 42910, GameName: Magicka, PositiveReviews: 7196
+AppID: 233720, GameName: Surgeon Simulator, PositiveReviews: 6027
+AppID: 250320, GameName: The Wolf Among Us, PositiveReviews: 10213
+AppID: 17410, GameName: Mirror's Edge™, PositiveReviews: 6702
+AppID: 33930, GameName: Arma 2: Operation Arrowhead, PositiveReviews: 6740
+AppID: 238320, GameName: Outlast, PositiveReviews: 10934
+AppID: 65800, GameName: Dungeon Defenders, PositiveReviews: 5686
+AppID: 7670, GameName: BioShock™, PositiveReviews: 8526
+AppID: 550, GameName: Left 4 Dead 2, PositiveReviews: 46150
+AppID: 219990, GameName: Grim Dawn, PositiveReviews: 6815
+AppID: 240, GameName: Counter-Strike: Source, PositiveReviews: 16047
+AppID: 359320, GameName: Elite Dangerous, PositiveReviews: 8362
+AppID: 200710, GameName: Torchlight II, PositiveReviews: 11831
+AppID: 208650, GameName: Batman™: Arkham Knight, PositiveReviews: 9621
+AppID: 242860, GameName: Verdun, PositiveReviews: 9951
+AppID: 291480, GameName: Warface, PositiveReviews: 7476
+AppID: 241540, GameName: State of Decay, PositiveReviews: 7322
+AppID: 22380, GameName: Fallout: New Vegas, PositiveReviews: 31227
+AppID: 400, GameName: Portal, PositiveReviews: 15711
+AppID: 304050, GameName: Trove, PositiveReviews: 14102
+AppID: 630, GameName: Alien Swarm, PositiveReviews: 5950
+AppID: 223710, GameName: Cry of Fear, PositiveReviews: 6914
+AppID: 374320, GameName: DARK SOULS™ III, PositiveReviews: 14161
+AppID: 273350, GameName: Evolve Stage 2, PositiveReviews: 9868
+AppID: 274940, GameName: Depth, PositiveReviews: 5026
+AppID: 236090, GameName: Dust: An Elysian Tail, PositiveReviews: 5748
+AppID: 264200, GameName: One Finger Death Punch, PositiveReviews: 7568
+AppID: 245170, GameName: Skullgirls 2nd Encore, PositiveReviews: 6043
+AppID: 248570, GameName: Toribash, PositiveReviews: 5277
+AppID: 218230, GameName: PlanetSide 2, PositiveReviews: 17338
+AppID: 364360, GameName: Total War: WARHAMMER, PositiveReviews: 10373
+AppID: 10180, GameName: Call of Duty®: Modern Warfare® 2 (2009), PositiveReviews: 6677
+AppID: 287700, GameName: METAL GEAR SOLID V: THE PHANTOM PAIN, PositiveReviews: 13200
+AppID: 207140, GameName: SpeedRunners, PositiveReviews: 5818
+AppID: 379720, GameName: DOOM, PositiveReviews: 18765
+AppID: 20900, GameName: The Witcher: Enhanced Edition Director's Cut, PositiveReviews: 5631
+AppID: 204100, GameName: Max Payne 3, PositiveReviews: 5965
+AppID: 233130, GameName: Shadow Warrior, PositiveReviews: 6182
+AppID: 234140, GameName: Mad Max, PositiveReviews: 9922
+AppID: 391220, GameName: Rise of the Tomb Raider™, PositiveReviews: 6039
+AppID: 237930, GameName: Transistor, PositiveReviews: 9864
+AppID: 8190, GameName: Just Cause 2, PositiveReviews: 13326
+AppID: 218620, GameName: PAYDAY 2, PositiveReviews: 60731
+AppID: 8870, GameName: BioShock Infinite, PositiveReviews: 28981
+AppID: 203160, GameName: Tomb Raider, PositiveReviews: 22081
+AppID: 261640, GameName: Borderlands: The Pre-Sequel, PositiveReviews: 6536
+AppID: 222880, GameName: Insurgency, PositiveReviews: 24118
+AppID: 49520, GameName: Borderlands 2, PositiveReviews: 19233
+AppID: 70, GameName: Half-Life, PositiveReviews: 7548
+AppID: 298630, GameName: The Escapists, PositiveReviews: 6246
+AppID: 202970, GameName: Call of Duty®: Black Ops II, PositiveReviews: 6483
+AppID: 12210, GameName: Grand Theft Auto IV: The Complete Edition, PositiveReviews: 8223
+AppID: 265630, GameName: Fistful of Frags, PositiveReviews: 9408
+AppID: 235540, GameName: Warhammer: End Times - Vermintide, PositiveReviews: 5677
+AppID: 200210, GameName: Realm of the Mad God Exalt, PositiveReviews: 10036
+AppID: 105600, GameName: Terraria, PositiveReviews: 81255
+AppID: 232090, GameName: Killing Floor 2, PositiveReviews: 12524
+AppID: 230410, GameName: Warframe, PositiveReviews: 43154
+AppID: 306130, GameName: The Elder Scrolls® Online, PositiveReviews: 6587
+AppID: 24240, GameName: PAYDAY™ The Heist, PositiveReviews: 9505
+AppID: 209870, GameName: Blacklight: Retribution, PositiveReviews: 6228
+AppID: 204300, GameName: Awesomenauts - the 2D moba, PositiveReviews: 7949
+AppID: 209000, GameName: Batman™: Arkham Origins, PositiveReviews: 6273
+AppID: 209080, GameName: Guns of Icarus Online, PositiveReviews: 7810
+AppID: 275850, GameName: No Man's Sky, PositiveReviews: 16156
+AppID: 107410, GameName: Arma 3, PositiveReviews: 28213
+AppID: 250900, GameName: The Binding of Isaac: Rebirth, PositiveReviews: 22487
+AppID: 8980, GameName: Borderlands Game of the Year, PositiveReviews: 8520
+AppID: 271590, GameName: Grand Theft Auto V, PositiveReviews: 30635
+AppID: 244850, GameName: Space Engineers, PositiveReviews: 5080
+AppID: 311210, GameName: Call of Duty®: Black Ops III, PositiveReviews: 13810
+AppID: 48700, GameName: Mount & Blade: Warband, PositiveReviews: 25460
+AppID: 50300, GameName: Spec Ops: The Line, PositiveReviews: 10965
+AppID: 201810, GameName: Wolfenstein: The New Order, PositiveReviews: 10453
+AppID: 211420, GameName: DARK SOULS™: Prepare To Die™ Edition, PositiveReviews: 25892
+AppID: 221640, GameName: Super Hexagon, PositiveReviews: 10637
+AppID: 211820, GameName: Starbound, PositiveReviews: 24005
+AppID: 35140, GameName: Batman: Arkham Asylum Game of the Year Edition, PositiveReviews: 6491
+AppID: 12120, GameName: Grand Theft Auto: San Andreas, PositiveReviews: 5112
+AppID: 225080, GameName: Brothers - A Tale of Two Sons, PositiveReviews: 12992
+AppID: 238960, GameName: Path of Exile, PositiveReviews: 19807
+AppID: 242680, GameName: Nuclear Throne, PositiveReviews: 5231
+AppID: 10, GameName: Counter-Strike, PositiveReviews: 10798
+AppID: 203140, GameName: Hitman: Absolution™, PositiveReviews: 5858
+AppID: 10090, GameName: Call of Duty: World at War, PositiveReviews: 8679
+AppID: 241600, GameName: Rogue Legacy, PositiveReviews: 7920
+AppID: 220240, GameName: Far Cry 3, PositiveReviews: 13126
+AppID: 359550, GameName: Tom Clancy's Rainbow Six® Siege, PositiveReviews: 13410
+AppID: 57300, GameName: Amnesia: The Dark Descent, PositiveReviews: 8808
+AppID: 259080, GameName: Just Cause 2: Multiplayer Mod, PositiveReviews: 5044
+AppID: 206420, GameName: Saints Row IV, PositiveReviews: 15111
+AppID: 108710, GameName: Alan Wake, PositiveReviews: 5471
+AppID: 206190, GameName: Gunpoint, PositiveReviews: 6600
+AppID: 365590, GameName: Tom Clancy’s The Division™, PositiveReviews: 8609
+AppID: 238460, GameName: BattleBlock Theater®, PositiveReviews: 14773
+AppID: 335300, GameName: DARK SOULS™ II: Scholar of the First Sin, PositiveReviews: 5561
+AppID: 48000, GameName: LIMBO, PositiveReviews: 7362
+AppID: 570, GameName: Dota 2, PositiveReviews: 59520
+
+
+2024/10/16 01:01:28 Results for query 5:
+2024/10/16 01:01:28 Received message: 
+AppID: 420, GameName: Half-Life 2: Episode Two, NegativeReviews: 178
+AppID: 238870, GameName: Citadels, NegativeReviews: 178
+AppID: 39500, GameName: Gothic® 3, NegativeReviews: 178
+AppID: 405500, GameName: Dangerous Golf, NegativeReviews: 179
+AppID: 258890, GameName: Type:Rider, NegativeReviews: 177
+AppID: 17710, GameName: Nuclear Dawn, NegativeReviews: 181
+AppID: 244870, GameName: Electronic Super Joy, NegativeReviews: 181
+AppID: 383150, GameName: Dead Island Definitive Edition, NegativeReviews: 184
+AppID: 519140, GameName: Minds Eyes, NegativeReviews: 178
+AppID: 293220, GameName: H-Hour: World's Elite, NegativeReviews: 179
+AppID: 311560, GameName: Assassin’s Creed® Rogue, NegativeReviews: 184
+AppID: 346370, GameName: Into The War, NegativeReviews: 185
+AppID: 342480, GameName: Gunscape, NegativeReviews: 186
+AppID: 351290, GameName: SURVIVAL: Postapocalypse Now, NegativeReviews: 186
+AppID: 42120, GameName: Lead and Gold: Gangs of the Wild West, NegativeReviews: 189
+AppID: 15120, GameName: Tom Clancy's Rainbow Six® Vegas 2, NegativeReviews: 190
+AppID: 460920, GameName: Steep™, NegativeReviews: 192
+AppID: 385770, GameName: Time Clickers, NegativeReviews: 193
+AppID: 205230, GameName: Hell Yeah! Wrath of the Dead Rabbit, NegativeReviews: 193
+AppID: 352400, GameName: LEGO® Jurassic World, NegativeReviews: 193
+AppID: 364420, GameName: Roguelands, NegativeReviews: 193
+AppID: 263760, GameName: Turbo Dismount™, NegativeReviews: 194
+AppID: 247910, GameName: Sniper Elite: Nazi Zombie Army 2, NegativeReviews: 195
+AppID: 312530, GameName: Duck Game, NegativeReviews: 195
+AppID: 60, GameName: Ricochet, NegativeReviews: 197
+AppID: 270090, GameName: //N.P.P.D. RUSH//- The milk of Ultraviolet, NegativeReviews: 197
+AppID: 237740, GameName: Angry Video Game Nerd Adventures, NegativeReviews: 197
+AppID: 248710, GameName: Iesabel, NegativeReviews: 198
+AppID: 266510, GameName: Hand of Fate, NegativeReviews: 199
+AppID: 207150, GameName: Stellar Impact, NegativeReviews: 199
+AppID: 228380, GameName: Wreckfest, NegativeReviews: 200
+AppID: 234490, GameName: Rush Bros., NegativeReviews: 201
+AppID: 329490, GameName: Phantom Breaker: Battle Grounds, NegativeReviews: 180
+AppID: 46540, GameName: Trapped Dead, NegativeReviews: 201
+AppID: 330350, GameName: Robotex, NegativeReviews: 180
+AppID: 317410, GameName: Color Symphony, NegativeReviews: 181
+AppID: 32380, GameName: STAR WARS™ Jedi Knight: Dark Forces II, NegativeReviews: 202
+AppID: 233150, GameName: LUFTRAUSERS, NegativeReviews: 183
+AppID: 399120, GameName: Prospekt, NegativeReviews: 205
+AppID: 17570, GameName: Pirates, Vikings, and Knights II, NegativeReviews: 183
+AppID: 242680, GameName: Nuclear Throne, NegativeReviews: 205
+AppID: 227100, GameName: Sniper Elite: Nazi Zombie Army, NegativeReviews: 207
+AppID: 8170, GameName: Battlestations Pacific, NegativeReviews: 183
+AppID: 331440, GameName: bit Dungeon II, NegativeReviews: 184
+AppID: 251570, GameName: 7 Days to Die, NegativeReviews: 207
+AppID: 387990, GameName: Scrap Mechanic, NegativeReviews: 186
+AppID: 265750, GameName: Secret Ponchos, NegativeReviews: 211
+AppID: 286100, GameName: You Have to Win the Game, NegativeReviews: 188
+AppID: 209540, GameName: Strike Suit Zero, NegativeReviews: 213
+AppID: 214770, GameName: Guacamelee! Gold Edition, NegativeReviews: 189
+AppID: 282140, GameName: SOMA, NegativeReviews: 213
+AppID: 285580, GameName: ACE - Arena: Cyber Evolution, NegativeReviews: 217
+AppID: 217100, GameName: Dementium II HD, NegativeReviews: 217
+AppID: 238280, GameName: Legend of Dungeon, NegativeReviews: 220
+AppID: 353130, GameName: Time of Dragons, NegativeReviews: 224
+AppID: 16450, GameName: F.E.A.R. 2: Project Origin, NegativeReviews: 225
+AppID: 302670, GameName: Call to Arms, NegativeReviews: 226
+AppID: 401190, GameName: Dinosaur Hunt, NegativeReviews: 228
+AppID: 18700, GameName: And Yet It Moves, NegativeReviews: 228
+AppID: 20510, GameName: S.T.A.L.K.E.R.: Clear Sky, NegativeReviews: 229
+AppID: 243120, GameName: Betrayer, NegativeReviews: 229
+AppID: 331600, GameName: One Piece Pirate Warriors 3, NegativeReviews: 231
+AppID: 236110, GameName: Dungeon Defenders II, NegativeReviews: 233
+AppID: 264240, GameName: CONSORTIUM, NegativeReviews: 192
+AppID: 209670, GameName: Cortex Command, NegativeReviews: 237
+AppID: 233980, GameName: UnEpic, NegativeReviews: 194
+AppID: 289690, GameName: LARA CROFT AND THE TEMPLE OF OSIRIS™, NegativeReviews: 237
+AppID: 232750, GameName: Mars: War Logs, NegativeReviews: 238
+AppID: 338180, GameName: Batla, NegativeReviews: 196
+AppID: 304240, GameName: Resident Evil, NegativeReviews: 239
+AppID: 252030, GameName: Valdis Story: Abyssal City, NegativeReviews: 197
+AppID: 364690, GameName: SUPER DISTRO, NegativeReviews: 241
+AppID: 268870, GameName: Satellite Reign, NegativeReviews: 201
+AppID: 340460, GameName: Spartans Vs Zombies Defense, NegativeReviews: 242
+AppID: 17430, GameName: Need for Speed Undercover, NegativeReviews: 242
+AppID: 41100, GameName: Hammerfight, NegativeReviews: 243
+AppID: 257050, GameName: Darkout, NegativeReviews: 244
+AppID: 304430, GameName: INSIDE, NegativeReviews: 244
+AppID: 20, GameName: Team Fortress Classic, NegativeReviews: 248
+AppID: 8080, GameName: Kane and Lynch: Dead Men™, NegativeReviews: 259
+AppID: 355180, GameName: Codename CURE, NegativeReviews: 259
+AppID: 287100, GameName: Chaos Domain, NegativeReviews: 202
+AppID: 206480, GameName: Dungeons & Dragons Online®, NegativeReviews: 260
+AppID: 253650, GameName: Sparkle 2 Evo, NegativeReviews: 261
+AppID: 55150, GameName: Warhammer 40,000: Space Marine - Anniversary Edition, NegativeReviews: 264
+AppID: 70, GameName: Half-Life, NegativeReviews: 266
+AppID: 243950, GameName: Divinity: Dragon Commander, NegativeReviews: 205
+AppID: 346120, GameName: Boring Man - Online Tactical Stickman Combat, NegativeReviews: 267
+AppID: 386880, GameName: Rake, NegativeReviews: 272
+AppID: 250320, GameName: The Wolf Among Us, NegativeReviews: 272
+AppID: 201870, GameName: Assassin's Creed® Revelations, NegativeReviews: 272
+AppID: 316430, GameName: Battle of Empires : 1914-1918, NegativeReviews: 274
+AppID: 317360, GameName: Double Action: Boogaloo, NegativeReviews: 284
+AppID: 222480, GameName: Resident Evil Revelations, NegativeReviews: 284
+AppID: 257850, GameName: Hyper Light Drifter, NegativeReviews: 285
+AppID: 203750, GameName: Binary Domain, NegativeReviews: 288
+AppID: 500, GameName: Left 4 Dead, NegativeReviews: 289
+AppID: 63710, GameName: BIT.TRIP RUNNER, NegativeReviews: 290
+AppID: 35140, GameName: Batman: Arkham Asylum Game of the Year Edition, NegativeReviews: 290
+AppID: 338390, GameName: The Technomancer, NegativeReviews: 206
+AppID: 245280, GameName: ENSLAVED™: Odyssey to the West™ Premium Edition, NegativeReviews: 291
+AppID: 208730, GameName: Game of Thrones, NegativeReviews: 298
+AppID: 300, GameName: Day of Defeat: Source, NegativeReviews: 301
+AppID: 275610, GameName: Warhammer 40,000: Kill Team, NegativeReviews: 208
+AppID: 209100, GameName: Resident Evil: Operation Raccoon City, NegativeReviews: 301
+AppID: 287390, GameName: Metro: Last Light Redux, NegativeReviews: 302
+AppID: 630, GameName: Alien Swarm, NegativeReviews: 303
+AppID: 263620, GameName: Mitsurugi Kamui Hikae, NegativeReviews: 209
+AppID: 293180, GameName: Overcast - Walden and the Werewolf, NegativeReviews: 307
+AppID: 20500, GameName: Red Faction Guerrilla Steam Edition, NegativeReviews: 307
+AppID: 388090, GameName: Five Nights at Freddy's 4, NegativeReviews: 309
+AppID: 225260, GameName: Brutal Legend, NegativeReviews: 309
+AppID: 437220, GameName: The Culling, NegativeReviews: 212
+AppID: 493340, GameName: Planet Coaster, NegativeReviews: 311
+AppID: 433850, GameName: Z1 Battle Royale, NegativeReviews: 313
+AppID: 297020, GameName: The Culling Of The Cows, NegativeReviews: 313
+AppID: 209120, GameName: Street Fighter X Tekken, NegativeReviews: 212
+AppID: 537180, GameName: Digimon Masters Online, NegativeReviews: 313
+AppID: 113020, GameName: Monaco: What's Yours Is Mine, NegativeReviews: 314
+AppID: 291010, GameName: The Hat Man: Shadow Ward, NegativeReviews: 314
+AppID: 233130, GameName: Shadow Warrior, NegativeReviews: 318
+AppID: 449800, GameName: Attack on Titan / A.O.T. Wings of Freedom, NegativeReviews: 213
+AppID: 238460, GameName: BattleBlock Theater®, NegativeReviews: 320
+AppID: 234670, GameName: NARUTO SHIPPUDEN: Ultimate Ninja STORM 3 Full Burst HD, NegativeReviews: 323
+AppID: 249990, GameName: FORCED: Slightly Better Edition, NegativeReviews: 325
+AppID: 513000, GameName: KUBOOM, NegativeReviews: 326
+AppID: 339230, GameName: ZOMBI, NegativeReviews: 215
+AppID: 239070, GameName: Hammerwatch, NegativeReviews: 326
+AppID: 235340, GameName: Prime World, NegativeReviews: 327
+AppID: 221640, GameName: Super Hexagon, NegativeReviews: 327
+AppID: 264730, GameName: Deadly 30, NegativeReviews: 215
+AppID: 16720, GameName: Velvet Assassin, NegativeReviews: 328
+AppID: 290300, GameName: Rebel Galaxy, NegativeReviews: 330
+AppID: 302830, GameName: BLOCKADE 3D, NegativeReviews: 334
+AppID: 360170, GameName: How to Survive 2, NegativeReviews: 336
+AppID: 219830, GameName: King Arthur's Gold, NegativeReviews: 337
+AppID: 444200, GameName: World of Tanks Blitz, NegativeReviews: 216
+AppID: 307690, GameName: Sleeping Dogs: Definitive Edition, NegativeReviews: 338
+AppID: 107100, GameName: Bastion, NegativeReviews: 338
+AppID: 220860, GameName: McPixel, NegativeReviews: 341
+AppID: 412880, GameName: Drift Streets Japan, NegativeReviews: 341
+AppID: 241720, GameName: Guncraft, NegativeReviews: 342
+AppID: 11390, GameName: Crash Time 2, NegativeReviews: 344
+AppID: 236090, GameName: Dust: An Elysian Tail, NegativeReviews: 346
+AppID: 245170, GameName: Skullgirls 2nd Encore, NegativeReviews: 348
+AppID: 329430, GameName: State of Decay: YOSE, NegativeReviews: 348
+AppID: 34010, GameName: Alpha Protocol™, NegativeReviews: 352
+AppID: 227480, GameName: God Mode, NegativeReviews: 354
+AppID: 45740, GameName: Dead Rising® 2, NegativeReviews: 362
+AppID: 278080, GameName: DYNASTY WARRIORS 8: Xtreme Legends Complete Edition, NegativeReviews: 364
+AppID: 67370, GameName: The Darkness II, NegativeReviews: 364
+AppID: 6550, GameName: Devil May Cry® 3 Special Edition, NegativeReviews: 374
+AppID: 10220, GameName: Postal III, NegativeReviews: 376
+AppID: 211160, GameName: Viking: Battle for Asgard, NegativeReviews: 376
+AppID: 277430, GameName: Halo: Spartan Assault, NegativeReviews: 376
+AppID: 15100, GameName: Assassin's Creed™: Director's Cut Edition, NegativeReviews: 378
+AppID: 262150, GameName: Vanguard Princess, NegativeReviews: 379
+AppID: 2400, GameName: The Ship: Murder Party, NegativeReviews: 386
+AppID: 10, GameName: Counter-Strike, NegativeReviews: 388
+AppID: 234190, GameName: Receiver, NegativeReviews: 391
+AppID: 315430, GameName: Polarity, NegativeReviews: 398
+AppID: 256190, GameName: Enemy Front, NegativeReviews: 402
+AppID: 225360, GameName: DARK, NegativeReviews: 216
+AppID: 275490, GameName: Canyon Capers, NegativeReviews: 404
+AppID: 212800, GameName: Super Crate Box, NegativeReviews: 406
+AppID: 246580, GameName: The Typing of The Dead: Overkill, NegativeReviews: 216
+AppID: 255070, GameName: Abyss Odyssey, NegativeReviews: 411
+AppID: 294860, GameName: Valkyria Chronicles™, NegativeReviews: 415
+AppID: 243930, GameName: Bound By Flame, NegativeReviews: 416
+AppID: 215280, GameName: Secret World Legends, NegativeReviews: 417
+AppID: 409510, GameName: Genesis Online, NegativeReviews: 420
+AppID: 234080, GameName: Castlevania: Lords of Shadow – Ultimate Edition, NegativeReviews: 428
+AppID: 311690, GameName: Enter the Gungeon, NegativeReviews: 430
+AppID: 320, GameName: Half-Life 2: Deathmatch, NegativeReviews: 216
+AppID: 238370, GameName: Magicka 2, NegativeReviews: 434
+AppID: 10680, GameName: Aliens vs. Predator™, NegativeReviews: 448
+AppID: 390340, GameName: Umbrella Corps, NegativeReviews: 217
+AppID: 219990, GameName: Grim Dawn, NegativeReviews: 452
+AppID: 201570, GameName: Really Big Sky, NegativeReviews: 218
+AppID: 34830, GameName: Sniper: Ghost Warrior, NegativeReviews: 456
+AppID: 387970, GameName: Clown House (Palyaço Evi), NegativeReviews: 219
+AppID: 55110, GameName: Red Faction®: Armageddon™, NegativeReviews: 461
+AppID: 28000, GameName: Kane & Lynch 2: Dog Days, NegativeReviews: 475
+AppID: 80, GameName: Counter-Strike: Condition Zero, NegativeReviews: 221
+AppID: 620, GameName: Portal 2, NegativeReviews: 476
+AppID: 71340, GameName: Sonic Generations Collection, NegativeReviews: 221
+AppID: 223470, GameName: POSTAL 2, NegativeReviews: 479
+AppID: 270150, GameName: RUNNING WITH RIFLES, NegativeReviews: 221
+AppID: 238010, GameName: Deus Ex: Human Revolution - Director's Cut, NegativeReviews: 479
+AppID: 319910, GameName: Trine 3: The Artifacts of Power, NegativeReviews: 484
+AppID: 454650, GameName: DRAGON BALL XENOVERSE 2, NegativeReviews: 494
+AppID: 6920, GameName: Deus Ex: Invisible War, NegativeReviews: 222
+AppID: 91700, GameName: E.Y.E: Divine Cybermancy, NegativeReviews: 496
+AppID: 261760, GameName: Lichdom: Battlemage, NegativeReviews: 498
+AppID: 250900, GameName: The Binding of Isaac: Rebirth, NegativeReviews: 498
+AppID: 237930, GameName: Transistor, NegativeReviews: 505
+AppID: 290770, GameName: The Fall, NegativeReviews: 224
+AppID: 317470, GameName: Cubic Castles, NegativeReviews: 508
+AppID: 386070, GameName: Planetary Annihilation: TITANS, NegativeReviews: 510
+AppID: 236150, GameName: Starpoint Gemini 2, NegativeReviews: 513
+AppID: 342200, GameName: MechWarrior Online™ Solaris 7, NegativeReviews: 514
+AppID: 111900, GameName: Guardians of Middle-earth, NegativeReviews: 514
+AppID: 13520, GameName: Far Cry®, NegativeReviews: 226
+AppID: 270550, GameName: Yet Another Zombie Defense, NegativeReviews: 516
+AppID: 286940, GameName: S.K.I.L.L. - Special Force 2 (Shooter), NegativeReviews: 522
+AppID: 12200, GameName: Bully: Scholarship Edition, NegativeReviews: 523
+AppID: 241600, GameName: Rogue Legacy, NegativeReviews: 550
+AppID: 7670, GameName: BioShock™, NegativeReviews: 553
+AppID: 248570, GameName: Toribash, NegativeReviews: 554
+AppID: 286690, GameName: Metro 2033 Redux, NegativeReviews: 558
+AppID: 389430, GameName: Knight Online, NegativeReviews: 563
+AppID: 48000, GameName: LIMBO, NegativeReviews: 566
+AppID: 42910, GameName: Magicka, NegativeReviews: 576
+AppID: 252330, GameName: Slender: The Arrival, NegativeReviews: 227
+AppID: 65800, GameName: Dungeon Defenders, NegativeReviews: 578
+AppID: 47790, GameName: Medal of Honor™, NegativeReviews: 581
+AppID: 302270, GameName: Dungeon Defenders Eternity, NegativeReviews: 581
+AppID: 214870, GameName: Painkiller Hell & Damnation, NegativeReviews: 227
+AppID: 349040, GameName: NARUTO SHIPPUDEN: Ultimate Ninja STORM 4, NegativeReviews: 583
+AppID: 237630, GameName: DuckTales: Remastered, NegativeReviews: 228
+AppID: 391220, GameName: Rise of the Tomb Raider™, NegativeReviews: 596
+AppID: 341940, GameName: Hatred, NegativeReviews: 598
+AppID: 252350, GameName: Double Dragon: Neon, NegativeReviews: 229
+AppID: 50130, GameName: Mafia II (Classic), NegativeReviews: 602
+AppID: 444090, GameName: Paladins®, NegativeReviews: 229
+AppID: 45760, GameName: Ultra Street Fighter® IV, NegativeReviews: 603
+AppID: 278970, GameName: Digger Online, NegativeReviews: 615
+AppID: 12110, GameName: Grand Theft Auto: Vice City, NegativeReviews: 230
+AppID: 298630, GameName: The Escapists, NegativeReviews: 615
+AppID: 260210, GameName: Assassin’s Creed® Liberation HD, NegativeReviews: 232
+AppID: 8500, GameName: EVE Online, NegativeReviews: 620
+AppID: 204450, GameName: Call of Juarez: Gunslinger, NegativeReviews: 233
+AppID: 220160, GameName: Trials Evolution: Gold Edition, NegativeReviews: 234
+AppID: 412400, GameName: GASP, NegativeReviews: 622
+AppID: 356310, GameName: METAL SLUG DEFENSE, NegativeReviews: 236
+AppID: 327890, GameName: I Am Bread, NegativeReviews: 640
+AppID: 12830, GameName: Operation Flashpoint: Dragon Rising, NegativeReviews: 240
+AppID: 225080, GameName: Brothers - A Tale of Two Sons, NegativeReviews: 642
+AppID: 287290, GameName: Resident Evil Revelations 2, NegativeReviews: 643
+AppID: 65740, GameName: Carrier Command: Gaea Mission, NegativeReviews: 242
+AppID: 204880, GameName: Sins of a Solar Empire®: Rebellion, NegativeReviews: 246
+AppID: 115320, GameName: Prototype 2, NegativeReviews: 646
+AppID: 108710, GameName: Alan Wake, NegativeReviews: 651
+AppID: 301640, GameName: Zombie Army Trilogy, NegativeReviews: 247
+AppID: 311730, GameName: DEAD OR ALIVE 5 Last Round: Core Fighters, NegativeReviews: 668
+AppID: 214360, GameName: Tower Wars, NegativeReviews: 248
+AppID: 247950, GameName: Sacred 3, NegativeReviews: 699
+AppID: 301520, GameName: Robocraft, NegativeReviews: 712
+AppID: 98400, GameName: Hard Reset Extended Edition, NegativeReviews: 249
+AppID: 418340, GameName: RWBY: Grimm Eclipse, NegativeReviews: 717
+AppID: 253330, GameName: Neverending Nightmares, NegativeReviews: 249
+AppID: 427270, GameName: Orcs Must Die! Unchained, NegativeReviews: 719
+AppID: 274940, GameName: Depth, NegativeReviews: 724
+AppID: 326410, GameName: Windward, NegativeReviews: 249
+AppID: 322920, GameName: theHunter: Primal, NegativeReviews: 726
+AppID: 293540, GameName: Guns and Robots, NegativeReviews: 251
+AppID: 302510, GameName: Ryse: Son of Rome, NegativeReviews: 744
+AppID: 250180, GameName: METAL SLUG 3, NegativeReviews: 251
+AppID: 253430, GameName: CastleMiner Z, NegativeReviews: 745
+AppID: 244450, GameName: Men of War: Assault Squad 2, NegativeReviews: 754
+AppID: 263500, GameName: Dragons and Titans, NegativeReviews: 252
+AppID: 265630, GameName: Fistful of Frags, NegativeReviews: 774
+AppID: 50300, GameName: Spec Ops: The Line, NegativeReviews: 792
+AppID: 214490, GameName: Alien: Isolation, NegativeReviews: 804
+AppID: 235600, GameName: Tom Clancy’s Splinter Cell Blacklist, NegativeReviews: 817
+AppID: 298110, GameName: Far Cry® 4, NegativeReviews: 818
+AppID: 238240, GameName: Edge of Space, NegativeReviews: 822
+AppID: 207230, GameName: ArcheBlade™, NegativeReviews: 845
+AppID: 203290, GameName: America's Army: Proving Grounds, NegativeReviews: 858
+AppID: 220440, GameName: DmC: Devil May Cry, NegativeReviews: 254
+AppID: 350080, GameName: Wolfenstein: The Old Blood, NegativeReviews: 256
+AppID: 354200, GameName: Aberoth, NegativeReviews: 259
+AppID: 322500, GameName: SUPERHOT, NegativeReviews: 867
+AppID: 394510, GameName: HELLDIVERS™ Dive Harder Edition, NegativeReviews: 262
+AppID: 265770, GameName: Cannons Lasers Rockets, NegativeReviews: 264
+AppID: 228400, GameName: Ace Combat Assault Horizon - Enhanced Edition, NegativeReviews: 879
+AppID: 8190, GameName: Just Cause 2, NegativeReviews: 892
+AppID: 17410, GameName: Mirror's Edge™, NegativeReviews: 896
+AppID: 427730, GameName: Who's Your Daddy?!, NegativeReviews: 1047
+AppID: 57900, GameName: Duke Nukem Forever, NegativeReviews: 1056
+AppID: 17460, GameName: Mass Effect (2007), NegativeReviews: 264
+AppID: 366440, GameName: Savage Resurrection, NegativeReviews: 268
+AppID: 10150, GameName: Prototype™, NegativeReviews: 268
+AppID: 42680, GameName: Call of Duty®: Modern Warfare® 3, NegativeReviews: 1060
+AppID: 203140, GameName: Hitman: Absolution™, NegativeReviews: 1063
+AppID: 239200, GameName: Amnesia: A Machine for Pigs, NegativeReviews: 1070
+AppID: 335300, GameName: DARK SOULS™ II: Scholar of the First Sin, NegativeReviews: 1076
+AppID: 300040, GameName: Divine Souls F2P MMO, NegativeReviews: 270
+AppID: 6880, GameName: Just Cause, NegativeReviews: 271
+AppID: 274230, GameName: RONIN, NegativeReviews: 276
+AppID: 12120, GameName: Grand Theft Auto: San Andreas, NegativeReviews: 1082
+AppID: 10180, GameName: Call of Duty®: Modern Warfare® 2 (2009), NegativeReviews: 1083
+AppID: 242640, GameName: Styx: Master of Shadows, NegativeReviews: 278
+AppID: 249130, GameName: LEGO® Marvel™ Super Heroes, NegativeReviews: 279
+AppID: 286040, GameName: Dead Effect, NegativeReviews: 279
+AppID: 65930, GameName: The Bureau: XCOM Declassified, NegativeReviews: 1117
+AppID: 234140, GameName: Mad Max, NegativeReviews: 1125
+AppID: 416130, GameName: Written in the Sky, NegativeReviews: 281
+AppID: 265550, GameName: Dead Rising 3 Apocalypse Edition, NegativeReviews: 1192
+AppID: 360430, GameName: Mafia III: Definitive Edition, NegativeReviews: 1206
+AppID: 272470, GameName: The Incredible Adventures of Van Helsing II, NegativeReviews: 285
+AppID: 201810, GameName: Wolfenstein: The New Order, NegativeReviews: 1230
+AppID: 2590, GameName: Alpha Prime, NegativeReviews: 286
+AppID: 299360, GameName: Block N Load, NegativeReviews: 1263
+AppID: 388410, GameName: Darksiders II Deathinitive Edition, NegativeReviews: 287
+AppID: 391070, GameName: Stellar 2D, NegativeReviews: 287
+AppID: 20900, GameName: The Witcher: Enhanced Edition Director's Cut, NegativeReviews: 1274
+AppID: 29800, GameName: Caster, NegativeReviews: 287
+AppID: 211400, GameName: Deadlight, NegativeReviews: 1279
+AppID: 224480, GameName: Octodad: Dadliest Catch, NegativeReviews: 289
+AppID: 356570, GameName: Party Hard, NegativeReviews: 292
+AppID: 298240, GameName: War Trigger 3, NegativeReviews: 1325
+AppID: 285160, GameName: LEGO® The Hobbit™, NegativeReviews: 296
+AppID: 250580, GameName: Paranautical Activity: Deluxe Atonement Edition, NegativeReviews: 298
+AppID: 250420, GameName: 8BitMMO, NegativeReviews: 1364
+AppID: 433350, GameName: BlackShot: Mercenary Warfare FPS, NegativeReviews: 299
+AppID: 329110, GameName: Gems of War - Puzzle RPG, NegativeReviews: 300
+AppID: 204300, GameName: Awesomenauts - the 2D moba, NegativeReviews: 1416
+AppID: 400, GameName: Portal, NegativeReviews: 300
+AppID: 375230, GameName: Warhammer 40,000: Eternal Crusade, NegativeReviews: 1432
+AppID: 261110, GameName: Killer is Dead - Nightmare Edition, NegativeReviews: 301
+AppID: 250620, GameName: Among the Sleep - Enhanced Edition, NegativeReviews: 303
+AppID: 265300, GameName: Lords Of The Fallen™, NegativeReviews: 1438
+AppID: 7940, GameName: Call of Duty® 4: Modern Warfare®, NegativeReviews: 308
+AppID: 205950, GameName: Jet Set Radio, NegativeReviews: 312
+AppID: 22380, GameName: Fallout: New Vegas, NegativeReviews: 1438
+AppID: 346110, GameName: ARK: Survival Evolved, NegativeReviews: 317
+AppID: 202970, GameName: Call of Duty®: Black Ops II, NegativeReviews: 1451
+AppID: 267490, GameName: Batman™: Arkham Origins Blackgate - Deluxe Edition, NegativeReviews: 317
+AppID: 440, GameName: Team Fortress 2, NegativeReviews: 1483
+AppID: 338540, GameName: Navy Field 2 : Conqueror of the Ocean, NegativeReviews: 324
+AppID: 65790, GameName: ARMA: Cold War Assault, NegativeReviews: 325
+AppID: 394230, GameName: Battleborn, NegativeReviews: 1574
+AppID: 324800, GameName: Shadow Warrior 2, NegativeReviews: 326
+AppID: 48190, GameName: Assassin’s Creed® Brotherhood, NegativeReviews: 327
+AppID: 206420, GameName: Saints Row IV, NegativeReviews: 1616
+AppID: 39160, GameName: Dungeon Siege III, NegativeReviews: 328
+AppID: 224260, GameName: No More Room in Hell, NegativeReviews: 1686
+AppID: 356670, GameName: Spooky's Jump Scare Mansion, NegativeReviews: 328
+AppID: 280, GameName: Half-Life: Source, NegativeReviews: 333
+AppID: 379720, GameName: DOOM, NegativeReviews: 1753
+AppID: 204100, GameName: Max Payne 3, NegativeReviews: 1764
+AppID: 8870, GameName: BioShock Infinite, NegativeReviews: 1822
+AppID: 360940, GameName: The Mean Greens - Plastic Warfare, NegativeReviews: 342
+AppID: 306130, GameName: The Elder Scrolls® Online, NegativeReviews: 2054
+AppID: 222880, GameName: Insurgency, NegativeReviews: 2117
+AppID: 13140, GameName: America's Army 3, NegativeReviews: 343
+AppID: 355840, GameName: Survarium, NegativeReviews: 2190
+AppID: 214250, GameName: I Am Alive, NegativeReviews: 344
+AppID: 224600, GameName: Defiance, NegativeReviews: 347
+AppID: 2870, GameName: X Rebirth, NegativeReviews: 2250
+AppID: 444640, GameName: Bloons TD Battles, NegativeReviews: 355
+AppID: 403640, GameName: Dishonored 2, NegativeReviews: 2359
+AppID: 314280, GameName: The Forgotten Ones, NegativeReviews: 356
+AppID: 218820, GameName: Mercenary Kings: Reloaded Edition, NegativeReviews: 357
+AppID: 337000, GameName: Deus Ex: Mankind Divided, NegativeReviews: 2440
+AppID: 202750, GameName: Alan Wake's American Nightmare, NegativeReviews: 357
+AppID: 213610, GameName: Sonic Adventure 2, NegativeReviews: 358
+AppID: 105600, GameName: Terraria, NegativeReviews: 2475
+AppID: 253980, GameName: Enclave, NegativeReviews: 361
+AppID: 200210, GameName: Realm of the Mad God Exalt, NegativeReviews: 2580
+AppID: 48720, GameName: Mount & Blade: With Fire & Sword, NegativeReviews: 362
+AppID: 289650, GameName: Assassin's Creed® Unity, NegativeReviews: 2702
+AppID: 261530, GameName: Lifeless Planet Premier Edition, NegativeReviews: 366
+AppID: 208200, GameName: Doom 3: BFG Edition, NegativeReviews: 368
+AppID: 104900, GameName: ORION: Prelude, NegativeReviews: 3019
+AppID: 340, GameName: Half-Life 2: Lost Coast, NegativeReviews: 373
+AppID: 17300, GameName: Crysis, NegativeReviews: 388
+AppID: 252950, GameName: Rocket League®, NegativeReviews: 3104
+AppID: 226720, GameName: LOST PLANET® 3, NegativeReviews: 392
+AppID: 211420, GameName: DARK SOULS™: Prepare To Die™ Edition, NegativeReviews: 3435
+AppID: 242880, GameName: Sir, You Are Being Hunted, NegativeReviews: 396
+AppID: 217140, GameName: Rise of the Triad, NegativeReviews: 396
+AppID: 236390, GameName: War Thunder, NegativeReviews: 3566
+AppID: 212630, GameName: Tom Clancy's Ghost Recon: Future Soldier™, NegativeReviews: 396
+AppID: 291480, GameName: Warface, NegativeReviews: 4143
+AppID: 218640, GameName: Lucius, NegativeReviews: 398
+AppID: 7510, GameName: X-Blades, NegativeReviews: 402
+AppID: 359320, GameName: Elite Dangerous, NegativeReviews: 4171
+AppID: 259080, GameName: Just Cause 2: Multiplayer Mod, NegativeReviews: 402
+AppID: 215080, GameName: WAKFU, NegativeReviews: 422
+AppID: 230410, GameName: Warframe, NegativeReviews: 4471
+AppID: 92000, GameName: Hydrophobia: Prophecy, NegativeReviews: 429
+AppID: 340170, GameName: FINAL FANTASY TYPE-0™ HD, NegativeReviews: 434
+AppID: 247730, GameName: Nether: Resurrected, NegativeReviews: 5274
+AppID: 365590, GameName: Tom Clancy’s The Division™, NegativeReviews: 5598
+AppID: 247660, GameName: Deadly Premonition: The Director's Cut, NegativeReviews: 436
+AppID: 253710, GameName: theHunter Classic, NegativeReviews: 5727
+AppID: 209080, GameName: Guns of Icarus Online, NegativeReviews: 438
+AppID: 273350, GameName: Evolve Stage 2, NegativeReviews: 5842
+AppID: 246700, GameName: Strike Vector, NegativeReviews: 445
+AppID: 208650, GameName: Batman™: Arkham Knight, NegativeReviews: 7283
+AppID: 57300, GameName: Amnesia: The Dark Descent, NegativeReviews: 445
+AppID: 275850, GameName: No Man's Sky, NegativeReviews: 8512
+AppID: 8850, GameName: BioShock® 2, NegativeReviews: 449
+AppID: 17470, GameName: Dead Space, NegativeReviews: 449
+AppID: 570, GameName: Dota 2, NegativeReviews: 10610
+AppID: 215530, GameName: The Incredible Adventures of Van Helsing, NegativeReviews: 450
+AppID: 227940, GameName: Heroes & Generals, NegativeReviews: 10697
+AppID: 230840, GameName: Daylight, NegativeReviews: 452
+AppID: 339280, GameName: Strife®, NegativeReviews: 454
+AppID: 271590, GameName: Grand Theft Auto V, NegativeReviews: 11013
+AppID: 94400, GameName: Nidhogg, NegativeReviews: 456
+AppID: 238320, GameName: Outlast, NegativeReviews: 456
+AppID: 218620, GameName: PAYDAY 2, NegativeReviews: 27136
+AppID: 50620, GameName: Darksiders™, NegativeReviews: 458
+AppID: 16730, GameName: Legendary, NegativeReviews: 459
+AppID: 41070, GameName: Serious Sam 3: BFE, NegativeReviews: 463
+AppID: 297130, GameName: Titan Souls, NegativeReviews: 465
+AppID: 207140, GameName: SpeedRunners, NegativeReviews: 468
+AppID: 322170, GameName: Geometry Dash, NegativeReviews: 469
+AppID: 321360, GameName: Primal Carnage: Extinction, NegativeReviews: 473
+AppID: 210770, GameName: Sanctum 2, NegativeReviews: 474
+AppID: 268750, GameName: Magicite, NegativeReviews: 474
+AppID: 219150, GameName: Hotline Miami, NegativeReviews: 484
+AppID: 215470, GameName: Primal Carnage, NegativeReviews: 484
+AppID: 19680, GameName: Alice: Madness Returns, NegativeReviews: 497
+AppID: 240320, GameName: Panzar, NegativeReviews: 502
+AppID: 367500, GameName: Dragon's Dogma: Dark Arisen, NegativeReviews: 502
+AppID: 371660, GameName: Far Cry® Primal, NegativeReviews: 502
+AppID: 318220, GameName: Enforcer: Police Crime Action, NegativeReviews: 513
+AppID: 301910, GameName: Saints Row: Gat out of Hell, NegativeReviews: 516
+AppID: 295790, GameName: Never Alone (Kisima Ingitchuna), NegativeReviews: 517
+AppID: 55100, GameName: Homefront, NegativeReviews: 518
+AppID: 447040, GameName: Watch_Dogs® 2, NegativeReviews: 534
+AppID: 409720, GameName: BioShock™ 2 Remastered, NegativeReviews: 535
+AppID: 34870, GameName: Sniper: Ghost Warrior 2, NegativeReviews: 536
+AppID: 19900, GameName: Far Cry® 2, NegativeReviews: 536
+AppID: 248820, GameName: Risk of Rain, NegativeReviews: 539
+AppID: 368500, GameName: Assassin's Creed® Syndicate, NegativeReviews: 547
+AppID: 8980, GameName: Borderlands Game of the Year, NegativeReviews: 550
+AppID: 205100, GameName: Dishonored, NegativeReviews: 550
+AppID: 334040, GameName: Down To One, NegativeReviews: 565
+AppID: 225600, GameName: Blade Symphony, NegativeReviews: 569
+AppID: 254700, GameName: Resident Evil 4, NegativeReviews: 577
+AppID: 33930, GameName: Arma 2: Operation Arrowhead, NegativeReviews: 579
+AppID: 368990, GameName: Despair, NegativeReviews: 602
+AppID: 324810, GameName: TOXIKK™, NegativeReviews: 605
+AppID: 233290, GameName: Murdered: Soul Suspect, NegativeReviews: 619
+AppID: 32500, GameName: STAR WARS™: The Force Unleashed™ II, NegativeReviews: 621
+AppID: 212500, GameName: The Lord of the Rings Online™, NegativeReviews: 632
+AppID: 242700, GameName: Injustice: Gods Among Us Ultimate Edition, NegativeReviews: 633
+AppID: 10090, GameName: Call of Duty: World at War, NegativeReviews: 634
+AppID: 32430, GameName: STAR WARS™ - The Force Unleashed™ Ultimate Sith Edition, NegativeReviews: 647
+AppID: 204360, GameName: Castle Crashers®, NegativeReviews: 647
+AppID: 228300, GameName: Remember Me, NegativeReviews: 652
+AppID: 12220, GameName: Grand Theft Auto: Episodes from Liberty City, NegativeReviews: 656
+AppID: 200710, GameName: Torchlight II, NegativeReviews: 662
+AppID: 250340, GameName: Blockland, NegativeReviews: 671
+AppID: 233270, GameName: Far Cry 3 - Blood Dragon, NegativeReviews: 686
+AppID: 48700, GameName: Mount & Blade: Warband, NegativeReviews: 695
+AppID: 311340, GameName: METAL GEAR SOLID V: GROUND ZEROES, NegativeReviews: 700
+AppID: 22350, GameName: BRINK, NegativeReviews: 704
+AppID: 35450, GameName: Red Orchestra 2: Heroes of Stalingrad with Rising Storm, NegativeReviews: 706
+AppID: 42700, GameName: Call of Duty®: Black Ops, NegativeReviews: 709
+AppID: 24960, GameName: Battlefield: Bad Company™ 2, NegativeReviews: 719
+AppID: 227160, GameName: Kinetic Void, NegativeReviews: 726
+AppID: 206210, GameName: Gotham City Impostors Free to Play, NegativeReviews: 736
+AppID: 287920, GameName: Mortal Online, NegativeReviews: 738
+AppID: 237870, GameName: Planet Explorers, NegativeReviews: 751
+AppID: 237310, GameName: Elsword, NegativeReviews: 760
+AppID: 238430, GameName: Contagion, NegativeReviews: 768
+AppID: 24240, GameName: PAYDAY™ The Heist, NegativeReviews: 772
+AppID: 268050, GameName: The Evil Within, NegativeReviews: 773
+AppID: 339610, GameName: Freestyle 2: Street Basketball, NegativeReviews: 801
+AppID: 21100, GameName: F.E.A.R. 3, NegativeReviews: 805
+AppID: 323470, GameName: DRAGON BALL XENOVERSE, NegativeReviews: 819
+AppID: 113200, GameName: The Binding of Isaac, NegativeReviews: 820
+AppID: 70000, GameName: Dino D-Day, NegativeReviews: 825
+AppID: 17080, GameName: Tribes: Ascend, NegativeReviews: 840
+AppID: 1250, GameName: Killing Floor, NegativeReviews: 847
+AppID: 238090, GameName: Sniper Elite 3, NegativeReviews: 871
+AppID: 212070, GameName: Star Conflict, NegativeReviews: 884
+AppID: 240, GameName: Counter-Strike: Source, NegativeReviews: 894
+AppID: 33230, GameName: Assassin's Creed 2, NegativeReviews: 895
+AppID: 252490, GameName: Rust, NegativeReviews: 905
+AppID: 258970, GameName: Gauntlet™ Slayer Edition, NegativeReviews: 905
+AppID: 223100, GameName: Homefront®: The Revolution, NegativeReviews: 941
+AppID: 216150, GameName: MapleStory, NegativeReviews: 946
+AppID: 24200, GameName: DC Universe™ Online, NegativeReviews: 948
+AppID: 9480, GameName: Saints Row 2, NegativeReviews: 952
+AppID: 221040, GameName: Resident Evil 6, NegativeReviews: 954
+AppID: 9200, GameName: RAGE, NegativeReviews: 984
+AppID: 250400, GameName: How to Survive, NegativeReviews: 1001
+AppID: 258180, GameName: Deus Ex: The Fall, NegativeReviews: 1085
+AppID: 282440, GameName: Quake Live™, NegativeReviews: 1093
+AppID: 223710, GameName: Cry of Fear, NegativeReviews: 1138
+AppID: 214420, GameName: Gear Up, NegativeReviews: 1153
+AppID: 335330, GameName: Brick-Force, NegativeReviews: 1167
+AppID: 233720, GameName: Surgeon Simulator, NegativeReviews: 1271
+AppID: 298900, GameName: Space Hulk: Deathwing, NegativeReviews: 1322
+AppID: 203160, GameName: Tomb Raider, NegativeReviews: 1355
+AppID: 241560, GameName: The Crew™, NegativeReviews: 1375
+AppID: 555570, GameName: Infestation: The New Z, NegativeReviews: 1379
+AppID: 303390, GameName: Dead Bits, NegativeReviews: 1394
+AppID: 239140, GameName: Dying Light, NegativeReviews: 1397
+AppID: 269210, GameName: Hero Siege, NegativeReviews: 1406
+AppID: 235540, GameName: Warhammer: End Times - Vermintide, NegativeReviews: 1408
+AppID: 236870, GameName: HITMAN™, NegativeReviews: 1427
+AppID: 221100, GameName: DayZ, NegativeReviews: 1433
+AppID: 242860, GameName: Verdun, NegativeReviews: 1460
+AppID: 238960, GameName: Path of Exile, NegativeReviews: 1468
+AppID: 241540, GameName: State of Decay, NegativeReviews: 1542
+AppID: 209000, GameName: Batman™: Arkham Origins, NegativeReviews: 1565
+AppID: 49540, GameName: Aliens: Colonial Marines Collection, NegativeReviews: 1662
+AppID: 236510, GameName: Takedown: Red Sabre, NegativeReviews: 1723
+AppID: 49520, GameName: Borderlands 2, NegativeReviews: 1757
+AppID: 292730, GameName: Call of Duty®: Infinite Warfare, NegativeReviews: 1914
+AppID: 409710, GameName: BioShock™ Remastered, NegativeReviews: 1925
+AppID: 261640, GameName: Borderlands: The Pre-Sequel, NegativeReviews: 1961
+AppID: 239160, GameName: Thief, NegativeReviews: 1971
+AppID: 310950, GameName: Street Fighter V, NegativeReviews: 2120
+AppID: 287700, GameName: METAL GEAR SOLID V: THE PHANTOM PAIN, NegativeReviews: 2176
+AppID: 209870, GameName: Blacklight: Retribution, NegativeReviews: 2216
+AppID: 220240, GameName: Far Cry 3, NegativeReviews: 2296
+AppID: 374320, GameName: DARK SOULS™ III, NegativeReviews: 2468
+AppID: 364360, GameName: Total War: WARHAMMER, NegativeReviews: 2651
+AppID: 344760, GameName: Reign Of Kings, NegativeReviews: 3114
+AppID: 218230, GameName: PlanetSide 2, NegativeReviews: 3199
+AppID: 243470, GameName: Watch_Dogs™, NegativeReviews: 3436
+AppID: 273110, GameName: Counter-Strike Nexon: Studio, NegativeReviews: 3555
+AppID: 107410, GameName: Arma 3, NegativeReviews: 3597
+AppID: 550, GameName: Left 4 Dead 2, NegativeReviews: 3797
+AppID: 307780, GameName: Mortal Kombat X, NegativeReviews: 3853
+AppID: 219640, GameName: Chivalry: Medieval Warfare, NegativeReviews: 3918
+AppID: 359550, GameName: Tom Clancy's Rainbow Six® Siege, NegativeReviews: 4061
+AppID: 232090, GameName: Killing Floor 2, NegativeReviews: 4115
+AppID: 333930, GameName: Dirty Bomb®, NegativeReviews: 4479
+AppID: 209160, GameName: Call of Duty®: Ghosts, NegativeReviews: 4673
+AppID: 304050, GameName: Trove, NegativeReviews: 4761
+AppID: 211820, GameName: Starbound, NegativeReviews: 4787
+AppID: 113400, GameName: APB Reloaded, NegativeReviews: 5110
+AppID: 12210, GameName: Grand Theft Auto IV: The Complete Edition, NegativeReviews: 5978
+AppID: 381210, GameName: Dead by Daylight, NegativeReviews: 6495
+AppID: 311210, GameName: Call of Duty®: Black Ops III, NegativeReviews: 10522

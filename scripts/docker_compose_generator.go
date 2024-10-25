@@ -25,7 +25,8 @@ type Config struct {
 	ActionPositiveReviewJoiner int `json:"action_positive_review_joiner"`
 	ActionNegativeReviewJoiner int `json:"action_negative_review_joiner"`
 	IndieReviewJoiner          int `json:"indie_review_joiner"`
-	Writer                     int `json:"writer"`
+	FinalPositiveJoiner        int `json:"final_positive_joiner"`
+	FinalNegativeJoiner        int `json:"final_negative_joiner"`
 }
 
 func main() {
@@ -76,20 +77,23 @@ func main() {
     container_name: %s
     image: entrypoint:latest
     entrypoint: /entrypoint
+    environment:
+      - ENGLISH_FILTERS_AMOUNT=%d
+      - REVIEW_MAPPERS_AMOUNT=%d
     depends_on:
       rabbitmq:
         condition: service_healthy
     networks:
       - distributed_network
 
-`, serviceName, serviceName)
+`, serviceName, serviceName, config.EnglishFilter, config.ReviewMapper)
 
 	// GameMapper service
 	serviceName = "game_mapper"
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: game_mapper:latest
-    entrypoint: /mappers/game_mapper
+    entrypoint: /game_mapper
     environment:
       - OS_ACCUMULATORS_AMOUNT=%d
       - DECADE_FILTER_AMOUNT=%d
@@ -111,7 +115,9 @@ func main() {
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: os_accumulator:latest
-    entrypoint: /accumulators/os_accumulator
+    entrypoint: /os_accumulator
+    environment:
+      - ID=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -120,7 +126,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName)
+`, serviceName, serviceName, i)
 	}
 
 	// OSFinalAccumulator service
@@ -128,7 +134,7 @@ func main() {
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: os_final_accumulator:latest
-    entrypoint: /accumulators/os_final_accumulator
+    entrypoint: /os_final_accumulator
     environment:
       - NUM_PREVIOUS_OS_ACCUMULATORS=%d
     depends_on:
@@ -146,7 +152,7 @@ func main() {
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: top_ten_accumulator:latest
-    entrypoint: /accumulators/top_ten_accumulator
+    entrypoint: /top_ten_accumulator
     environment:
       - DECADE_FILTERS_AMOUNT=%d
     depends_on:
@@ -164,7 +170,7 @@ func main() {
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: top_positive_reviews:latest
-    entrypoint: /filters/top_positive_reviews
+    entrypoint: /top_positive_reviews
     environment:
       - INDIE_REVIEW_JOINERS_AMOUNT=%d
     depends_on:
@@ -182,7 +188,7 @@ func main() {
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: percentile_accumulator:latest
-    entrypoint: /accumulators/percentile_accumulator
+    entrypoint: /percentile_accumulator
     environment:
       - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=%d
       - NUM_PREVIOUS_ACCUMULATORS=%d
@@ -202,7 +208,7 @@ func main() {
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: review_mapper:latest
-    entrypoint: /mappers/review_mapper
+    entrypoint: /review_mapper
     environment:
       - ID=%d
       - ACCUMULATORS_AMOUNT=%d
@@ -223,7 +229,7 @@ func main() {
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: reviews_accumulator:latest
-    entrypoint: /accumulators/reviews_accumulator
+    entrypoint: /reviews_accumulator
     environment:
       - ID=%d
       - MAPPERS_AMOUNT=%d
@@ -245,7 +251,7 @@ func main() {
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: decade_filter:latest
-    entrypoint: /filters/decade_filter
+    entrypoint: /decade_filter
     depends_on:
       game_mapper:
         condition: service_started
@@ -262,8 +268,8 @@ func main() {
 		serviceName := fmt.Sprintf("english_filter_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: english_filter:latest
-    entrypoint: /filters/english_filter
+    image: english_reviews_filter:latest
+    entrypoint: /english_reviews_filter
     environment:
       - ID=%d
       - ACCUMULATORS_AMOUNT=%d
@@ -284,7 +290,7 @@ func main() {
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: english_reviews_accumulator:latest
-    entrypoint: /accumulators/english_reviews_accumulator
+    entrypoint: /english_reviews_accumulator
     environment:
       - ID=%d
       - FILTERS_AMOUNT=%d
@@ -306,7 +312,7 @@ func main() {
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: positive_reviews_filter:latest
-    entrypoint: /filters/positive_reviews_filter
+    entrypoint: /positive_reviews_filter
     environment:
       - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=%d
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=%d
@@ -327,7 +333,7 @@ func main() {
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: action_positive_review_joiner:latest
-    entrypoint: /joiners/action_positive_review_joiner
+    entrypoint: /action_positive_review_joiner
     environment:
       - ID=%d
       - POSITIVE_REVIEWS_FILTERS_AMOUNT=%d
@@ -342,13 +348,30 @@ func main() {
 `, serviceName, serviceName, i, config.PositiveReviewsFilter)
 	}
 
-	// ActionPositiveReviewJoiner service
+	serviceName = "final_positive_joiner"
+	compose += fmt.Sprintf(`  %s:
+    container_name: %s
+    image: final_positive_joiner:latest
+    entrypoint: /final_positive_joiner
+    environment:
+      - ACTION_POSITIVE_JOINERS_AMOUNT=%d
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+`, serviceName, serviceName, config.ActionPositiveReviewJoiner)
+
+	// ActionNegativeReviewJoiner service
 	for i := 1; i <= config.ActionNegativeReviewJoiner; i++ {
 		serviceName := fmt.Sprintf("action_negative_review_joiner_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: action_negative_review_joiner:latest
-    entrypoint: /joiners/action_negative_review_joiner
+    entrypoint: /action_negative_review_joiner
     environment:
       - ID=%d
     depends_on:
@@ -362,13 +385,30 @@ func main() {
 `, serviceName, serviceName, i)
 	}
 
+	serviceName = "final_negative_joiner"
+	compose += fmt.Sprintf(`  %s:
+    container_name: %s
+    image: final_negative_joiner:latest
+    entrypoint: /final_negative_joiner
+    environment:
+      - ACTION_NEGATIVE_JOINERS_AMOUNT=%d
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+`, serviceName, serviceName, config.ActionNegativeReviewJoiner)
+
 	// IndieReviewJoiner service
 	for i := 1; i <= config.IndieReviewJoiner; i++ {
 		serviceName := fmt.Sprintf("indie_review_joiner_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: indie_review_joiner:latest
-    entrypoint: /joiners/indie_review_joiner
+    entrypoint: /indie_review_joiner
     environment:
       - ID=%d
       - REVIEWS_ACCUMULATOR_AMOUNT=%d
@@ -382,25 +422,6 @@ func main() {
 
 `, serviceName, serviceName, i, config.ReviewsAccumulator)
 	}
-
-	// Writer service
-	serviceName = "writer"
-	compose += fmt.Sprintf(`  %s:
-    container_name: %s
-    image: writer:latest
-    entrypoint: /writer
-    environment:
-      - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=%d
-      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=%d
-    depends_on:
-      entrypoint:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-`, serviceName, serviceName, config.ActionNegativeReviewJoiner, config.ActionPositiveReviewJoiner)
 
 	compose += `networks:
   distributed_network:

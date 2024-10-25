@@ -18,13 +18,13 @@ func NewReview(appId uint32, positive bool) (*Review, error) {
 	}, nil
 }
 
-func NewReviewFromStrings(appId string, review_score string) (*Review, error) {
+func NewReviewFromStrings(appId string, reviewScore string) (*Review, error) {
 	appIdUint, err := strconv.ParseUint(appId, 10, 32)
 	if err != nil {
 		return nil, err
 	}
 
-	positive := review_score == "1"
+	positive := reviewScore == "1"
 
 	return &Review{
 		AppId:    uint32(appIdUint),
