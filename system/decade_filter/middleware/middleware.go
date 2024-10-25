@@ -67,7 +67,7 @@ func (m *Middleware) ReceiveYearAvgPtf() (int, []*df.GameYearAndAvgPtf, bool, er
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
 	case sp.MsgGameYearAndAvgPtfInformation:
-		gamesYearsAvgPtfs, err := sp.DeserializeMsgGameYearAndAvgPtfV2(message.Body)
+		gamesYearsAvgPtfs, err := sp.DeserializeMsgGameYearAndAvgPtf(message.Body)
 
 		if err != nil {
 			return message.ClientID, nil, false, err
@@ -81,7 +81,7 @@ func (m *Middleware) ReceiveYearAvgPtf() (int, []*df.GameYearAndAvgPtf, bool, er
 }
 
 func (m *Middleware) SendFilteredYearAvgPtf(clientID int, gamesYearsAvgPtfs []*df.GameYearAndAvgPtf) error {
-	data := sp.SerializeMsgGameYearAndAvgPtfV2(clientID, gamesYearsAvgPtfs)
+	data := sp.SerializeMsgGameYearAndAvgPtf(clientID, gamesYearsAvgPtfs)
 
 	fmt.Printf("About to publish to top ten accumulator exchange\n")
 	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, data)
@@ -95,7 +95,7 @@ func (m *Middleware) SendFilteredYearAvgPtf(clientID int, gamesYearsAvgPtfs []*d
 
 func (m *Middleware) SendEof(clientID int) error {
 
-	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
+	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
 		return err
 	}

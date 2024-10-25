@@ -104,7 +104,7 @@ func sendToReviewNode(nodesAmount int, exchange *mom.Exchange, routingKeyPrefix 
 }
 
 func (m *Middleware) SendGamesEndOfFile(clientID int) error {
-	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
+	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
 		return fmt.Errorf("Failed to publish message: %v", err)
 	}
@@ -115,7 +115,7 @@ func (m *Middleware) SendGamesEndOfFile(clientID int) error {
 func (m *Middleware) SendReviewsEndOfFile(clientID int, englishFiltersAmount int, reviewMappersAmount int) error {
 	for i := 1; i <= englishFiltersAmount; i++ {
 		englishRoutingKey := fmt.Sprintf("%s%d", RawEnglishReviewsKeyPrefix, i)
-		err := m.RawReviewsExchange.Publish(englishRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
+		err := m.RawReviewsExchange.Publish(englishRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return fmt.Errorf("Failed to publish message: %v", err)
 		}
@@ -123,7 +123,7 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, englishFiltersAmount int
 
 	for i := 1; i <= reviewMappersAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", RawReviewsRoutingKeyPrefix, i)
-		err := m.RawReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
+		err := m.RawReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return fmt.Errorf("Failed to publish message: %v", err)
 		}

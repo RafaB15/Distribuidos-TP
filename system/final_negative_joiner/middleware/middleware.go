@@ -84,12 +84,3 @@ func (m *Middleware) SendQueryResults(clientID int, queryResults []*j.JoinedNega
 	routingKey := QueryRoutingKeyPrefix + fmt.Sprint(clientID)
 	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
 }
-
-func (m *Middleware) SendEof(clientID int) error {
-	routingKey := QueryRoutingKeyPrefix + fmt.Sprint(clientID)
-	err := m.QueryResultsExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
-	if err != nil {
-		return err
-	}
-	return nil
-}

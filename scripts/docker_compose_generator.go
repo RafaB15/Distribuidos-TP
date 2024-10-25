@@ -187,7 +187,7 @@ func main() {
 	serviceName = "percentile_accumulator"
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: percentile_accumulator:new_version
+    image: percentile_accumulator:latest
     entrypoint: /percentile_accumulator
     environment:
       - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=%d
@@ -250,7 +250,7 @@ func main() {
 		serviceName := fmt.Sprintf("decade_filter_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: decade_filter:new_version
+    image: decade_filter:latest
     entrypoint: /decade_filter
     depends_on:
       game_mapper:

@@ -27,6 +27,6 @@ func main() {
 		return
 	}
 
-	finalNegativeJoiner := l.NewFinalNegativeJoiner(middleware.ReceiveJoinedGameReviews, middleware.SendQueryResults, middleware.SendEof)
+	finalNegativeJoiner := l.NewFinalNegativeJoiner(middleware.ReceiveJoinedGameReviews, middleware.SendQueryResults)
 	finalNegativeJoiner.Run(actionNegativeJoinersAmount)
 }

@@ -12,14 +12,12 @@ var log = logging.MustGetLogger("log")
 type TopPositiveReviews struct {
 	ReceiveMsg       func() (int, *j.JoinedPositiveGameReview, bool, error)
 	SendQueryResults func(int, []*j.JoinedPositiveGameReview) error
-	SendEof          func() error
 }
 
-func NewTopPositiveReviews(receiveMsg func() (int, *j.JoinedPositiveGameReview, bool, error), sendMetrics func(int, []*j.JoinedPositiveGameReview) error, sendEof func() error) *TopPositiveReviews {
+func NewTopPositiveReviews(receiveMsg func() (int, *j.JoinedPositiveGameReview, bool, error), sendMetrics func(int, []*j.JoinedPositiveGameReview) error) *TopPositiveReviews {
 	return &TopPositiveReviews{
 		ReceiveMsg:       receiveMsg,
 		SendQueryResults: sendMetrics,
-		SendEof:          sendEof,
 	}
 }
 
@@ -58,13 +56,6 @@ func (t *TopPositiveReviews) Run(indieReviewJoinerAmount int) {
 				return
 			}
 			log.Infof("Sent Top 5 positive reviews to writer")
-			err = t.SendEof()
-			if err != nil {
-				log.Errorf("Failed to send EOF: %v", err)
-				return
-			}
-			log.Info("Sent eof to writer")
-
 			delete(topPositiveIndieGames, clientID)
 			delete(remainingEOFsMap, clientID)
 

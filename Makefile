@@ -29,7 +29,7 @@ docker-image-system:
 .PHONY: docker-image-system
 
 docker-compose-up: docker-image-system
-	docker compose -f docker-compose-dev.yaml up -d
+	docker compose -f docker-compose-dev.yaml up -d --build
 .PHONY: docker-compose-up
 
 docker-compose-down:
@@ -42,12 +42,12 @@ docker-compose-logs:
 .PHONY: docker-compose-logs
 
 docker-image-clients:
-	docker build -f ./cmd/client/Dockerfile -t "client:latest" .
+	docker build -f ./client/Dockerfile -t "client:latest" .
 .PHONY: docker-image-client 
 
 docker-client: docker-image-clients
 	docker run -d --name client \
-		-v ./cmd/client/client_data:/client_data \
+		-v ./client/client_data:/client_data \
 		--network distributed_network \
 		-e GAME_FILE_PATH=./client_data/games_90k.csv \
 		-e REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv \

@@ -90,7 +90,7 @@ func (m *Middleware) ReceiveReviews() (int, []*reviews.Review, bool, error) {
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
 	case sp.MsgReviewInformation:
-		reviews, err := sp.DeserializeMsgReviewInformationV2(message.Body)
+		reviews, err := sp.DeserializeMsgReviewInformation(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, fmt.Errorf("Failed to deserialize reviews: %v", err)
 		}
@@ -104,7 +104,7 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map
 	keyMap := idMapToKeyMap(accumulatedReviews, GetIndieReviewJoinersAmount())
 
 	for routingKey, metrics := range keyMap {
-		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatchV2(clientID, metrics)
+		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
 
 		err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, serializedMetricsBatch)
 		if err != nil {
@@ -123,13 +123,13 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map
 
 func (m *Middleware) SendEof(clientID int) error {
 	indieReviewJoinerAmount := GetIndieReviewJoinersAmount()
-	err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
+	err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
 		return err
 	}
 
 	for nodeId := 1; nodeId <= indieReviewJoinerAmount; nodeId++ {
-		err = m.IndieReviewJoinExchange.Publish(fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFileV2(clientID))
+		err = m.IndieReviewJoinExchange.Publish(fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return err
 		}

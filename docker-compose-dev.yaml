@@ -118,7 +118,7 @@ services:
 
   percentile_accumulator:
     container_name: percentile_accumulator
-    image: percentile_accumulator:new_version
+    image: percentile_accumulator:latest
     entrypoint: /percentile_accumulator
     environment:
       - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=2
@@ -179,7 +179,7 @@ services:
 
   decade_filter_1:
     container_name: decade_filter_1
-    image: decade_filter:new_version
+    image: decade_filter:latest
     entrypoint: /decade_filter
     depends_on:
       game_mapper:
@@ -191,7 +191,7 @@ services:
 
   decade_filter_2:
     container_name: decade_filter_2
-    image: decade_filter:new_version
+    image: decade_filter:latest
     entrypoint: /decade_filter
     depends_on:
       game_mapper:

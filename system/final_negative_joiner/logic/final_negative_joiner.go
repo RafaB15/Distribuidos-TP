@@ -11,14 +11,12 @@ var log = logging.MustGetLogger("log")
 type FinalNegativeJoiner struct {
 	ReceiveJoinedGameReviews func() (int, *j.JoinedNegativeGameReview, bool, error)
 	SendMetrics              func(int, []*j.JoinedNegativeGameReview) error
-	SendEof                  func(int) error
 }
 
-func NewFinalNegativeJoiner(receiveJoinedGameReviews func() (int, *j.JoinedNegativeGameReview, bool, error), sendMetrics func(int, []*j.JoinedNegativeGameReview) error, sendEof func(int) error) *FinalNegativeJoiner {
+func NewFinalNegativeJoiner(receiveJoinedGameReviews func() (int, *j.JoinedNegativeGameReview, bool, error), sendMetrics func(int, []*j.JoinedNegativeGameReview) error) *FinalNegativeJoiner {
 	return &FinalNegativeJoiner{
 		ReceiveJoinedGameReviews: receiveJoinedGameReviews,
 		SendMetrics:              sendMetrics,
-		SendEof:                  sendEof,
 	}
 }
 

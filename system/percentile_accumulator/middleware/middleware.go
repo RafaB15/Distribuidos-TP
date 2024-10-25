@@ -8,23 +8,14 @@ import (
 )
 
 const (
-	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
-
-	StoredReviewsFileName = "stored_reviews"
-
+	middlewareURI                  = "amqp://guest:guest@rabbitmq:5672/"
 	AccumulatedReviewsExchangeName = "accumulated_reviews_exchange"
 	AccumulatedReviewsExchangeType = "direct"
 	AccumulatedReviewsRoutingKey   = "accumulated_reviews_key"
 	AccumulatedReviewsQueueName    = "accumulated_reviews_queue"
 
-	AccumulatedPercentileReviewsExchangeName     = "action_review_join_exchange"
-	AccumulatedPercentileReviewsExchangeType     = "direct"
-	AccumulatedPercentileReviewsRoutingKeyPrefix = "percentile_reviews_key_"
-
-	ActionNegativeReviewsJoinersAmountEnvironmentVariableName = "ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT"
-
-	IdEnvironmentVariableName = "ID"
-	NumPreviousAccumulators   = "NUM_PREVIOUS_ACCUMULATORS"
+	AccumulatedPercentileReviewsExchangeName = "action_review_join_exchange"
+	AccumulatedPercentileReviewsExchangeType = "direct"
 )
 
 type Middleware struct {
@@ -70,23 +61,25 @@ func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics,
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
 	case sp.MsgGameReviewsMetrics:
-		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatchV2(message.Body)
+		fmt.Print("Received game reviews metrics\n")
+		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, err
 		}
 		return message.ClientID, gameReviewsMetrics, false, nil
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("Received unexpected message type: %v", message.Type)
+		fmt.Printf("Received unexpected message type: %v\n", message.Type)
+		return message.ClientID, nil, false, fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
 }
 
 func (m *Middleware) SendGameReviewsMetrics(clientID int, accumulatedPercentileKeyMap map[string][]*ra.GameReviewsMetrics) error {
 	for routingKey, metrics := range accumulatedPercentileKeyMap {
-		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatchV2(clientID, metrics)
+		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
 
 		err := m.AccumulatedPercentileExchange.Publish(routingKey, serializedMetricsBatch)
 		if err != nil {
-			return fmt.Errorf("Failed to publish metrics: %v", err)
+			return fmt.Errorf("failed to publish metrics: %v", err)
 		}
 	}
 	return nil
@@ -95,7 +88,7 @@ func (m *Middleware) SendGameReviewsMetrics(clientID int, accumulatedPercentileK
 func (m *Middleware) SendEndOfFiles(clientID int, actionNegativeReviewsJoinersAmount int, accumulatedPercentileReviewsRoutingKeyPrefix string) error {
 	for i := 1; i <= actionNegativeReviewsJoinersAmount; i++ {
 		routingKey := fmt.Sprintf("%v%d", accumulatedPercentileReviewsRoutingKeyPrefix, i)
-		err := m.AccumulatedPercentileExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
+		err := m.AccumulatedPercentileExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return err
 		}

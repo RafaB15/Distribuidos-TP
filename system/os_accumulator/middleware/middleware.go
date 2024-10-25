@@ -81,7 +81,7 @@ func (m *Middleware) ReceiveGameOS() (int, []*oa.GameOS, bool, error) {
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
 	case sp.MsgGameOSInformation:
-		gamesOs, err := sp.DeserializeMsgGameOSInformationV2(message.Body)
+		gamesOs, err := sp.DeserializeMsgGameOSInformation(message.Body)
 
 		if err != nil {
 			return message.ClientID, nil, false, err
@@ -106,7 +106,7 @@ func (m *Middleware) Shutdown() error {
 
 func (m *Middleware) SendEof(clientID int) error {
 
-	err := m.OSAccumulatorExchange.Publish(OSAccumulatorRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
+	err := m.OSAccumulatorExchange.Publish(OSAccumulatorRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
 		return err
 	}

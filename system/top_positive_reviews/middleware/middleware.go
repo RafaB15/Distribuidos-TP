@@ -11,7 +11,7 @@ const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
 	TopPositiveReviewsExchangeName = "top_positive_reviews_exchange"
-	TopPositiveReviewsEchangeType  = "direct"
+	TopPositiveReviewsExchangeType = "direct"
 	TopPositiveReviewsRoutingKey   = "top_positive_reviews_key"
 	TopPositiveReviewsQueueName    = "top_positive_reviews_queue"
 
@@ -32,7 +32,7 @@ func NewMiddleware() (*Middleware, error) {
 		return nil, err
 	}
 
-	topPositiveReviewsQueue, err := manager.CreateBoundQueue(TopPositiveReviewsQueueName, TopPositiveReviewsExchangeName, TopPositiveReviewsEchangeType, TopPositiveReviewsRoutingKey, true)
+	topPositiveReviewsQueue, err := manager.CreateBoundQueue(TopPositiveReviewsQueueName, TopPositiveReviewsExchangeName, TopPositiveReviewsExchangeType, TopPositiveReviewsRoutingKey, true)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (m *Middleware) ReceiveMsg() (int, *j.JoinedPositiveGameReview, bool, error
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return message.ClientID, nil, false, err
+		return 0, nil, false, err
 	}
 
 	switch message.Type {
@@ -65,7 +65,7 @@ func (m *Middleware) ReceiveMsg() (int, *j.JoinedPositiveGameReview, bool, error
 		return message.ClientID, nil, true, nil
 
 	case sp.MsgJoinedPositiveGameReviews:
-		joinedGame, err := sp.DeserializeMsgJoinedPositiveGameReviewsV2(message.Body)
+		joinedGame, err := sp.DeserializeMsgJoinedPositiveGameReviews(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, err
 		}
@@ -84,8 +84,4 @@ func (m *Middleware) SendQueryResults(clientID int, topPositiveIndieGames []*j.J
 	}
 	routingKey := QueryRoutingKeyPrefix + fmt.Sprint(clientID)
 	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
-}
-
-func (m *Middleware) SendEof() error {
-	return m.QueryResultsExchange.Publish(QueryRoutingKeyPrefix, sp.SerializeMsgEndOfFile())
 }

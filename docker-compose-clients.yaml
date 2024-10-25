@@ -3,7 +3,7 @@ services:
     image: client:latest
     container_name: client1
     volumes:
-      - ./cmd/client/client_data:/client_data
+      - ./client/client_data:/client_data
     networks:
       - distributed_network
     environment:
@@ -14,7 +14,7 @@ services:
     image: client:latest
     container_name: client2
     volumes:
-      - ./cmd/client/client_data:/client_data
+      - ./client/client_data:/client_data
     networks:
       - distributed_network
     environment:
@@ -25,7 +25,7 @@ services:
     image: client:latest
     container_name: client3
     volumes:
-      - ./cmd/client/client_data:/client_data
+      - ./client/client_data:/client_data
     networks:
       - distributed_network
     environment:

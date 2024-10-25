@@ -28,6 +28,6 @@ func main() {
 		return
 	}
 
-	topPositiveReviews := l.NewTopPositiveReviews(middleware.ReceiveMsg, middleware.SendQueryResults, middleware.SendEof)
+	topPositiveReviews := l.NewTopPositiveReviews(middleware.ReceiveMsg, middleware.SendQueryResults)
 	topPositiveReviews.Run(indieReviewJoinersAmount)
 }

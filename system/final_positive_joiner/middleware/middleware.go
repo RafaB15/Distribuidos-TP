@@ -62,7 +62,7 @@ func (m *Middleware) ReceiveJoinedGameReviews() (int, *j.JoinedPositiveGameRevie
 
 	switch message.Type {
 	case sp.MsgJoinedPositiveGameReviews:
-		joinedPositiveGameReview, err := sp.DeserializeMsgJoinedPositiveGameReviewsV2(message.Body)
+		joinedPositiveGameReview, err := sp.DeserializeMsgJoinedPositiveGameReviews(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, err
 		}
@@ -84,13 +84,4 @@ func (m *Middleware) SendQueryResults(clientID int, queryResults []*j.JoinedPosi
 
 	routingKey := QueryRoutingKeyPrefix + fmt.Sprint(clientID)
 	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
-}
-
-func (m *Middleware) SendEof(clientID int) error {
-	routingKey := QueryRoutingKeyPrefix + fmt.Sprint(clientID)
-	err := m.QueryResultsExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
-	if err != nil {
-		return err
-	}
-	return nil
 }

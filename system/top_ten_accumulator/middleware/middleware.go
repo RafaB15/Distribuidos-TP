@@ -71,7 +71,7 @@ func (m *Middleware) ReceiveMsg() (int, []*df.GameYearAndAvgPtf, bool, error) {
 		return message.ClientID, nil, true, nil
 
 	case sp.MsgGameYearAndAvgPtfInformation:
-		decadeGames, err := sp.DeserializeMsgGameYearAndAvgPtfV2(message.Body)
+		decadeGames, err := sp.DeserializeMsgGameYearAndAvgPtf(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, err
 		}

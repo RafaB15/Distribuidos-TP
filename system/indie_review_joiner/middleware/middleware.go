@@ -94,7 +94,7 @@ func (m *Middleware) ReceiveMsg() (int, []*games.GameName, []*reviews_accumulato
 }
 
 func HandleGameReviewMetrics(message []byte) ([]*reviews_accumulator.GameReviewsMetrics, error) {
-	reviews, err := sp.DeserializeMsgGameReviewsMetricsBatchV2(message)
+	reviews, err := sp.DeserializeMsgGameReviewsMetricsBatch(message)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func HandleGameReviewMetrics(message []byte) ([]*reviews_accumulator.GameReviews
 }
 
 func HandleGameNames(message []byte) ([]*games.GameName, error) {
-	gameNames, err := sp.DeserializeMsgGameNamesV2(message)
+	gameNames, err := sp.DeserializeMsgGameNames(message)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func HandleGameNames(message []byte) ([]*games.GameName, error) {
 }
 
 func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedPositiveGameReview) error {
-	serializedMetrics, err := sp.SerializeMsgJoinedPositiveGameReviewsV2(clientID, reviewsInformation)
+	serializedMetrics, err := sp.SerializeMsgJoinedPositiveGameReviews(clientID, reviewsInformation)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedPosit
 }
 
 func (m *Middleware) SendEof(clientID int) error {
-	err := m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
+	err := m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
 		return err
 	}

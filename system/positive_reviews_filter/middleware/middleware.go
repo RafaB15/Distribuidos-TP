@@ -64,7 +64,7 @@ func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics,
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
 	case sp.MsgGameReviewsMetrics:
-		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatchV2(message.Body)
+		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, err
 		}
@@ -77,7 +77,7 @@ func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics,
 func (m *Middleware) SendGameReviewsMetrics(clientID int, positiveReviewsMap map[int][]*ra.GameReviewsMetrics) error {
 	for shardingKey, gameReviewsMetrics := range positiveReviewsMap {
 		routingKey := fmt.Sprintf("%s%d", PositiveJoinReviewsRoutingKeyPrefix, shardingKey)
-		serializedGameReviewsMetrics := sp.SerializeMsgGameReviewsMetricsBatchV2(clientID, gameReviewsMetrics)
+		serializedGameReviewsMetrics := sp.SerializeMsgGameReviewsMetricsBatch(clientID, gameReviewsMetrics)
 		err := m.PositiveJoinedReviewsExchange.Publish(routingKey, serializedGameReviewsMetrics)
 		if err != nil {
 			return fmt.Errorf("Failed to publish game reviews metrics: %v", err)
@@ -88,7 +88,7 @@ func (m *Middleware) SendGameReviewsMetrics(clientID int, positiveReviewsMap map
 
 func (m *Middleware) SendEndOfFiles(clientID int, actionReviewsJoinersAmount int) error {
 	for i := 1; i <= actionReviewsJoinersAmount; i++ {
-		serializedEOF := sp.SerializeMsgEndOfFileV2(clientID)
+		serializedEOF := sp.SerializeMsgEndOfFile(clientID)
 		routingKey := fmt.Sprintf("%s%d", PositiveJoinReviewsRoutingKeyPrefix, i)
 		m.PositiveJoinedReviewsExchange.Publish(routingKey, serializedEOF)
 	}

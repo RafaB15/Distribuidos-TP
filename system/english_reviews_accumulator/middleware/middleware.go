@@ -69,7 +69,7 @@ func (m *Middleware) ReceiveReviews() (int, []*r.Review, bool, error) {
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
 	case sp.MsgReviewInformation:
-		reviews, err := sp.DeserializeMsgReviewInformationV2(message.Body)
+		reviews, err := sp.DeserializeMsgReviewInformation(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, fmt.Errorf("Failed to deserialize reviews: %v", err)
 		}
@@ -80,7 +80,7 @@ func (m *Middleware) ReceiveReviews() (int, []*r.Review, bool, error) {
 }
 
 func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.GameReviewsMetrics) error {
-	serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatchV2(clientID, metrics)
+	serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
 	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedMetricsBatch)
 	if err != nil {
 		return fmt.Errorf("Failed to publish accumulated reviews: %v", err)
@@ -90,7 +90,7 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.GameRevi
 
 func (m *Middleware) SendEndOfFiles(clientID int, positiveReviewsFilterAmount int) error {
 	for i := 1; i <= positiveReviewsFilterAmount; i++ {
-		serializedEOF := sp.SerializeMsgEndOfFileV2(clientID)
+		serializedEOF := sp.SerializeMsgEndOfFile(clientID)
 		err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedEOF)
 		if err != nil {
 			return fmt.Errorf("Failed to publish end of file: %v", err)

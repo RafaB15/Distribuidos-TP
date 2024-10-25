@@ -89,7 +89,7 @@ func (m *Middleware) SendReviews(clientID int, reviewsMap map[int][]*r.Review) e
 	for shardingKey, reviews := range reviewsMap {
 		routingKey := fmt.Sprintf("%s%d", ReviewsRoutingKeyPrefix, shardingKey)
 
-		serializedReviews := sp.SerializeMsgReviewInformationV2(clientID, reviews)
+		serializedReviews := sp.SerializeMsgReviewInformation(clientID, reviews)
 		err := m.ReviewsExchange.Publish(routingKey, serializedReviews)
 		if err != nil {
 			return fmt.Errorf("Failed to publish message: %v", err)
@@ -107,7 +107,7 @@ func (m *Middleware) SendReviews(clientID int, reviewsMap map[int][]*r.Review) e
 func (m *Middleware) SendEndOfFiles(clientID int, accumulatorsAmount int) error {
 	for i := 1; i <= accumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", ReviewsRoutingKeyPrefix, i)
-		err := m.ReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
+		err := m.ReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return fmt.Errorf("Failed to publish message: %v", err)
 		}

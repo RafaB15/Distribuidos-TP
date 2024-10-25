@@ -7,11 +7,11 @@ WORKDIR /build/
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY cmd/client ./cmd/client
+COPY client ./client
 COPY internal/client_protocol ./internal/client_protocol
 COPY internal/utils ./internal/utils
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/client ./cmd/client
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/client ./client
 
 # Stage 2
 FROM busybox:latest

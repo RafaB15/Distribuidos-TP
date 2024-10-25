@@ -37,7 +37,7 @@ func SerializeJoinedPositiveGameReview(metrics *JoinedPositiveGameReview) ([]byt
 
 	gameNameLen := uint16(len(metrics.GameName))
 	binary.BigEndian.PutUint16(buf[4:6], gameNameLen)
-	copy(buf[6:6+gameNameLen], []byte(metrics.GameName))
+	copy(buf[6:6+gameNameLen], metrics.GameName)
 
 	positiveReviewsStart := 6 + gameNameLen
 	binary.BigEndian.PutUint32(buf[positiveReviewsStart:positiveReviewsStart+4], uint32(metrics.PositiveReviews))
@@ -100,5 +100,5 @@ func DeserializeJoinedPositiveGameReviewsBatch(data []byte) ([]*JoinedPositiveGa
 }
 
 func GetStrRepresentation(joinedActionGameReview *JoinedPositiveGameReview) string {
-	return "AppID: " + strconv.Itoa(int(joinedActionGameReview.AppId)) + ", GameName: " + joinedActionGameReview.GameName + ", PositiveReviews: " + strconv.Itoa(int(joinedActionGameReview.PositiveReviews)) + "\n"
+	return "AppID: " + strconv.Itoa(int(joinedActionGameReview.AppId)) + ", GameName: " + joinedActionGameReview.GameName + ", PositiveReviews: " + strconv.Itoa(joinedActionGameReview.PositiveReviews) + "\n"
 }

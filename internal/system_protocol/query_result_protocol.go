@@ -8,6 +8,8 @@ import (
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 )
 
+type Query byte
+
 const (
 	MsgOsResolvedQuery Query = iota
 	MsgTopTenDecadeAvgPtfQuery

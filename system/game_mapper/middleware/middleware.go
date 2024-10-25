@@ -117,7 +117,7 @@ func (m *Middleware) ReceiveGameBatch() (int, []string, bool, error) {
 }
 
 func (m *Middleware) SendGamesOS(clientID int, osAccumulatorsAmount int, gamesOS []*oa.GameOS) error {
-	serializedGameOS := sp.SerializeMsgGameOSInformationV2(clientID, gamesOS)
+	serializedGameOS := sp.SerializeMsgGameOSInformation(clientID, gamesOS)
 
 	randomNode := u.GetRandomNumber(osAccumulatorsAmount)
 
@@ -133,7 +133,7 @@ func (m *Middleware) SendGamesOS(clientID int, osAccumulatorsAmount int, gamesOS
 }
 
 func (m *Middleware) SendGameYearAndAvgPtf(clientID int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf) error {
-	serializedGameYearAndAvgPtf := sp.SerializeMsgGameYearAndAvgPtfV2(clientID, gameYearAndAvgPtf)
+	serializedGameYearAndAvgPtf := sp.SerializeMsgGameYearAndAvgPtf(clientID, gameYearAndAvgPtf)
 	err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, serializedGameYearAndAvgPtf)
 	if err != nil {
 		return fmt.Errorf("failed to publish game year and avg ptf: %v", err)
@@ -154,7 +154,7 @@ func sendGamesNamesToReviewJoin(clientID int, gamesNamesMap map[int][]*g.GameNam
 	for shardingKey, gameName := range gamesNamesMap {
 		routingKey := fmt.Sprintf("%s%d", keyPrefix, shardingKey)
 
-		serializedGamesNames, err := sp.SerializeMsgGameNamesV2(clientID, gameName)
+		serializedGamesNames, err := sp.SerializeMsgGameNames(clientID, gameName)
 		if err != nil {
 			return fmt.Errorf("failed to serialize game names: %v", err)
 		}
@@ -172,14 +172,14 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 	for i := 0; i < osAccumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", OSGamesRoutingKeyPrefix, i+1)
 		fmt.Printf("Publishing EndOfFile to routingKey: %s for clientID: %d\n", routingKey, clientID)
-		err := m.OSGamesExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
+		err := m.OSGamesExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return err
 		}
 	}
 
 	for i := 0; i < decadeFilterAmount; i++ {
-		err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, sp.SerializeMsgEndOfFileV2(clientID))
+		err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return err
 		}
@@ -187,7 +187,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 
 	for i := 1; i <= indieReviewJoinersAmount; i++ {
 		routingKey := u.GetPartitioningKeyFromInt(i, indieReviewJoinersAmount, IndieReviewJoinRoutingKeyPrefix)
-		err := m.IndieReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
+		err := m.IndieReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return err
 		}
@@ -195,7 +195,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 
 	for i := 1; i <= actionReviewJoinersAmount; i++ {
 		routingKey := u.GetPartitioningKeyFromInt(i, actionReviewJoinersAmount, ActionReviewJoinRoutingKeyPrefix)
-		err := m.ActionReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFileV2(clientID))
+		err := m.ActionReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return err
 		}

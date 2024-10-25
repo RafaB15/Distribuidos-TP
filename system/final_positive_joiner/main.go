@@ -27,6 +27,6 @@ func main() {
 		return
 	}
 
-	finalPositiveJoiner := l.NewFinalPositiveJoiner(middleware.ReceiveJoinedGameReviews, middleware.SendQueryResults, middleware.SendEof)
+	finalPositiveJoiner := l.NewFinalPositiveJoiner(middleware.ReceiveJoinedGameReviews, middleware.SendQueryResults)
 	finalPositiveJoiner.Run(actionPositiveJoinersAmount)
 }
