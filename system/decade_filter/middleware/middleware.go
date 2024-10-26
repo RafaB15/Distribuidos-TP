@@ -104,10 +104,5 @@ func (m *Middleware) SendEof(clientID int) error {
 }
 
 func (m *Middleware) Close() error {
-	err := m.Manager.CloseConnection()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return m.Manager.CloseConnection()
 }

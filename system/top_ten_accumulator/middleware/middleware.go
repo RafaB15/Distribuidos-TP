@@ -105,3 +105,7 @@ func (m *Middleware) SendMsg(clientID int, finalTopTenGames []*df.GameYearAndAvg
 
 	return nil
 }
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
+}
