@@ -25,9 +25,9 @@ func main() {
 		return
 	}
 
-	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
-
 	decadeFilter := l.NewDecadeFilter(middleware.ReceiveYearAvgPtf, middleware.SendFilteredYearAvgPtf, middleware.SendEof)
+
+	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
 		decadeFilter.Run()
