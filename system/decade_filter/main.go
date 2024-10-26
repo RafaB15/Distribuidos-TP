@@ -1,6 +1,7 @@
 package main
 
 import (
+	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/decade_filter/logic"
 	m "distribuidos-tp/system/decade_filter/middleware"
 	"github.com/op/go-logging"
@@ -12,6 +13,9 @@ import (
 var log = logging.MustGetLogger("log")
 
 func main() {
+	signalChannel := make(chan os.Signal, 1)
+	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
+
 	doneChannel := make(chan bool)
 
 	log.Infof("Starting Decade Filter")
@@ -21,7 +25,7 @@ func main() {
 		return
 	}
 
-	setUpGracefulShutdown(middleware, doneChannel)
+	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	decadeFilter := l.NewDecadeFilter(middleware.ReceiveYearAvgPtf, middleware.SendFilteredYearAvgPtf, middleware.SendEof)
 
@@ -31,19 +35,4 @@ func main() {
 	}()
 
 	<-doneChannel
-}
-
-func setUpGracefulShutdown(middleware *m.Middleware, doneChannel chan bool) {
-	signalChannel := make(chan os.Signal, 1)
-	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
-
-	go func() {
-		<-signalChannel
-		log.Info("Received termination signal. Starting graceful shutdown...")
-		if err := middleware.Close(); err != nil {
-			log.Errorf("Error closing middleware: %v", err)
-		}
-		log.Info("Graceful shutdown completed.")
-		doneChannel <- true
-	}()
 }
