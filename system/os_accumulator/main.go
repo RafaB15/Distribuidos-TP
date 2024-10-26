@@ -32,16 +32,26 @@ func main() {
 		return
 	}
 
-	// Crear un contexto con cancelación para manejar el shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	init_gracefull_shutdown(cancel)
 
+	// Ejecutar el acumulador con el contexto
+	osAccumulator := l.NewOSAccumulator(middleware.ReceiveGameOS, middleware.SendMetrics, middleware.SendEof)
+	if err = osAccumulator.Run(ctx); err != nil {
+		log.Errorf("[ERROR]: %v", err)
+		if err := middleware.Shutdown(); err != nil {
+			log.Errorf("Error al cerrar el middleware: %v", err)
+		}
+		log.Infof("Graceful shutdown completado.")
+	}
+
+}
+
+func init_gracefull_shutdown(cancel context.CancelFunc) {
 	// Capturar señales del sistema
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
-
-	osAccumulator := l.NewOSAccumulator(middleware.ReceiveGameOS, middleware.SendMetrics, middleware.SendEof)
-
 	// Goroutine para manejar la señal y disparar la cancelación
 	go func() {
 		<-stopChan
@@ -49,12 +59,4 @@ func main() {
 		cancel()
 	}()
 
-	// Ejecutar el acumulador con el contexto
-	osAccumulator.Run(ctx)
-
-	// Cerrar el middleware y otros recursos
-	if err := middleware.Shutdown(); err != nil {
-		log.Errorf("Error al cerrar el middleware: %v", err)
-	}
-	log.Info("Graceful shutdown completado.")
 }

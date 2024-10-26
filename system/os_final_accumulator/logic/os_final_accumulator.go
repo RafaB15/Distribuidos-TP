@@ -1,7 +1,9 @@
 package os_final_accumulator
 
 import (
+	"context"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	"fmt"
 
 	"github.com/op/go-logging"
 )
@@ -22,45 +24,51 @@ func NewOSFinalAccumulator(receiveGamesOSMetrics func() (int, *oa.GameOSMetrics,
 	}
 }
 
-func (o *OSFinalAccumulator) Run() {
+func (o *OSFinalAccumulator) Run(ctx context.Context) error {
 	osMetricsMap := make(map[int]*oa.GameOSMetrics)
 	eofMap := make(map[int]int)
 
 	for {
-		clientID, gamesOSMetrics, eof, err := o.ReceiveGamesOSMetrics()
-		if err != nil {
-			log.Errorf("Failed to receive game os metrics: %v", err)
-			return
-		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context canceled")
+		default:
 
-		if eof {
-			if _, ok := eofMap[clientID]; !ok {
-				eofMap[clientID] = o.OSAccumulatorsAmount - 1
-			} else {
-				eofMap[clientID]--
-
-				if eofMap[clientID] <= 0 {
-					log.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
-					err = o.SendFinalMetrics(clientID, osMetricsMap[clientID])
-					if err != nil {
-						log.Errorf("Failed to send final metrics: %v", err)
-						return
-					}
-					delete(osMetricsMap, clientID)
-					delete(eofMap, clientID)
-				}
+			clientID, gamesOSMetrics, eof, err := o.ReceiveGamesOSMetrics()
+			if err != nil {
+				// log.Errorf("Failed to receive game os metrics: %v", err)
+				return fmt.Errorf("failed to receive game os metrics: %v", err)
 			}
-			continue
+
+			if eof {
+				if _, ok := eofMap[clientID]; !ok {
+					eofMap[clientID] = o.OSAccumulatorsAmount - 1
+				} else {
+					eofMap[clientID]--
+
+					if eofMap[clientID] <= 0 {
+						log.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
+						err = o.SendFinalMetrics(clientID, osMetricsMap[clientID])
+						if err != nil {
+							// log.Errorf("Failed to send final metrics: %v", err)
+							return fmt.Errorf("failed to send final metrics: %v", err)
+						}
+						delete(osMetricsMap, clientID)
+						delete(eofMap, clientID)
+					}
+				}
+				continue
+			}
+
+			if _, ok := osMetricsMap[clientID]; !ok {
+				osMetricsMap[clientID] = oa.NewGameOSMetrics()
+			}
+
+			osMetrics := osMetricsMap[clientID]
+
+			osMetrics.Merge(gamesOSMetrics)
+			log.Infof("Received Game Os Metrics Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
+
 		}
-
-		if _, ok := osMetricsMap[clientID]; !ok {
-			osMetricsMap[clientID] = oa.NewGameOSMetrics()
-		}
-
-		osMetrics := osMetricsMap[clientID]
-
-		osMetrics.Merge(gamesOSMetrics)
-		log.Infof("Received Game Os Metrics Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
-
 	}
 }

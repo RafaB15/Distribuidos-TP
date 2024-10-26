@@ -3,6 +3,7 @@ package os_accumulator
 import (
 	"context"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	"fmt"
 
 	"github.com/op/go-logging"
 )
@@ -23,19 +24,18 @@ func NewOSAccumulator(receiveGamesOS func() (int, []*oa.GameOS, bool, error), se
 	}
 }
 
-func (o *OSAccumulator) Run(ctx context.Context) {
+func (o *OSAccumulator) Run(ctx context.Context) error {
 	osMetricsMap := make(map[int]*oa.GameOSMetrics)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("Context canceled, graceful shutdown.")
-			return
+			return fmt.Errorf("context canceled")
 		default:
 			clientID, gamesOS, eof, err := o.ReceiveGamesOS()
 			if err != nil {
-				log.Errorf("Failed to receive game os: %v", err)
-				return
+				log.Errorf("failed to receive game os: %v", err)
+				return fmt.Errorf("failed to receive game os: %v", err)
 			}
 
 			clientOSMetrics, ok := osMetricsMap[clientID]
