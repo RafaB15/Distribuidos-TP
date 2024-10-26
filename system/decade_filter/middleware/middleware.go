@@ -23,7 +23,7 @@ const (
 type Middleware struct {
 	Manager                   *mom.MiddlewareManager
 	YearAvgPtfQueue           *mom.Queue    // Esta cola es para recibir del nodo anterior
-	TopTenAccumulatorExchange *mom.Exchange // Este exchange es para el envio al siguiente nodo
+	TopTenAccumulatorExchange *mom.Exchange // Este exchange es para el envío al siguiente nodo
 }
 
 func NewMiddleware() (*Middleware, error) {
@@ -85,10 +85,10 @@ func (m *Middleware) SendFilteredYearAvgPtf(clientID int, gamesYearsAvgPtfs []*d
 
 	fmt.Printf("About to publish to top ten accumulator exchange\n")
 	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, data)
-	fmt.Printf("Published to top ten accumulator exchange\n")
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Published to top ten accumulator exchange\n")
 
 	return nil
 }
@@ -96,6 +96,15 @@ func (m *Middleware) SendFilteredYearAvgPtf(clientID int, gamesYearsAvgPtfs []*d
 func (m *Middleware) SendEof(clientID int) error {
 
 	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, sp.SerializeMsgEndOfFile(clientID))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Middleware) Close() error {
+	err := m.Manager.CloseConnection()
 	if err != nil {
 		return err
 	}

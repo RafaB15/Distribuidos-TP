@@ -14,11 +14,11 @@ Las queries a resolver son las siguientes:
 
 En esta instancia (y las subsiguientes) el objetivo es la resolucion de estas consultas junto con un sistema que soporte el incremento de los volumenes de cómputo para poder escalar el sistema.
 
-## Vista Fisica
+## Vista Física
 
 ### Servicios implementados:
 * Game Mapper:
-  Recibe los Juegos que envia el cliente para procesar y mapea a solo los campos que son de utilidad para la resolucion de las consultas. Los campos son:
+  Recibe los Juegos que envía el cliente para procesar y mapea a solo los campos que son de utilidad para la resolucion de las consultas. Los campos son:
   * AppId
   * Name
   * Windows, MAC, Linux (consulta 1)
@@ -43,13 +43,13 @@ En esta instancia (y las subsiguientes) el objetivo es la resolucion de estas co
 * Top ten Accumulator:
 
   
-  Es el encargado de filtar y acumular aquellos juegos que tengan más tiempo promedio de juego histórico. Este servicio no escala ya que siempre manejamos una cantidad de juegos reducida (unicamente 10) a medida que recibimos los juegos del servicio anterior entonces guardamos aquellos que unicamente esten entre los 10 mejores. Como este servicio está constantemente a la espera de la información del servicio anterior (Decade Filter) entonces necesita un EOF por cada parte escalada del cual está recibiendo información para poder enviar los datos definitivos. Este servicio enviará los 10 juegos con más tiempo promedio de juego al Writer para la devolución de resultados.
+  Es el encargado de filtrar y acumular aquellos juegos que tengan más tiempo promedio de juego histórico. Este servicio no escala ya que siempre manejamos una cantidad de juegos reducida (unicamente 10) a medida que recibimos los juegos del servicio anterior entonces guardamos aquellos que unicamente esten entre los 10 mejores. Como este servicio está constantemente a la espera de la información del servicio anterior (Decade Filter) entonces necesita un EOF por cada parte escalada del cual está recibiendo información para poder enviar los datos definitivos. Este servicio enviará los 10 juegos con más tiempo promedio de juego al Writer para la devolución de resultados.
 
 * English Filter:
 
   
-  Recibe directo del entrypoint los datos que envía el cliente (unicamente Reseñas). Este servicio es el encargado de filtar aquellas reseñas que estén en Inglés.
-  La detección del idioma se hizo con la biblioteca permitida por la cátedra: [Lingua](https://github.com/pemistahl/lingua-go). Este servicio puede escalarse ya que a medida que se evalua el idioma entonces acumulamos reseñas y enviamos información, cada procesamiento es independiente y no requerimos de toda la informacíon completa. Cabe destacar que este servicio no solo evalúa el idioma sino que también descarta los campos que ya no serán de utilidad para los siguientes procesamientos, como el texto de la reseña en sí. Una vez finalizado su procesamiento cada instancia del servicio enviará un mensaje de EOF al siguiente servicio.
+  Recibe directo del entrypoint los datos que envía el cliente (únicamente Reseñas). Este servicio es el encargado de filtrar aquellas reseñas que estén en Inglés.
+  La detección del idioma se hizo con la biblioteca permitida por la cátedra: [Lingua](https://github.com/pemistahl/lingua-go). Este servicio puede escalarse ya que a medida que se evalúa el idioma entonces acumulamos reseñas y enviamos información, cada procesamiento es independiente y no requerimos de toda la informacíon completa. Cabe destacar que este servicio no solo evalúa el idioma sino que también descarta los campos que ya no serán de utilidad para los siguientes procesamientos, como el texto de la reseña en sí. Una vez finalizado su procesamiento cada instancia del servicio enviará un mensaje de EOF al siguiente servicio.
 
 * English Review Accumulator:
 
