@@ -85,3 +85,7 @@ func (m *Middleware) SendQueryResults(clientID int, topPositiveIndieGames []*j.J
 	routingKey := QueryRoutingKeyPrefix + fmt.Sprint(clientID)
 	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
 }
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
+}
