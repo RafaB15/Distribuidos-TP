@@ -56,12 +56,12 @@ func NewMiddleware(id int) (*Middleware, error) {
 func (m *Middleware) ReceiveGameReviews() (int, []string, bool, error) {
 	rawMsg, err := m.RawReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("Failed to consume message: %v", err)
+		return 0, nil, false, fmt.Errorf("failed to consume message: %v", err)
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
+		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 	fmt.Printf("Received message from client %d\n", message.ClientID)
 
@@ -92,13 +92,13 @@ func (m *Middleware) SendReviews(clientID int, reviewsMap map[int][]*r.Review) e
 		serializedReviews := sp.SerializeMsgReviewInformation(clientID, reviews)
 		err := m.ReviewsExchange.Publish(routingKey, serializedReviews)
 		if err != nil {
-			return fmt.Errorf("Failed to publish message: %v", err)
+			return fmt.Errorf("failed to publish message: %v", err)
 		}
 	}
 
 	err := m.RawReviewsQueue.AckLastMessage()
 	if err != nil {
-		return fmt.Errorf("Failed to ack last message: %v", err)
+		return fmt.Errorf("failed to ack last message: %v", err)
 	}
 
 	return nil
@@ -109,14 +109,18 @@ func (m *Middleware) SendEndOfFiles(clientID int, accumulatorsAmount int) error 
 		routingKey := fmt.Sprintf("%s%d", ReviewsRoutingKeyPrefix, i)
 		err := m.ReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
-			return fmt.Errorf("Failed to publish message: %v", err)
+			return fmt.Errorf("failed to publish message: %v", err)
 		}
 	}
 
 	err := m.RawReviewsQueue.AckLastMessage()
 	if err != nil {
-		return fmt.Errorf("Failed to ack last message: %v", err)
+		return fmt.Errorf("failed to ack last message: %v", err)
 	}
 
 	return nil
+}
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
 }
