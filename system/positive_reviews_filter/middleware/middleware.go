@@ -94,3 +94,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, actionReviewsJoinersAmount int
 	}
 	return nil
 }
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
+}
