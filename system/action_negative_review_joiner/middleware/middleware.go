@@ -129,3 +129,7 @@ func (m *Middleware) SendEof(clientID int) error {
 
 	return nil
 }
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
+}
