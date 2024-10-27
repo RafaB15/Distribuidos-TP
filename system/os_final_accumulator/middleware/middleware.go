@@ -94,11 +94,6 @@ func (m *Middleware) SendFinalMetrics(clientID int, gameMetrics *oa.GameOSMetric
 	return nil
 }
 
-func (m *Middleware) Shutdown() error {
-
-	if err := m.Manager.CloseConnection(); err != nil {
-		return err
-	}
-
-	return nil
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
 }
