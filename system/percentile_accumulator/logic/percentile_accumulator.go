@@ -3,7 +3,6 @@ package percentile_accumulator
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	u "distribuidos-tp/internal/utils"
-	"strconv"
 
 	"github.com/op/go-logging"
 )
@@ -27,6 +26,7 @@ func NewPercentileAccumulator(receiveGameReviewsMetrics func() (int, []*ra.GameR
 func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accumulatedPercentileReviewsRoutingKeyPrefix string, previousAccumulators int, fileNamePrefix string) {
 	remainingEOFsMap := make(map[int]int)
 	accumulatedPercentileKeyMap := make(map[int]map[string][]*ra.GameReviewsMetrics)
+	percentileMap := make(map[int][]*ra.GameReviewsMetrics)
 
 	for {
 		clientID, gameReviewsMetrics, eof, err := p.ReceiveGameReviewsMetrics()
@@ -41,7 +41,13 @@ func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accu
 			accumulatedPercentileKeyMap[clientID] = clientAccumulatedPercentileKeyMap
 		}
 
-		fileName := fileNamePrefix + strconv.Itoa(clientID)
+		percentileReviews, exists := percentileMap[clientID]
+		if !exists {
+			percentileReviews = []*ra.GameReviewsMetrics{}
+			percentileMap[clientID] = percentileReviews
+		}
+
+		//fileName := fileNamePrefix + strconv.Itoa(clientID)
 
 		if eof {
 			log.Info("Received EOF for client ", clientID)
@@ -57,7 +63,8 @@ func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accu
 			}
 			log.Info("Received all EOFs")
 
-			abovePercentile, err := ra.GetTop10PercentByNegativeReviews(fileName)
+			//abovePercentile, err := ra.GetTop10PercentByNegativeReviews(fileName)
+			abovePercentile, err := ra.GetTop10PercentByNegativeReviewsV2(percentileReviews)
 			if err != nil {
 				log.Errorf("Failed to get top 10 percent by negative reviews: %v", err)
 				return
@@ -77,11 +84,14 @@ func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accu
 			continue
 		}
 
-		err = ra.AddGamesAndMaintainOrder(fileName, gameReviewsMetrics)
-		if err != nil {
+		allReviews := ra.AddGamesAndMaintainOrderV2(percentileMap[clientID], gameReviewsMetrics)
+		/*if err != nil {
 			log.Errorf("Failed to add games and maintain order: %v", err)
 			return
-		}
+		}*/
+		percentileMap[clientID] = allReviews
+		log.Infof("Received game reviews metrics for client %d", clientID)
+		log.Infof("Quantity of games: %d", len(allReviews))
 
 	}
 }

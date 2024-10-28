@@ -103,6 +103,16 @@ func AddGamesAndMaintainOrder(filename string, newGames []*GameReviewsMetrics) e
 	return WriteGameReviewsMetricsToFile(filename, allGames)
 }
 
+func AddGamesAndMaintainOrderV2(existingGames []*GameReviewsMetrics, newGames []*GameReviewsMetrics) []*GameReviewsMetrics {
+	allGames := append(existingGames, newGames...)
+
+	sort.Slice(allGames, func(i, j int) bool {
+		return allGames[i].NegativeReviews < allGames[j].NegativeReviews
+	})
+
+	return allGames
+}
+
 // Función para hacer un merge de dos listas ordenadas
 func MergeSortedGames(existingGames, newGames []*GameReviewsMetrics) []*GameReviewsMetrics {
 	result := make([]*GameReviewsMetrics, 0, len(existingGames)+len(newGames))
@@ -155,6 +165,24 @@ func GetTop10PercentByNegativeReviews(filename string) ([]*GameReviewsMetrics, e
 		return nil, err
 	}
 
+	// Log the length of the games slice
+	fmt.Printf("Total number of games: %d\n", len(games))
+
+	// Si no hay juegos, devolver error
+	if len(games) == 0 {
+		return nil, errors.New("no games found in file")
+	}
+
+	// Calcular la posición del percentil 90
+	percentileIndex := int(math.Ceil(0.9 * float64(len(games))))
+
+	fmt.Printf("Reviews must have more than %d negative reviews to be considered\n", games[percentileIndex].NegativeReviews)
+
+	// Retornar solo los juegos que están por encima del percentil 90
+	return games[percentileIndex:], nil
+}
+
+func GetTop10PercentByNegativeReviewsV2(games []*GameReviewsMetrics) ([]*GameReviewsMetrics, error) {
 	// Log the length of the games slice
 	fmt.Printf("Total number of games: %d\n", len(games))
 
