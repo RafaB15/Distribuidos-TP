@@ -239,3 +239,7 @@ func handleMsgTopTenResolvedQuery(message []byte) ([]byte, error) {
 	return sp.AssembleFinalQueryMsg(byte(sp.MsgTopTenDecadeAvgPtfQuery), []byte(stringRepresentation)), nil
 
 }
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
+}
