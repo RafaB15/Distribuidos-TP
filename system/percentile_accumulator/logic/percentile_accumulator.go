@@ -47,8 +47,6 @@ func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accu
 			percentileMap[clientID] = percentileReviews
 		}
 
-		//fileName := fileNamePrefix + strconv.Itoa(clientID)
-
 		if eof {
 			log.Info("Received EOF for client ", clientID)
 
@@ -63,7 +61,6 @@ func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accu
 			}
 			log.Info("Received all EOFs")
 
-			//abovePercentile, err := ra.GetTop10PercentByNegativeReviews(fileName)
 			abovePercentile, err := ra.GetTop10PercentByNegativeReviewsV2(percentileReviews)
 			if err != nil {
 				log.Errorf("Failed to get top 10 percent by negative reviews: %v", err)
@@ -85,10 +82,6 @@ func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accu
 		}
 
 		allReviews := ra.AddGamesAndMaintainOrderV2(percentileMap[clientID], gameReviewsMetrics)
-		/*if err != nil {
-			log.Errorf("Failed to add games and maintain order: %v", err)
-			return
-		}*/
 		percentileMap[clientID] = allReviews
 		log.Infof("Received game reviews metrics for client %d", clientID)
 		log.Infof("Quantity of games: %d", len(allReviews))
