@@ -38,24 +38,24 @@ type Middleware struct {
 func NewMiddleware(clientID int) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(MiddlewareURI)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create middleware manager: %v", err)
+		return nil, fmt.Errorf("failed to create middleware manager: %v", err)
 	}
 
 	rawGamesExchange, err := manager.CreateExchange(RawGamesExchangeName, RawGamesExchangeType)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to declare exchange: %v", err)
+		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
 
 	rawReviewsExchange, err := manager.CreateExchange(RawReviewsExchangeName, RawReviewsExchangeType)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to declare exchange: %v", err)
+		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
 
 	queryResultsQueueName := fmt.Sprintf("%s%d", QueryResultsQueueNamePrefix, clientID)
 	routingKey := fmt.Sprintf("%s%d", QueryRoutingKeyPrefix, clientID)
 	queryResultsQueue, err := manager.CreateBoundQueue(queryResultsQueueName, QueryResultsExchangeName, QueryExchangeType, routingKey, true)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create queue: %v", err)
+		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
 
 	return &Middleware{
@@ -70,7 +70,7 @@ func (m *Middleware) SendGamesBatch(clientID int, data []byte) error {
 	batch := sp.SerializeMsgBatch(clientID, data)
 	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, batch)
 	if err != nil {
-		return fmt.Errorf("Failed to publish message: %v", err)
+		return fmt.Errorf("failed to publish message: %v", err)
 	}
 
 	return nil
@@ -81,12 +81,12 @@ func (m *Middleware) SendReviewsBatch(clientID int, englishFiltersAmount int, re
 
 	err := sendToReviewNode(englishFiltersAmount, m.RawReviewsExchange, RawEnglishReviewsKeyPrefix, reviewsBatch)
 	if err != nil {
-		return fmt.Errorf("Failed to publish message to english review accumulator: %v", err)
+		return fmt.Errorf("failed to publish message to english review accumulator: %v", err)
 	}
 
 	err = sendToReviewNode(reviewMappersAmount, m.RawReviewsExchange, RawReviewsRoutingKeyPrefix, reviewsBatch)
 	if err != nil {
-		return fmt.Errorf("Failed to publish message to review mapper: %v", err)
+		return fmt.Errorf("failed to publish message to review mapper: %v", err)
 	}
 
 	return nil
@@ -97,7 +97,7 @@ func sendToReviewNode(nodesAmount int, exchange *mom.Exchange, routingKeyPrefix 
 	routingKey := fmt.Sprintf("%s%d", routingKeyPrefix, nodeId)
 	err := exchange.Publish(routingKey, data)
 	if err != nil {
-		return fmt.Errorf("Failed to publish message: %v", err)
+		return fmt.Errorf("failed to publish message: %v", err)
 	}
 
 	return nil
@@ -106,7 +106,7 @@ func sendToReviewNode(nodesAmount int, exchange *mom.Exchange, routingKeyPrefix 
 func (m *Middleware) SendGamesEndOfFile(clientID int) error {
 	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
-		return fmt.Errorf("Failed to publish message: %v", err)
+		return fmt.Errorf("failed to publish message: %v", err)
 	}
 
 	return nil
@@ -117,7 +117,7 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, englishFiltersAmount int
 		englishRoutingKey := fmt.Sprintf("%s%d", RawEnglishReviewsKeyPrefix, i)
 		err := m.RawReviewsExchange.Publish(englishRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
-			return fmt.Errorf("Failed to publish message: %v", err)
+			return fmt.Errorf("failed to publish message: %v", err)
 		}
 	}
 
@@ -125,7 +125,7 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, englishFiltersAmount int
 		routingKey := fmt.Sprintf("%s%d", RawReviewsRoutingKeyPrefix, i)
 		err := m.RawReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
-			return fmt.Errorf("Failed to publish message: %v", err)
+			return fmt.Errorf("failed to publish message: %v", err)
 		}
 	}
 
@@ -135,7 +135,7 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, englishFiltersAmount int
 func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 	rawMsg, err := m.QueryResultsQueue.Consume()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to consume message: %v", err)
+		return nil, fmt.Errorf("failed to consume message: %v", err)
 	}
 
 	queryResponseMessage, err := sp.DeserializeQuery(rawMsg)
@@ -174,7 +174,7 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 func handleMsgOsResolvedQuery(message []byte) ([]byte, error) {
 	gameOSMetrics, err := sp.DeserializeMsgOsResolvedQuery(message)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
+		return nil, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 	stringRepresentation := oa.GetStrRepresentation(gameOSMetrics)
 
@@ -185,20 +185,20 @@ func handleMsgOsResolvedQuery(message []byte) ([]byte, error) {
 func handleMsgIndiePositiveResolvedQuery(message []byte) ([]byte, error) {
 	joinedReviews, err := sp.DeserializeMsgIndiePositiveJoinedReviewsQuery(message)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
+		return nil, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 	var stringRepresentation []byte
 	for _, review := range joinedReviews {
 		stringRep := j.GetStrRepresentation(review)
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
-	return sp.AssembleFinalQueryMsg(byte(sp.MsgIndiePositiveJoinedReviewsQuery), []byte(stringRepresentation)), nil
+	return sp.AssembleFinalQueryMsg(byte(sp.MsgIndiePositiveJoinedReviewsQuery), stringRepresentation), nil
 }
 
 func handleMsgActionPositiveReviewsQuery(message []byte) ([]byte, error) {
 	joinedReviews, err := sp.DeserializeMsgActionPositiveReviewsQuery(message)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
+		return nil, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
 	var stringRepresentation []byte
@@ -206,13 +206,13 @@ func handleMsgActionPositiveReviewsQuery(message []byte) ([]byte, error) {
 		stringRep := j.GetStrRepresentation(review)
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
-	return sp.AssembleFinalQueryMsg(byte(sp.MsgActionPositiveReviewsQuery), []byte(stringRepresentation)), nil
+	return sp.AssembleFinalQueryMsg(byte(sp.MsgActionPositiveReviewsQuery), stringRepresentation), nil
 }
 
 func handleMsgActionNegativeReviewsQuery(message []byte) ([]byte, error) {
 	joinedReviews, err := sp.DeserializeMsgActionNegativeReviewsQuery(message)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to deserialize message: %v", err)
+		return nil, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
 	var stringRepresentation []byte
@@ -220,7 +220,7 @@ func handleMsgActionNegativeReviewsQuery(message []byte) ([]byte, error) {
 		stringRep := j.GetStrRepresentationNegativeGameReview(review)
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
-	return sp.AssembleFinalQueryMsg(byte(sp.MsgActionNegativeReviewsQuery), []byte(stringRepresentation)), nil
+	return sp.AssembleFinalQueryMsg(byte(sp.MsgActionNegativeReviewsQuery), stringRepresentation), nil
 
 }
 
@@ -238,4 +238,8 @@ func handleMsgTopTenResolvedQuery(message []byte) ([]byte, error) {
 
 	return sp.AssembleFinalQueryMsg(byte(sp.MsgTopTenDecadeAvgPtfQuery), []byte(stringRepresentation)), nil
 
+}
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
 }

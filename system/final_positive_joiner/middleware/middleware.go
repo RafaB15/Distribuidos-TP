@@ -72,7 +72,7 @@ func (m *Middleware) ReceiveJoinedGameReviews() (int, *j.JoinedPositiveGameRevie
 		return message.ClientID, nil, true, nil
 
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("Received unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
 }
 
@@ -84,4 +84,8 @@ func (m *Middleware) SendQueryResults(clientID int, queryResults []*j.JoinedPosi
 
 	routingKey := QueryRoutingKeyPrefix + fmt.Sprint(clientID)
 	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
+}
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
 }

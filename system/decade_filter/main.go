@@ -1,20 +1,22 @@
 package main
 
 import (
+	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/decade_filter/logic"
 	m "distribuidos-tp/system/decade_filter/middleware"
-
 	"github.com/op/go-logging"
-)
-
-const (
-	DecadeFiltersAmountEnvironmentVariableName = "DECADE_FILTERS_AMOUNT"
-	FileName                                   = "top_ten_games"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 var log = logging.MustGetLogger("log")
 
 func main() {
+	signalChannel := make(chan os.Signal, 1)
+	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
+
+	doneChannel := make(chan bool)
 
 	log.Infof("Starting Decade Filter")
 	middleware, err := m.NewMiddleware()
@@ -24,5 +26,13 @@ func main() {
 	}
 
 	decadeFilter := l.NewDecadeFilter(middleware.ReceiveYearAvgPtf, middleware.SendFilteredYearAvgPtf, middleware.SendEof)
-	decadeFilter.Run()
+
+	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
+
+	go func() {
+		decadeFilter.Run()
+		doneChannel <- true
+	}()
+
+	<-doneChannel
 }

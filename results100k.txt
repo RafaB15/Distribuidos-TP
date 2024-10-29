@@ -27,6 +27,15 @@
 2024-10-23 21:11:28 AppID: 113200, GameName: The Binding of Isaac, PositiveReviews: 1930
 2024-10-23 21:11:28 AppID: 204360, GameName: Castle Crashers®, PositiveReviews: 1459
 
+Parece que la de arriba había perdido algunas reviews. Rari. Creo que fue por los que consumen de la misma cola.
+
+2024-10-26 22:34:17 2024/10/27 01:34:17 Results for query 3:
+2024-10-26 22:34:17 2024/10/27 01:34:17 Received message:
+2024-10-26 22:34:17 AppID: 105600, GameName: Terraria, PositiveReviews: 8203
+2024-10-26 22:34:17 AppID: 211820, GameName: Starbound, PositiveReviews: 3534
+2024-10-26 22:34:17 AppID: 212680, GameName: FTL: Faster Than Light, PositiveReviews: 2517
+2024-10-26 22:34:17 AppID: 113200, GameName: The Binding of Isaac, PositiveReviews: 1931
+2024-10-26 22:34:17 AppID: 204360, GameName: Castle Crashers®, PositiveReviews: 1459
 
 2024-10-23 21:11:47 2024/10/24 00:11:47 Results for query 4:
 2024-10-23 21:11:47 2024/10/24 00:11:47 Received message: 

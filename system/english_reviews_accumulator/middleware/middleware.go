@@ -98,3 +98,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, positiveReviewsFilterAmount in
 	}
 	return nil
 }
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
+}

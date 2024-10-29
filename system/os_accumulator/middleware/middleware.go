@@ -93,17 +93,6 @@ func (m *Middleware) ReceiveGameOS() (int, []*oa.GameOS, bool, error) {
 	}
 }
 
-// Shutdown method to close the MiddlewareManager and related resources
-func (m *Middleware) Shutdown() error {
-
-	// Cerrar colas y exchanges
-	if err := m.Manager.CloseConnection(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (m *Middleware) SendEof(clientID int) error {
 
 	err := m.OSAccumulatorExchange.Publish(OSAccumulatorRoutingKey, sp.SerializeMsgEndOfFile(clientID))
@@ -112,4 +101,8 @@ func (m *Middleware) SendEof(clientID int) error {
 	}
 
 	return nil
+}
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
 }

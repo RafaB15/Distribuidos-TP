@@ -93,3 +93,7 @@ func (m *Middleware) SendFinalMetrics(clientID int, gameMetrics *oa.GameOSMetric
 
 	return nil
 }
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
+}

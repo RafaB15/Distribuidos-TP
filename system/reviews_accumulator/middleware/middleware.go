@@ -90,13 +90,13 @@ func (m *Middleware) ReceiveReviews() (int, []*reviews.Review, bool, error) {
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
 	case sp.MsgReviewInformation:
-		reviews, err := sp.DeserializeMsgReviewInformation(message.Body)
+		reviewsInformation, err := sp.DeserializeMsgReviewInformation(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, fmt.Errorf("Failed to deserialize reviews: %v", err)
+			return message.ClientID, nil, false, fmt.Errorf("failed to deserialize reviewsInformation: %v", err)
 		}
-		return message.ClientID, reviews, false, nil
+		return message.ClientID, reviewsInformation, false, nil
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("Unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %v", message.Type)
 	}
 }
 
@@ -159,4 +159,8 @@ func idMapToKeyMap(idMap map[uint32]*r.GameReviewsMetrics, indieReviewJoinerAmou
 		keyMap[key] = append(keyMap[key], metrics)
 	}
 	return keyMap
+}
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
 }

@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	APP_ID_INDEX       = 0
-	REVIEW_SCORE_INDEX = 2
+	AppIdIndex        = 0
+	ReviewsScoreIndex = 2
 )
 
 var log = logging.MustGetLogger("log")
@@ -86,7 +86,7 @@ func collectReviews(reviews []string, accumulatorsAmount int) (map[int][]*re.Rev
 			return nil, err
 		}
 
-		review, err := re.NewReviewFromStrings(records[APP_ID_INDEX], records[REVIEW_SCORE_INDEX])
+		review, err := re.NewReviewFromStrings(records[AppIdIndex], records[ReviewsScoreIndex])
 		if err != nil {
 			log.Error("Error creating review with text")
 			return nil, err

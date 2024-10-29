@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/os_accumulator/logic"
 	m "distribuidos-tp/system/os_accumulator/middleware"
@@ -20,6 +19,11 @@ var log = logging.MustGetLogger("log")
 
 func main() {
 
+	signalChannel := make(chan os.Signal, 1)
+	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
+
+	doneChannel := make(chan bool)
+
 	id, err := u.GetEnvInt(IdEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
@@ -32,29 +36,16 @@ func main() {
 		return
 	}
 
-	// Crear un contexto con cancelación para manejar el shutdown
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Capturar señales del sistema
-	stopChan := make(chan os.Signal, 1)
-	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
-
+	// Ejecutar el acumulador con el contexto
 	osAccumulator := l.NewOSAccumulator(middleware.ReceiveGameOS, middleware.SendMetrics, middleware.SendEof)
 
-	// Goroutine para manejar la señal y disparar la cancelación
+	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
+
 	go func() {
-		<-stopChan
-		log.Info("Señal de cierre recibida. Iniciando graceful shutdown...")
-		cancel()
+		osAccumulator.Run()
+		doneChannel <- true
 	}()
 
-	// Ejecutar el acumulador con el contexto
-	osAccumulator.Run(ctx)
+	<-doneChannel
 
-	// Cerrar el middleware y otros recursos
-	if err := middleware.Shutdown(); err != nil {
-		log.Errorf("Error al cerrar el middleware: %v", err)
-	}
-	log.Info("Graceful shutdown completado.")
 }

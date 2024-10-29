@@ -2,6 +2,7 @@ package os_final_accumulator
 
 import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	"fmt"
 
 	"github.com/op/go-logging"
 )
@@ -22,33 +23,34 @@ func NewOSFinalAccumulator(receiveGamesOSMetrics func() (int, *oa.GameOSMetrics,
 	}
 }
 
-func (o *OSFinalAccumulator) Run() {
+func (o *OSFinalAccumulator) Run() error {
 	osMetricsMap := make(map[int]*oa.GameOSMetrics)
-	eofMap := make(map[int]int)
+	remainingEOFsMap := make(map[int]int)
 
 	for {
 		clientID, gamesOSMetrics, eof, err := o.ReceiveGamesOSMetrics()
 		if err != nil {
-			log.Errorf("Failed to receive game os metrics: %v", err)
-			return
+			return fmt.Errorf("failed to receive game os metrics: %v", err)
 		}
 
 		if eof {
-			if _, ok := eofMap[clientID]; !ok {
-				eofMap[clientID] = o.OSAccumulatorsAmount - 1
-			} else {
-				eofMap[clientID]--
+			remainingEOFs, exists := remainingEOFsMap[clientID]
+			if !exists {
+				remainingEOFs = o.OSAccumulatorsAmount
+			}
 
-				if eofMap[clientID] <= 0 {
-					log.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
-					err = o.SendFinalMetrics(clientID, osMetricsMap[clientID])
-					if err != nil {
-						log.Errorf("Failed to send final metrics: %v", err)
-						return
-					}
-					delete(osMetricsMap, clientID)
-					delete(eofMap, clientID)
+			remainingEOFs--
+			remainingEOFsMap[clientID] = remainingEOFs
+
+			if remainingEOFsMap[clientID] <= 0 {
+				log.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
+				err = o.SendFinalMetrics(clientID, osMetricsMap[clientID])
+				if err != nil {
+					// log.Errorf("Failed to send final metrics: %v", err)
+					return fmt.Errorf("failed to send final metrics: %v", err)
 				}
+				delete(osMetricsMap, clientID)
+				delete(remainingEOFsMap, clientID)
 			}
 			continue
 		}

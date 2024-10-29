@@ -71,11 +71,11 @@ func (m *Middleware) ReceiveMsg() (int, []*games.GameName, []*reviews_accumulato
 
 	switch message.Type {
 	case sp.MsgGameNames:
-		games, err := HandleGameNames(message.Body)
+		gamesNames, err := HandleGameNames(message.Body)
 		if err != nil {
 			return message.ClientID, nil, nil, false, err
 		}
-		return message.ClientID, games, nil, false, nil
+		return message.ClientID, gamesNames, nil, false, nil
 	case sp.MsgGameReviewsMetrics:
 		reviews, err := HandleGameReviewMetrics(message.Body)
 		if err != nil {
@@ -124,4 +124,8 @@ func (m *Middleware) SendEof(clientID int) error {
 	}
 
 	return nil
+}
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
 }

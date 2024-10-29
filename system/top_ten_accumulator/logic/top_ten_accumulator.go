@@ -23,6 +23,7 @@ func NewTopTenAccumulator(receiveMsg func() (int, []*df.GameYearAndAvgPtf, bool,
 func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 
 	// remainingEOFs := decadeFilterAmount
+	topTenGames := make(map[int][]*df.GameYearAndAvgPtf)
 	remainingEOFs := make(map[int]int)
 
 	for {
@@ -31,6 +32,12 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 		if err != nil {
 			log.Errorf("failed to receive message: %v", err)
 			return
+		}
+
+		clientTopTenGames, exists := topTenGames[clientID]
+		if !exists {
+			clientTopTenGames = []*df.GameYearAndAvgPtf{}
+			topTenGames[clientID] = clientTopTenGames
 		}
 
 		log.Infof("Received decade games")
@@ -45,26 +52,30 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 
 				if remainingEOFs[clientID] <= 0 {
 					log.Infof("Received all EOFs of client %d, sending final top ten games", clientID)
-					finalTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile("top_ten_games")
+					/*finalTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile("top_ten_games")
 					if err != nil {
 						log.Errorf("error uploading top ten games from file: %v", err)
 						return
-					}
-					err = t.SendMsg(clientID, finalTopTenGames)
+					}*/
+					err = t.SendMsg(clientID, clientTopTenGames)
 					if err != nil {
 						log.Errorf("failed to send metrics: %v", err)
 						return
 					}
-
+					delete(topTenGames, clientID)
 					delete(remainingEOFs, clientID)
 				}
 			}
 		}
 
-		topTenGames := df.TopTenAvgPlaytimeForever(decadeGames)
+		clientTopTenGames = df.TopTenAvgPlaytimeForever(append(clientTopTenGames, decadeGames...))
+		topTenGames[clientID] = clientTopTenGames
+		log.Infof("Updated top ten games for client %d", clientID)
+
+		//topTenGames := df.TopTenAvgPlaytimeForever(decadeGames)
 
 		// Upload the actual top ten games from the file and update the top ten games
-		actualTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile(fileName)
+		/*actualTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile(fileName)
 		if err != nil {
 			log.Errorf("Error uploading top ten games from file: %v", err)
 			return
@@ -76,7 +87,7 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 		if err != nil {
 			log.Errorf("error saving top ten games to file: %v", err)
 			return
-		}
+		}*/
 
 	}
 }

@@ -34,12 +34,12 @@ func NewMiddleware() (*Middleware, error) {
 
 	accumulatedEnglishReviewsQueue, err := manager.CreateBoundQueue(AccumulatedEnglishReviewQueueName, AccumulatedEnglishReviewsExchangeName, AccumulatedEnglishReviewsExchangeType, AccumulatedEnglishReviewsRoutingKey, true)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create queue: %v", err)
+		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
 
 	positiveJoinedEnglishReviewsExchange, err := manager.CreateExchange(PositiveJoinReviewsExchangeName, PositiveJoinReviewsExchangeType)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to declare exchange: %v", err)
+		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
 
 	return &Middleware{
@@ -57,7 +57,7 @@ func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics,
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
+		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
 	switch message.Type {
@@ -70,7 +70,7 @@ func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics,
 		}
 		return message.ClientID, gameReviewsMetrics, false, nil
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("Received unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
 }
 
@@ -80,7 +80,7 @@ func (m *Middleware) SendGameReviewsMetrics(clientID int, positiveReviewsMap map
 		serializedGameReviewsMetrics := sp.SerializeMsgGameReviewsMetricsBatch(clientID, gameReviewsMetrics)
 		err := m.PositiveJoinedReviewsExchange.Publish(routingKey, serializedGameReviewsMetrics)
 		if err != nil {
-			return fmt.Errorf("Failed to publish game reviews metrics: %v", err)
+			return fmt.Errorf("failed to publish game reviews metrics: %v", err)
 		}
 	}
 	return nil
@@ -90,7 +90,14 @@ func (m *Middleware) SendEndOfFiles(clientID int, actionReviewsJoinersAmount int
 	for i := 1; i <= actionReviewsJoinersAmount; i++ {
 		serializedEOF := sp.SerializeMsgEndOfFile(clientID)
 		routingKey := fmt.Sprintf("%s%d", PositiveJoinReviewsRoutingKeyPrefix, i)
-		m.PositiveJoinedReviewsExchange.Publish(routingKey, serializedEOF)
+		err := m.PositiveJoinedReviewsExchange.Publish(routingKey, serializedEOF)
+		if err != nil {
+			return fmt.Errorf("failed to publish end of file: %v", err)
+		}
 	}
 	return nil
+}
+
+func (m *Middleware) Close() error {
+	return m.Manager.CloseConnection()
 }
