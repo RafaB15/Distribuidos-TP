@@ -4,6 +4,7 @@ import (
 	"bufio"
 	cp "distribuidos-tp/internal/client_protocol"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"os"
 
@@ -113,9 +114,24 @@ func main() {
 	}
 
 	for i := 0; i < 5; i++ {
+		var clientNumber byte
+		err := binary.Read(conn, binary.BigEndian, &clientNumber)
+		if err != nil {
+			log.Errorf("Error reading client number from connection: %v", err)
+			return
+		}
+		log.Infof("Results for client %d:", clientNumber)
+
+		fileName := fmt.Sprintf("/client_data/client_%d_results.txt", clientNumber)
+		file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Errorf("Error opening file: %v", err)
+			return
+		}
+		defer file.Close()
 
 		var queryNumber byte
-		err := binary.Read(conn, binary.BigEndian, &queryNumber)
+		err = binary.Read(conn, binary.BigEndian, &queryNumber)
 		if err != nil {
 			log.Errorf("Error reading query number from connection: %v", err)
 			return
@@ -141,5 +157,11 @@ func main() {
 		}
 
 		log.Infof("Received message: \n%s", string(message))
+
+		_, err = file.WriteString(fmt.Sprintf("Query %d:\n%s\n", queryNumber+1, string(message)))
+		if err != nil {
+			log.Errorf("Error writing to file: %v", err)
+			return
+		}
 	}
 }

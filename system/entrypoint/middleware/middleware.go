@@ -147,23 +147,23 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 	switch queryResponseMessage.Type {
 	case sp.MsgOsResolvedQuery:
 		fmt.Printf("Received OS resolved query\n")
-		return handleMsgOsResolvedQuery(queryResponseMessage.Body)
+		return handleMsgOsResolvedQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
 
 	case sp.MsgTopTenDecadeAvgPtfQuery:
 		fmt.Printf("Received decade reviews query\n")
-		return handleMsgTopTenResolvedQuery(queryResponseMessage.Body)
+		return handleMsgTopTenResolvedQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
 
 	case sp.MsgIndiePositiveJoinedReviewsQuery:
 		fmt.Printf("Received positive indie reviews query\n")
-		return handleMsgIndiePositiveResolvedQuery(queryResponseMessage.Body)
+		return handleMsgIndiePositiveResolvedQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
 
 	case sp.MsgActionPositiveReviewsQuery:
 		fmt.Printf("Received positive reviews query\n")
-		return handleMsgActionPositiveReviewsQuery(queryResponseMessage.Body)
+		return handleMsgActionPositiveReviewsQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
 
 	case sp.MsgActionNegativeReviewsQuery:
 		fmt.Printf("Received negative reviews query\n")
-		return handleMsgActionNegativeReviewsQuery(queryResponseMessage.Body)
+		return handleMsgActionNegativeReviewsQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
 
 	default:
 		fmt.Printf("Received unknown query response\n")
@@ -171,7 +171,7 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 	return rawMsg, nil
 }
 
-func handleMsgOsResolvedQuery(message []byte) ([]byte, error) {
+func handleMsgOsResolvedQuery(clientID int, message []byte) ([]byte, error) {
 	gameOSMetrics, err := sp.DeserializeMsgOsResolvedQuery(message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize message: %v", err)
@@ -179,10 +179,10 @@ func handleMsgOsResolvedQuery(message []byte) ([]byte, error) {
 	stringRepresentation := oa.GetStrRepresentation(gameOSMetrics)
 
 	// fmt.Println("String Representation:", stringRepresentation)
-	return sp.AssembleFinalQueryMsg(byte(sp.MsgOsResolvedQuery), []byte(stringRepresentation)), nil
+	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgOsResolvedQuery), []byte(stringRepresentation)), nil
 }
 
-func handleMsgIndiePositiveResolvedQuery(message []byte) ([]byte, error) {
+func handleMsgIndiePositiveResolvedQuery(clientID int, message []byte) ([]byte, error) {
 	joinedReviews, err := sp.DeserializeMsgIndiePositiveJoinedReviewsQuery(message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize message: %v", err)
@@ -192,10 +192,10 @@ func handleMsgIndiePositiveResolvedQuery(message []byte) ([]byte, error) {
 		stringRep := j.GetStrRepresentation(review)
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
-	return sp.AssembleFinalQueryMsg(byte(sp.MsgIndiePositiveJoinedReviewsQuery), stringRepresentation), nil
+	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgIndiePositiveJoinedReviewsQuery), stringRepresentation), nil
 }
 
-func handleMsgActionPositiveReviewsQuery(message []byte) ([]byte, error) {
+func handleMsgActionPositiveReviewsQuery(clientID int, message []byte) ([]byte, error) {
 	joinedReviews, err := sp.DeserializeMsgActionPositiveReviewsQuery(message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize message: %v", err)
@@ -206,10 +206,10 @@ func handleMsgActionPositiveReviewsQuery(message []byte) ([]byte, error) {
 		stringRep := j.GetStrRepresentation(review)
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
-	return sp.AssembleFinalQueryMsg(byte(sp.MsgActionPositiveReviewsQuery), stringRepresentation), nil
+	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgActionPositiveReviewsQuery), stringRepresentation), nil
 }
 
-func handleMsgActionNegativeReviewsQuery(message []byte) ([]byte, error) {
+func handleMsgActionNegativeReviewsQuery(clientID int, message []byte) ([]byte, error) {
 	joinedReviews, err := sp.DeserializeMsgActionNegativeReviewsQuery(message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize message: %v", err)
@@ -220,11 +220,11 @@ func handleMsgActionNegativeReviewsQuery(message []byte) ([]byte, error) {
 		stringRep := j.GetStrRepresentationNegativeGameReview(review)
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
-	return sp.AssembleFinalQueryMsg(byte(sp.MsgActionNegativeReviewsQuery), stringRepresentation), nil
+	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgActionNegativeReviewsQuery), stringRepresentation), nil
 
 }
 
-func handleMsgTopTenResolvedQuery(message []byte) ([]byte, error) {
+func handleMsgTopTenResolvedQuery(clientID int, message []byte) ([]byte, error) {
 	decadeAvgPtfs, err := sp.DeserializeMsgTopTenResolvedQuery(message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize message: %v", err)
@@ -236,7 +236,7 @@ func handleMsgTopTenResolvedQuery(message []byte) ([]byte, error) {
 	}
 	// fmt.Println("String Representation:", stringRepresentation)
 
-	return sp.AssembleFinalQueryMsg(byte(sp.MsgTopTenDecadeAvgPtfQuery), []byte(stringRepresentation)), nil
+	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgTopTenDecadeAvgPtfQuery), []byte(stringRepresentation)), nil
 
 }
 

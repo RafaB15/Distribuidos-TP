@@ -1,86 +1,80 @@
-2024-10-23 21:11:26 2024/10/24 00:11:26 Results for query 1:
-2024-10-23 21:11:26 2024/10/24 00:11:26 Received message: 
-2024-10-23 21:11:26 Linux: 12307
-2024-10-23 21:11:26  Windows: 92534
-2024-10-23 21:11:26  Mac: 17703
+Query 1:
+Linux: 12307
+Windows: 92534
+Mac: 17703
 
 
-2024-10-23 21:11:26 2024/10/24 00:11:26 Results for query 2:
-2024-10-23 21:11:26 2024/10/24 00:11:26 Received message: 
-2024-10-23 21:11:26 AppId: 404580 ReleaseYear: 2015 AvgPlaytimeForever: 68357
-2024-10-23 21:11:26 AppId: 554640 ReleaseYear: 2016 AvgPlaytimeForever: 49555
-2024-10-23 21:11:26 AppId: 831980 ReleaseYear: 2019 AvgPlaytimeForever: 34798
-2024-10-23 21:11:26 AppId: 989450 ReleaseYear: 2019 AvgPlaytimeForever: 33343
-2024-10-23 21:11:26 AppId: 629910 ReleaseYear: 2018 AvgPlaytimeForever: 31708
-2024-10-23 21:11:26 AppId: 353130 ReleaseYear: 2016 AvgPlaytimeForever: 27080
-2024-10-23 21:11:26 AppId: 305940 ReleaseYear: 2018 AvgPlaytimeForever: 26827
-2024-10-23 21:11:26 AppId: 557400 ReleaseYear: 2017 AvgPlaytimeForever: 19196
-2024-10-23 21:11:26 AppId: 719890 ReleaseYear: 2018 AvgPlaytimeForever: 17147
-2024-10-23 21:11:26 AppId: 252490 ReleaseYear: 2018 AvgPlaytimeForever: 16623
+Query 2:
+AppId: 404580 ReleaseYear: 2015 AvgPlaytimeForever: 68357
+AppId: 554640 ReleaseYear: 2016 AvgPlaytimeForever: 49555
+AppId: 831980 ReleaseYear: 2019 AvgPlaytimeForever: 34798
+AppId: 989450 ReleaseYear: 2019 AvgPlaytimeForever: 33343
+AppId: 629910 ReleaseYear: 2018 AvgPlaytimeForever: 31708
+AppId: 353130 ReleaseYear: 2016 AvgPlaytimeForever: 27080
+AppId: 305940 ReleaseYear: 2018 AvgPlaytimeForever: 26827
+AppId: 557400 ReleaseYear: 2017 AvgPlaytimeForever: 19196
+AppId: 719890 ReleaseYear: 2018 AvgPlaytimeForever: 17147
+AppId: 252490 ReleaseYear: 2018 AvgPlaytimeForever: 16623
 
 
-2024-10-23 21:11:28 2024/10/24 00:11:28 Results for query 3:
-2024-10-23 21:11:28 2024/10/24 00:11:28 Received message: 
-2024-10-23 21:11:28 AppID: 105600, GameName: Terraria, PositiveReviews: 8197
-2024-10-23 21:11:28 AppID: 211820, GameName: Starbound, PositiveReviews: 3532
-2024-10-23 21:11:28 AppID: 212680, GameName: FTL: Faster Than Light, PositiveReviews: 2516
-2024-10-23 21:11:28 AppID: 113200, GameName: The Binding of Isaac, PositiveReviews: 1930
-2024-10-23 21:11:28 AppID: 204360, GameName: Castle Crashers®, PositiveReviews: 1459
+Query 3:
+AppID: 105600, GameName: Terraria, PositiveReviews: 8197
+AppID: 211820, GameName: Starbound, PositiveReviews: 3532
+AppID: 212680, GameName: FTL: Faster Than Light, PositiveReviews: 2516
+AppID: 113200, GameName: The Binding of Isaac, PositiveReviews: 1930
+AppID: 204360, GameName: Castle Crashers®, PositiveReviews: 1459
 
 Parece que la de arriba había perdido algunas reviews. Rari. Creo que fue por los que consumen de la misma cola.
 
-2024-10-26 22:34:17 2024/10/27 01:34:17 Results for query 3:
-2024-10-26 22:34:17 2024/10/27 01:34:17 Received message:
-2024-10-26 22:34:17 AppID: 105600, GameName: Terraria, PositiveReviews: 8203
-2024-10-26 22:34:17 AppID: 211820, GameName: Starbound, PositiveReviews: 3534
-2024-10-26 22:34:17 AppID: 212680, GameName: FTL: Faster Than Light, PositiveReviews: 2517
-2024-10-26 22:34:17 AppID: 113200, GameName: The Binding of Isaac, PositiveReviews: 1931
-2024-10-26 22:34:17 AppID: 204360, GameName: Castle Crashers®, PositiveReviews: 1459
+Query 3:
+AppID: 105600, GameName: Terraria, PositiveReviews: 8203
+AppID: 211820, GameName: Starbound, PositiveReviews: 3534
+AppID: 212680, GameName: FTL: Faster Than Light, PositiveReviews: 2517
+AppID: 113200, GameName: The Binding of Isaac, PositiveReviews: 1931
+AppID: 204360, GameName: Castle Crashers®, PositiveReviews: 1459
 
-2024-10-23 21:11:47 2024/10/24 00:11:47 Results for query 4:
-2024-10-23 21:11:47 2024/10/24 00:11:47 Received message: 
-2024-10-23 21:11:47 AppID: 105600, GameName: Terraria, PositiveReviews: 8113
+Query 4:
+AppID: 105600, GameName: Terraria, PositiveReviews: 8113
 
 
-2024-10-23 21:11:47 2024/10/24 00:11:47 Results for query 5:
-2024-10-23 21:11:47 2024/10/24 00:11:47 Received message: 
-2024-10-23 21:11:47 AppID: 12220, GameName: Grand Theft Auto: Episodes from Liberty City, NegativeReviews: 61
-2024-10-23 21:11:47 AppID: 204360, GameName: Castle Crashers®, NegativeReviews: 64
-2024-10-23 21:11:47 AppID: 108710, GameName: Alan Wake, NegativeReviews: 61
-2024-10-23 21:11:47 AppID: 21100, GameName: F.E.A.R. 3, NegativeReviews: 66
-2024-10-23 21:11:47 AppID: 214490, GameName: Alien: Isolation, NegativeReviews: 75
-2024-10-23 21:11:47 AppID: 212500, GameName: The Lord of the Rings Online™, NegativeReviews: 67
-2024-10-23 21:11:47 AppID: 17410, GameName: Mirror's Edge™, NegativeReviews: 77
-2024-10-23 21:11:47 AppID: 207230, GameName: ArcheBlade™, NegativeReviews: 82
-2024-10-23 21:11:47 AppID: 10180, GameName: Call of Duty®: Modern Warfare® 2 (2009), NegativeReviews: 91
-2024-10-23 21:11:47 AppID: 203290, GameName: America's Army: Proving Grounds, NegativeReviews: 96
-2024-10-23 21:11:47 AppID: 203140, GameName: Hitman: Absolution™, NegativeReviews: 103
-2024-10-23 21:11:47 AppID: 12120, GameName: Grand Theft Auto: San Andreas, NegativeReviews: 121
-2024-10-23 21:11:47 AppID: 204300, GameName: Awesomenauts - the 2D moba, NegativeReviews: 123
-2024-10-23 21:11:47 AppID: 211400, GameName: Deadlight, NegativeReviews: 124
-2024-10-23 21:11:47 AppID: 201810, GameName: Wolfenstein: The New Order, NegativeReviews: 127
-2024-10-23 21:11:47 AppID: 20900, GameName: The Witcher: Enhanced Edition Director's Cut, NegativeReviews: 140
-2024-10-23 21:11:47 AppID: 202970, GameName: Call of Duty®: Black Ops II, NegativeReviews: 141
-2024-10-23 21:11:47 AppID: 206420, GameName: Saints Row IV, NegativeReviews: 164
-2024-10-23 21:11:47 AppID: 204100, GameName: Max Payne 3, NegativeReviews: 175
-2024-10-23 21:11:47 AppID: 105600, GameName: Terraria, NegativeReviews: 210
-2024-10-23 21:11:47 AppID: 104900, GameName: ORION: Prelude, NegativeReviews: 257
-2024-10-23 21:11:47 AppID: 200210, GameName: Realm of the Mad God Exalt, NegativeReviews: 274
-2024-10-23 21:11:47 AppID: 211420, GameName: DARK SOULS™: Prepare To Die™ Edition, NegativeReviews: 329
-2024-10-23 21:11:47 AppID: 208650, GameName: Batman™: Arkham Knight, NegativeReviews: 733
-2024-10-23 21:11:47 AppID: 10090, GameName: Call of Duty: World at War, NegativeReviews: 68
-2024-10-23 21:11:47 AppID: 206210, GameName: Gotham City Impostors Free to Play, NegativeReviews: 71
-2024-10-23 21:11:47 AppID: 113200, GameName: The Binding of Isaac, NegativeReviews: 78
-2024-10-23 21:11:47 AppID: 200710, GameName: Torchlight II, NegativeReviews: 79
-2024-10-23 21:11:47 AppID: 17080, GameName: Tribes: Ascend, NegativeReviews: 82
-2024-10-23 21:11:47 AppID: 212070, GameName: Star Conflict, NegativeReviews: 84
-2024-10-23 21:11:47 AppID: 1250, GameName: Killing Floor, NegativeReviews: 89
-2024-10-23 21:11:47 AppID: 214420, GameName: Gear Up, NegativeReviews: 109
-2024-10-23 21:11:47 AppID: 203160, GameName: Tomb Raider, NegativeReviews: 140
-2024-10-23 21:11:47 AppID: 209000, GameName: Batman™: Arkham Origins, NegativeReviews: 162
-2024-10-23 21:11:47 AppID: 209870, GameName: Blacklight: Retribution, NegativeReviews: 227
-2024-10-23 21:11:47 AppID: 107410, GameName: Arma 3, NegativeReviews: 369
-2024-10-23 21:11:47 AppID: 209160, GameName: Call of Duty®: Ghosts, NegativeReviews: 459
-2024-10-23 21:11:47 AppID: 113400, GameName: APB Reloaded, NegativeReviews: 506
-2024-10-23 21:11:47 AppID: 211820, GameName: Starbound, NegativeReviews: 512
-2024-10-23 21:11:47 AppID: 12210, GameName: Grand Theft Auto IV: The Complete Edition, NegativeReviews: 618
+Query 5:
+AppID: 12220, GameName: Grand Theft Auto: Episodes from Liberty City, NegativeReviews: 61
+AppID: 204360, GameName: Castle Crashers®, NegativeReviews: 64
+AppID: 108710, GameName: Alan Wake, NegativeReviews: 61
+AppID: 21100, GameName: F.E.A.R. 3, NegativeReviews: 66
+AppID: 214490, GameName: Alien: Isolation, NegativeReviews: 75
+AppID: 212500, GameName: The Lord of the Rings Online™, NegativeReviews: 67
+AppID: 17410, GameName: Mirror's Edge™, NegativeReviews: 77
+AppID: 207230, GameName: ArcheBlade™, NegativeReviews: 82
+AppID: 10180, GameName: Call of Duty®: Modern Warfare® 2 (2009), NegativeReviews: 91
+AppID: 203290, GameName: America's Army: Proving Grounds, NegativeReviews: 96
+AppID: 203140, GameName: Hitman: Absolution™, NegativeReviews: 103
+AppID: 12120, GameName: Grand Theft Auto: San Andreas, NegativeReviews: 121
+AppID: 204300, GameName: Awesomenauts - the 2D moba, NegativeReviews: 123
+AppID: 211400, GameName: Deadlight, NegativeReviews: 124
+AppID: 201810, GameName: Wolfenstein: The New Order, NegativeReviews: 127
+AppID: 20900, GameName: The Witcher: Enhanced Edition Director's Cut, NegativeReviews: 140
+AppID: 202970, GameName: Call of Duty®: Black Ops II, NegativeReviews: 141
+AppID: 206420, GameName: Saints Row IV, NegativeReviews: 164
+AppID: 204100, GameName: Max Payne 3, NegativeReviews: 175
+AppID: 105600, GameName: Terraria, NegativeReviews: 210
+AppID: 104900, GameName: ORION: Prelude, NegativeReviews: 257
+AppID: 200210, GameName: Realm of the Mad God Exalt, NegativeReviews: 274
+AppID: 211420, GameName: DARK SOULS™: Prepare To Die™ Edition, NegativeReviews: 329
+AppID: 208650, GameName: Batman™: Arkham Knight, NegativeReviews: 733
+AppID: 10090, GameName: Call of Duty: World at War, NegativeReviews: 68
+AppID: 206210, GameName: Gotham City Impostors Free to Play, NegativeReviews: 71
+AppID: 113200, GameName: The Binding of Isaac, NegativeReviews: 78
+AppID: 200710, GameName: Torchlight II, NegativeReviews: 79
+AppID: 17080, GameName: Tribes: Ascend, NegativeReviews: 82
+AppID: 212070, GameName: Star Conflict, NegativeReviews: 84
+AppID: 1250, GameName: Killing Floor, NegativeReviews: 89
+AppID: 214420, GameName: Gear Up, NegativeReviews: 109
+AppID: 203160, GameName: Tomb Raider, NegativeReviews: 140
+AppID: 209000, GameName: Batman™: Arkham Origins, NegativeReviews: 162
+AppID: 209870, GameName: Blacklight: Retribution, NegativeReviews: 227
+AppID: 107410, GameName: Arma 3, NegativeReviews: 369
+AppID: 209160, GameName: Call of Duty®: Ghosts, NegativeReviews: 459
+AppID: 113400, GameName: APB Reloaded, NegativeReviews: 506
+AppID: 211820, GameName: Starbound, NegativeReviews: 512
+AppID: 12210, GameName: Grand Theft Auto IV: The Complete Edition, NegativeReviews: 618
