@@ -1,4 +1,4 @@
-package final_positive_joiner
+package final_english_joiner
 
 import (
 	j "distribuidos-tp/internal/system_protocol/joiner"
@@ -8,21 +8,21 @@ import (
 
 var log = logging.MustGetLogger("log")
 
-type FinalPositiveJoiner struct {
-	ReceiveJoinedGameReviews func() (int, *j.JoinedPositiveGameReview, bool, error)
-	SendMetrics              func(int, []*j.JoinedPositiveGameReview) error
+type FinalEnglishJoiner struct {
+	ReceiveJoinedGameReviews func() (int, *j.JoinedNegativeGameReview, bool, error)
+	SendMetrics              func(int, []*j.JoinedNegativeGameReview) error
 }
 
-func NewFinalPositiveJoiner(receiveJoinedGameReviews func() (int, *j.JoinedPositiveGameReview, bool, error), sendMetrics func(int, []*j.JoinedPositiveGameReview) error) *FinalPositiveJoiner {
-	return &FinalPositiveJoiner{
+func NewFinalPositiveJoiner(receiveJoinedGameReviews func() (int, *j.JoinedNegativeGameReview, bool, error), sendMetrics func(int, []*j.JoinedNegativeGameReview) error) *FinalEnglishJoiner {
+	return &FinalEnglishJoiner{
 		ReceiveJoinedGameReviews: receiveJoinedGameReviews,
 		SendMetrics:              sendMetrics,
 	}
 }
 
-func (f *FinalPositiveJoiner) Run(actionPositiveJoinersAmount int) {
+func (f *FinalEnglishJoiner) Run(actionPositiveJoinersAmount int) {
 	remainingEOFsMap := make(map[int]int)
-	accumulatedGameReviews := make(map[int][]*j.JoinedPositiveGameReview)
+	accumulatedGameReviews := make(map[int][]*j.JoinedNegativeGameReview)
 
 	for {
 		clientID, joinedGamesReviews, eof, err := f.ReceiveJoinedGameReviews()
@@ -33,7 +33,7 @@ func (f *FinalPositiveJoiner) Run(actionPositiveJoinersAmount int) {
 
 		clientAccumulatedGameReviews, exists := accumulatedGameReviews[clientID]
 		if !exists {
-			clientAccumulatedGameReviews = []*j.JoinedPositiveGameReview{}
+			clientAccumulatedGameReviews = []*j.JoinedNegativeGameReview{}
 			accumulatedGameReviews[clientID] = clientAccumulatedGameReviews
 		}
 
