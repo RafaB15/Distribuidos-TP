@@ -1,14 +1,9 @@
-2024/10/16 00:43:24 Sent reviews batch
-2024/10/16 00:43:24 End of reviews file
-2024/10/16 00:43:24 Results for query 1:
-2024/10/16 00:43:24 Received message: 
+Query 1:
 Linux: 12307
- Windows: 92534
- Mac: 17703
+Windows: 92534
+Mac: 17703
 
-
-2024/10/16 00:43:24 Results for query 2:
-2024/10/16 00:43:24 Received message: 
+Query 2:
 AppId: 404580 ReleaseYear: 2015 AvgPlaytimeForever: 68357
 AppId: 554640 ReleaseYear: 2016 AvgPlaytimeForever: 49555
 AppId: 831980 ReleaseYear: 2019 AvgPlaytimeForever: 34798
@@ -21,8 +16,7 @@ AppId: 719890 ReleaseYear: 2018 AvgPlaytimeForever: 17147
 AppId: 252490 ReleaseYear: 2018 AvgPlaytimeForever: 16623
 
 
-2024/10/16 00:45:04 Results for query 3:
-2024/10/16 00:45:04 Received message: 
+Query 3:
 AppID: 105600, GameName: Terraria, PositiveReviews: 82227
 AppID: 252950, GameName: Rocket League®, PositiveReviews: 51084
 AppID: 391540, GameName: Undertale, PositiveReviews: 49812
@@ -30,8 +24,7 @@ AppID: 220200, GameName: Kerbal Space Program, PositiveReviews: 25361
 AppID: 212680, GameName: FTL: Faster Than Light, PositiveReviews: 25103
 
 
-2024/10/16 01:01:28 Results for query 4:
-2024/10/16 01:01:28 Received message: 
+Query 4:
 AppID: 219150, GameName: Hotline Miami, PositiveReviews: 17996
 AppID: 236390, GameName: War Thunder, PositiveReviews: 5804
 AppID: 205100, GameName: Dishonored, PositiveReviews: 17875
@@ -158,8 +151,7 @@ AppID: 48000, GameName: LIMBO, PositiveReviews: 7362
 AppID: 570, GameName: Dota 2, PositiveReviews: 59520
 
 
-2024/10/16 01:01:28 Results for query 5:
-2024/10/16 01:01:28 Received message: 
+Query 5:
 AppID: 420, GameName: Half-Life 2: Episode Two, NegativeReviews: 178
 AppID: 238870, GameName: Citadels, NegativeReviews: 178
 AppID: 39500, GameName: Gothic® 3, NegativeReviews: 178

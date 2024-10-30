@@ -1,12 +1,9 @@
-2024/10/14 22:41:46 Results for query 1:
-2024/10/14 22:41:46 Received message: 
+Query 1:
 Linux: 12307
- Windows: 92534
- Mac: 17703
+Windows: 92534
+Mac: 17703
 
-2024/10/14 22:41:46 End of reviews file
-2024/10/14 22:41:46 Results for query 2:
-2024/10/14 22:41:46 Received message: 
+Query 2:
 AppId: 404580 ReleaseYear: 2015 AvgPlaytimeForever: 68357
 AppId: 554640 ReleaseYear: 2016 AvgPlaytimeForever: 49555
 AppId: 831980 ReleaseYear: 2019 AvgPlaytimeForever: 34798
@@ -18,16 +15,14 @@ AppId: 557400 ReleaseYear: 2017 AvgPlaytimeForever: 19196
 AppId: 719890 ReleaseYear: 2018 AvgPlaytimeForever: 17147
 AppId: 252490 ReleaseYear: 2018 AvgPlaytimeForever: 16623
 
-2024/10/14 22:41:56 Results for query 3:
-2024/10/14 22:41:56 Received message: 
+Query 3:
 AppID: 105600, GameName: Terraria, PositiveReviews: 41003
 AppID: 211820, GameName: Starbound, PositiveReviews: 18069
 AppID: 212680, GameName: FTL: Faster Than Light, PositiveReviews: 12562
 AppID: 113200, GameName: The Binding of Isaac, PositiveReviews: 9761
 AppID: 107100, GameName: Bastion, PositiveReviews: 7272
 
-2024/10/14 22:43:08 Results for query 4:
-2024/10/14 22:43:08 Received message: 
+Query 4:
 AppID: 107100, GameName: Bastion, PositiveReviews: 7214
 AppID: 201810, GameName: Wolfenstein: The New Order, PositiveReviews: 5194
 AppID: 211420, GameName: DARK SOULS™: Prepare To Die™ Edition, PositiveReviews: 13049
@@ -44,8 +39,7 @@ AppID: 211820, GameName: Starbound, PositiveReviews: 18040
 AppID: 107410, GameName: Arma 3, PositiveReviews: 14128
 AppID: 203160, GameName: Tomb Raider, PositiveReviews: 11054
 
-2024/10/14 22:43:08 Results for query 5:
-2024/10/14 22:43:08 Received message: 
+Query 5:
 AppID: 115320, GameName: Prototype 2, NegativeReviews: 316
 AppID: 205100, GameName: Dishonored, NegativeReviews: 288
 AppID: 12220, GameName: Grand Theft Auto: Episodes from Liberty City, NegativeReviews: 328
