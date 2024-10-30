@@ -122,7 +122,7 @@ func main() {
 		}
 		log.Infof("Results for client %d:", clientNumber)
 
-		fileName := fmt.Sprintf("client_%d_results.txt", clientNumber)
+		fileName := fmt.Sprintf("/client_data/client_%d_results.txt", clientNumber)
 		file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Errorf("Error opening file: %v", err)
@@ -158,7 +158,7 @@ func main() {
 
 		log.Infof("Received message: \n%s", string(message))
 
-		_, err = file.WriteString(fmt.Sprintf("Query %d:\n%s\n", queryNumber, string(message)))
+		_, err = file.WriteString(fmt.Sprintf("Query %d:\n%s\n", queryNumber+1, string(message)))
 		if err != nil {
 			log.Errorf("Error writing to file: %v", err)
 			return
