@@ -1,4 +1,4 @@
-package action_positive_review_joiner
+package action_english_review_joiner
 
 import (
 	"distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
@@ -10,23 +10,23 @@ import (
 
 var log = logging.MustGetLogger("log")
 
-type ActionPositiveReviewJoiner struct {
+type ActionEnglishReviewJoiner struct {
 	ReceiveMsg  func() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error)
-	SendMetrics func(int, *j.JoinedPositiveGameReview) error
+	SendMetrics func(int, *j.JoinedNegativeGameReview) error
 	SendEof     func(int) error
 }
 
-func NewActionPositiveReviewJoiner(receiveMsg func() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error), sendMetrics func(int, *j.JoinedPositiveGameReview) error, sendEof func(int) error) *ActionPositiveReviewJoiner {
-	return &ActionPositiveReviewJoiner{
+func NewActionEnglishReviewJoiner(receiveMsg func() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error), sendMetrics func(int, *j.JoinedNegativeGameReview) error, sendEof func(int) error) *ActionEnglishReviewJoiner {
+	return &ActionEnglishReviewJoiner{
 		ReceiveMsg:  receiveMsg,
 		SendMetrics: sendMetrics,
 		SendEof:     sendEof,
 	}
 }
 
-func (a *ActionPositiveReviewJoiner) Run(positiveReviewsFiltersAmount int) {
+func (a *ActionEnglishReviewJoiner) Run(negativeReviewsFiltersAmount int) {
 	remainingEOFsMap := make(map[int]int)
-	accumulatedGameReviews := make(map[int]map[uint32]*j.JoinedPositiveGameReview)
+	accumulatedGameReviews := make(map[int]map[uint32]*j.JoinedNegativeGameReview)
 
 	for {
 		clientID, games, reviews, eof, err := a.ReceiveMsg()
@@ -37,7 +37,7 @@ func (a *ActionPositiveReviewJoiner) Run(positiveReviewsFiltersAmount int) {
 
 		clientAccumulatedGameReviews, exists := accumulatedGameReviews[clientID]
 		if !exists {
-			clientAccumulatedGameReviews = make(map[uint32]*j.JoinedPositiveGameReview)
+			clientAccumulatedGameReviews = make(map[uint32]*j.JoinedNegativeGameReview)
 			accumulatedGameReviews[clientID] = clientAccumulatedGameReviews
 		}
 
@@ -47,7 +47,7 @@ func (a *ActionPositiveReviewJoiner) Run(positiveReviewsFiltersAmount int) {
 
 			remainingEOFs, exists := remainingEOFsMap[clientID]
 			if !exists {
-				remainingEOFs = positiveReviewsFiltersAmount + 1
+				remainingEOFs = negativeReviewsFiltersAmount + 1
 			}
 
 			remainingEOFs--
@@ -82,9 +82,9 @@ func (a *ActionPositiveReviewJoiner) Run(positiveReviewsFiltersAmount int) {
 					delete(clientAccumulatedGameReviews, actionGameName.AppId)
 				} else {
 					log.Infof("Saving action game for later join with id %v", actionGameName.AppId)
-					newJoinedPositiveGameReview := j.NewJoinedPositiveGameReview(actionGameName.AppId)
-					newJoinedPositiveGameReview.UpdateWithGame(actionGameName)
-					clientAccumulatedGameReviews[actionGameName.AppId] = newJoinedPositiveGameReview
+					newJoinedNegativeGameReview := j.NewJoinedActionNegativeGameReview(actionGameName.AppId)
+					newJoinedNegativeGameReview.UpdateWithGame(actionGameName)
+					clientAccumulatedGameReviews[actionGameName.AppId] = newJoinedNegativeGameReview
 				}
 			}
 		}
@@ -104,7 +104,7 @@ func (a *ActionPositiveReviewJoiner) Run(positiveReviewsFiltersAmount int) {
 					delete(clientAccumulatedGameReviews, gameReviewsMetrics.AppID)
 				} else {
 					log.Infof("Saving review with AppID %v for later join", gameReviewsMetrics.AppID)
-					clientAccumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedPositiveGameReview(gameReviewsMetrics.AppID)
+					clientAccumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedActionNegativeGameReview(gameReviewsMetrics.AppID)
 				}
 			}
 		}

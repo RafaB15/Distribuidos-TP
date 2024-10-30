@@ -367,7 +367,7 @@ func DeserializeMsgJoinedPositiveGameReviews(data []byte) (*j.JoinedPositiveGame
 
 // Message Joined Negative Action Game Reviews
 
-func SerializeMsgNegativeJoinedPositiveGameReviews(clientID int, joinedActionNegativeGameReview *j.JoinedNegativeGameReview) ([]byte, error) {
+func SerializeMsgJoinedNegativeGameReviews(clientID int, joinedActionNegativeGameReview *j.JoinedNegativeGameReview) ([]byte, error) {
 	messageLen := 4 + 4 + len(joinedActionNegativeGameReview.GameName) + 4
 	message := make([]byte, messageLen) //chequear cuando haga el mensaje de ActionGame
 
@@ -380,7 +380,7 @@ func SerializeMsgNegativeJoinedPositiveGameReviews(clientID int, joinedActionNeg
 	return SerializeMessage(MsgJoinedNegativeGameReviews, clientID, message), nil
 }
 
-func DeserializeMsgNegativeJoinedPositiveGameReviewsV2(data []byte) (*j.JoinedNegativeGameReview, error) {
+func DeserializeMsgJoinedNegativeGameReviews(data []byte) (*j.JoinedNegativeGameReview, error) {
 
 	metrics, err := j.DeserializeJoinedActionNegativeGameReview(data)
 	if err != nil {

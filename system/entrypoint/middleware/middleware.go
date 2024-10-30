@@ -196,14 +196,14 @@ func handleMsgIndiePositiveResolvedQuery(clientID int, message []byte) ([]byte, 
 }
 
 func handleMsgActionPositiveReviewsQuery(clientID int, message []byte) ([]byte, error) {
-	joinedReviews, err := sp.DeserializeMsgActionPositiveReviewsQuery(message)
+	joinedReviews, err := sp.DeserializeMsgActionNegativeReviewsQuery(message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
 	var stringRepresentation []byte
 	for _, review := range joinedReviews {
-		stringRep := j.GetStrRepresentation(review)
+		stringRep := j.GetStrRepresentationNegativeGameReview(review)
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
 	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgActionPositiveReviewsQuery), stringRepresentation), nil

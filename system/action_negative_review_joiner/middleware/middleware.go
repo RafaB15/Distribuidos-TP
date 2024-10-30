@@ -97,7 +97,7 @@ func (m *Middleware) ReceiveMsg() (int, []*games.GameName, []*reviews_accumulato
 }
 
 func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedNegativeGameReview) error {
-	serializedMetrics, err := sp.SerializeMsgNegativeJoinedPositiveGameReviews(clientID, reviewsInformation)
+	serializedMetrics, err := sp.SerializeMsgJoinedNegativeGameReviews(clientID, reviewsInformation)
 	if err != nil {
 		return err
 	}

@@ -13,15 +13,15 @@ import (
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
-	ActionReviewJoinExchangeName     = "action_review_join_exchange"
-	ActionReviewJoinExchangeType     = "direct"
-	ActionReviewJoinRoutingKeyPrefix = "positive_reviews_key_"
-	ActionGameRoutingKeyPrefix       = "action_key_"
-	ActionReviewJoinQueueNamePrefix  = "action_review_join_queue_"
+	ActionReviewJoinExchangeName           = "action_review_join_exchange"
+	ActionReviewJoinExchangeType           = "direct"
+	ActionReviewJoinRoutingKeyPrefix       = "positive_reviews_key_"
+	ActionGameRoutingKeyPrefix             = "action_key_"
+	ActionEnglishReviewJoinQueueNamePrefix = "action_english_review_join_queue_"
 
-	FinalPositiveJoinerExchangeName = "final_positive_joiner_exchange"
-	FinalPositiveJoinerRoutingKey   = "final_positive_joiner_key"
-	FinalPositiveJoinerExchangeType = "direct"
+	FinalEnglishJoinerExchangeName = "final_english_joiner_exchange"
+	FinalEnglishJoinerRoutingKey   = "final_english_joiner_key"
+	FinalEnglishJoinerExchangeType = "direct"
 )
 
 type Middleware struct {
@@ -40,13 +40,13 @@ func NewMiddleware(id string) (*Middleware, error) {
 	actionGameRoutingKey := fmt.Sprintf("%s%s", ActionGameRoutingKeyPrefix, id)
 
 	routingKeys := []string{actionReviewJoinRoutingKey, actionGameRoutingKey}
-	actionReviewJoinQueueName := ActionReviewJoinQueueNamePrefix + string(id)
+	actionReviewJoinQueueName := ActionEnglishReviewJoinQueueNamePrefix + string(id)
 	actionReviewJoinQueue, err := manager.CreateBoundQueueMultipleRoutingKeys(actionReviewJoinQueueName, ActionReviewJoinExchangeName, ActionReviewJoinExchangeType, routingKeys, true)
 	if err != nil {
 		return nil, err
 	}
 
-	finalPositiveJoinerExchange, err := manager.CreateExchange(FinalPositiveJoinerExchangeName, FinalPositiveJoinerExchangeType)
+	finalPositiveJoinerExchange, err := manager.CreateExchange(FinalEnglishJoinerExchangeName, FinalEnglishJoinerExchangeType)
 	if err != nil {
 		return nil, err
 	}
@@ -87,18 +87,18 @@ func (m *Middleware) ReceiveMsg() (int, []*games.GameName, []*reviews_accumulato
 		return message.ClientID, nil, nil, true, nil
 
 	default:
-		return message.ClientID, nil, nil, false, fmt.Errorf("Unknown type msg")
+		return message.ClientID, nil, nil, false, fmt.Errorf("unknown type msg")
 	}
 
 }
 
-func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedPositiveGameReview) error {
-	serializedMetrics, err := sp.SerializeMsgJoinedPositiveGameReviews(clientID, reviewsInformation)
+func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedNegativeGameReview) error {
+	serializedMetrics, err := sp.SerializeMsgJoinedNegativeGameReviews(clientID, reviewsInformation)
 	if err != nil {
 		return err
 	}
 
-	return m.FinalPositiveJoinerExchange.Publish(FinalPositiveJoinerRoutingKey, serializedMetrics)
+	return m.FinalPositiveJoinerExchange.Publish(FinalEnglishJoinerRoutingKey, serializedMetrics)
 }
 
 func HandleGameReviewMetrics(message []byte) ([]*reviews_accumulator.GameReviewsMetrics, error) {
@@ -118,7 +118,7 @@ func HandleGameNames(message []byte) ([]*games.GameName, error) {
 }
 
 func (m *Middleware) SendEof(clientID int) error {
-	err := m.FinalPositiveJoinerExchange.Publish(FinalPositiveJoinerRoutingKey, sp.SerializeMsgEndOfFile(clientID))
+	err := m.FinalPositiveJoinerExchange.Publish(FinalEnglishJoinerRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
 		return err
 	}

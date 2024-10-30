@@ -8,8 +8,8 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', 100)
 
 # Load datasets
-reviews_df_cleaned = pd.read_csv('steam_reviews_500k.csv')
-games_df_cleaned = pd.read_csv('games_90k.csv')
+reviews_df_cleaned = pd.read_csv('../client_data/steam_reviews_500k.csv')
+games_df_cleaned = pd.read_csv('../client_data/games_90k.csv')
 
 """# Queries resolution
 

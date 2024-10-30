@@ -10,10 +10,10 @@ import (
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
-	FinalPositiveJoinerExchangeName = "final_positive_joiner_exchange"
-	FinalPositiveJoinerRoutingKey   = "final_positive_joiner_key"
-	FinalPositiveJoinerExchangeType = "direct"
-	FinalPositiveJoinerQueueName    = "final_positive_joiner_queue"
+	FinalEnglishJoinerExchangeName = "final_english_joiner_exchange"
+	FinalEnglishJoinerRoutingKey   = "final_english_joiner_key"
+	FinalEnglishJoinerExchangeType = "direct"
+	FinalEnglishJoinerQueueName    = "final_english_joiner_queue"
 
 	QueryResultsExchangeName = "query_results_exchange"
 	QueryRoutingKeyPrefix    = "query_results_key_" // con el id del cliente
@@ -32,7 +32,7 @@ func NewMiddleware() (*Middleware, error) {
 		return nil, err
 	}
 
-	finalPositiveJoinerQueue, err := manager.CreateBoundQueue(FinalPositiveJoinerQueueName, FinalPositiveJoinerExchangeName, FinalPositiveJoinerExchangeType, FinalPositiveJoinerRoutingKey, true)
+	finalEnglishJoinerQueue, err := manager.CreateBoundQueue(FinalEnglishJoinerQueueName, FinalEnglishJoinerExchangeName, FinalEnglishJoinerExchangeType, FinalEnglishJoinerRoutingKey, true)
 	if err != nil {
 		return nil, err
 	}
@@ -44,12 +44,12 @@ func NewMiddleware() (*Middleware, error) {
 
 	return &Middleware{
 		Manager:                  manager,
-		FinalPositiveJoinerQueue: finalPositiveJoinerQueue,
+		FinalPositiveJoinerQueue: finalEnglishJoinerQueue,
 		QueryResultsExchange:     queryResultsExchange,
 	}, nil
 }
 
-func (m *Middleware) ReceiveJoinedGameReviews() (int, *j.JoinedPositiveGameReview, bool, error) {
+func (m *Middleware) ReceiveJoinedGameReviews() (int, *j.JoinedNegativeGameReview, bool, error) {
 	rawMsg, err := m.FinalPositiveJoinerQueue.Consume()
 	if err != nil {
 		return 0, nil, false, err
@@ -61,8 +61,8 @@ func (m *Middleware) ReceiveJoinedGameReviews() (int, *j.JoinedPositiveGameRevie
 	}
 
 	switch message.Type {
-	case sp.MsgJoinedPositiveGameReviews:
-		joinedPositiveGameReview, err := sp.DeserializeMsgJoinedPositiveGameReviews(message.Body)
+	case sp.MsgJoinedNegativeGameReviews:
+		joinedPositiveGameReview, err := sp.DeserializeMsgJoinedNegativeGameReviews(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, err
 		}
@@ -76,8 +76,8 @@ func (m *Middleware) ReceiveJoinedGameReviews() (int, *j.JoinedPositiveGameRevie
 	}
 }
 
-func (m *Middleware) SendQueryResults(clientID int, queryResults []*j.JoinedPositiveGameReview) error {
-	queryMessage, err := sp.SerializeMsgActionPositiveReviewsQuery(clientID, queryResults)
+func (m *Middleware) SendQueryResults(clientID int, queryResults []*j.JoinedNegativeGameReview) error {
+	queryMessage, err := sp.SerializeMsgActionEnglishReviewsQuery(clientID, queryResults)
 	if err != nil {
 		return err
 	}

@@ -62,7 +62,7 @@ func (m *Middleware) ReceiveJoinedGameReviews() (int, *j.JoinedNegativeGameRevie
 
 	switch message.Type {
 	case sp.MsgJoinedNegativeGameReviews:
-		joinedNegativeGameReview, err := sp.DeserializeMsgNegativeJoinedPositiveGameReviewsV2(message.Body)
+		joinedNegativeGameReview, err := sp.DeserializeMsgJoinedNegativeGameReviews(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, err
 		}

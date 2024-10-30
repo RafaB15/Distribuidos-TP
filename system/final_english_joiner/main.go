@@ -2,8 +2,8 @@ package main
 
 import (
 	u "distribuidos-tp/internal/utils"
-	l "distribuidos-tp/system/final_positive_joiner/logic"
-	m "distribuidos-tp/system/final_positive_joiner/middleware"
+	l "distribuidos-tp/system/final_english_joiner/logic"
+	m "distribuidos-tp/system/final_english_joiner/middleware"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ActionPositiveJoinersAmountEnvironmentVariableName = "ACTION_POSITIVE_JOINERS_AMOUNT"
+	ActionEnglishJoinersAmountEnvironmentVariableName = "ACTION_ENGLISH_JOINERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -23,7 +23,7 @@ func main() {
 
 	doneChannel := make(chan bool)
 
-	actionPositiveJoinersAmount, err := u.GetEnvInt(ActionPositiveJoinersAmountEnvironmentVariableName)
+	actionEnglishJoinersAmount, err := u.GetEnvInt(ActionEnglishJoinersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -35,12 +35,12 @@ func main() {
 		return
 	}
 
-	finalPositiveJoiner := l.NewFinalPositiveJoiner(middleware.ReceiveJoinedGameReviews, middleware.SendQueryResults)
+	finalEnglishJoiner := l.NewFinalPositiveJoiner(middleware.ReceiveJoinedGameReviews, middleware.SendQueryResults)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		finalPositiveJoiner.Run(actionPositiveJoinersAmount)
+		finalEnglishJoiner.Run(actionEnglishJoinersAmount)
 		doneChannel <- true
 	}()
 

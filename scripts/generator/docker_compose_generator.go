@@ -21,11 +21,11 @@ type Config struct {
 	DecadeFilter               int `json:"decade_filter"`
 	EnglishFilter              int `json:"english_filter"`
 	EnglishReviewsAccumulator  int `json:"english_reviews_accumulator"`
-	PositiveReviewsFilter      int `json:"positive_reviews_filter"`
-	ActionPositiveReviewJoiner int `json:"action_positive_review_joiner"`
+	NegativeReviewsFilter      int `json:"negative_reviews_filter"`
+	ActionEnglishReviewJoiner  int `json:"action_english_review_joiner"`
 	ActionNegativeReviewJoiner int `json:"action_negative_review_joiner"`
 	IndieReviewJoiner          int `json:"indie_review_joiner"`
-	FinalPositiveJoiner        int `json:"final_positive_joiner"`
+	FinalEnglishJoiner         int `json:"final_english_joiner"`
 	FinalNegativeJoiner        int `json:"final_negative_joiner"`
 }
 
@@ -107,7 +107,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.OSAccumulator, config.DecadeFilter, config.IndieReviewJoiner, config.ActionPositiveReviewJoiner)
+`, serviceName, serviceName, config.OSAccumulator, config.DecadeFilter, config.IndieReviewJoiner, config.ActionEnglishReviewJoiner)
 
 	// OSAccumulator service
 	for i := 1; i <= config.OSAccumulator; i++ {
@@ -294,7 +294,7 @@ func main() {
     environment:
       - ID=%d
       - FILTERS_AMOUNT=%d
-      - POSITIVE_REVIEWS_FILTER_AMOUNT=%d
+      - NEGATIVE_REVIEWS_FILTER_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -303,18 +303,18 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.EnglishFilter, config.PositiveReviewsFilter)
+`, serviceName, serviceName, i, config.EnglishFilter, config.NegativeReviewsFilter)
 	}
 
-	// PositiveReviewsFilter service
-	for i := 1; i <= config.PositiveReviewsFilter; i++ {
-		serviceName := fmt.Sprintf("positive_reviews_filter_%d", i)
+	// NegativeReviewsFilter service
+	for i := 1; i <= config.NegativeReviewsFilter; i++ {
+		serviceName := fmt.Sprintf("negative_reviews_filter_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: positive_reviews_filter:latest
-    entrypoint: /positive_reviews_filter
+    image: negative_reviews_filter:latest
+    entrypoint: /negative_reviews_filter
     environment:
-      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=%d
+      - ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT=%d
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=%d
     depends_on:
       game_mapper:
@@ -324,19 +324,19 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.ActionPositiveReviewJoiner, config.EnglishReviewsAccumulator)
+`, serviceName, serviceName, config.ActionEnglishReviewJoiner, config.EnglishReviewsAccumulator)
 	}
 
-	// ActionPositiveReviewJoiner service
-	for i := 1; i <= config.ActionPositiveReviewJoiner; i++ {
+	// ActionEnglishReviewJoiner service
+	for i := 1; i <= config.ActionEnglishReviewJoiner; i++ {
 		serviceName := fmt.Sprintf("action_positive_review_joiner_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: action_positive_review_joiner:latest
-    entrypoint: /action_positive_review_joiner
+    image: action_english_review_joiner:latest
+    entrypoint: /action_english_review_joiner
     environment:
       - ID=%d
-      - POSITIVE_REVIEWS_FILTERS_AMOUNT=%d
+      - NEGATIVE_REVIEWS_FILTERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -345,16 +345,16 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.PositiveReviewsFilter)
+`, serviceName, serviceName, i, config.NegativeReviewsFilter)
 	}
 
-	serviceName = "final_positive_joiner"
+	serviceName = "final_english_joiner"
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: final_positive_joiner:latest
-    entrypoint: /final_positive_joiner
+    image: final_english_joiner:latest
+    entrypoint: /final_english_joiner
     environment:
-      - ACTION_POSITIVE_JOINERS_AMOUNT=%d
+      - ACTION_ENGLISH_JOINERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -363,7 +363,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.ActionPositiveReviewJoiner)
+`, serviceName, serviceName, config.ActionEnglishReviewJoiner)
 
 	// ActionNegativeReviewJoiner service
 	for i := 1; i <= config.ActionNegativeReviewJoiner; i++ {

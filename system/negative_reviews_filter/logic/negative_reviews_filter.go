@@ -1,4 +1,4 @@
-package positive_reviews_filter
+package negative_reviews_filter
 
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
@@ -10,23 +10,23 @@ import (
 
 var log = logging.MustGetLogger("log")
 
-type PositiveReviewsFilter struct {
+type NegativeReviewsFilter struct {
 	ReceiveGameReviewsMetrics func() (int, []*ra.GameReviewsMetrics, bool, error)
 	SendGameReviewsMetrics    func(int, map[int][]*ra.GameReviewsMetrics) error
 	SendEndOfFiles            func(int, int) error
 }
 
-func NewPositiveReviewsFilter(receiveGameReviewsMetrics func() (int, []*ra.GameReviewsMetrics, bool, error), sendGameReviewsMetrics func(int, map[int][]*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int) error) *PositiveReviewsFilter {
-	return &PositiveReviewsFilter{
+func NewNegativeReviewsFilter(receiveGameReviewsMetrics func() (int, []*ra.GameReviewsMetrics, bool, error), sendGameReviewsMetrics func(int, map[int][]*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int) error) *NegativeReviewsFilter {
+	return &NegativeReviewsFilter{
 		ReceiveGameReviewsMetrics: receiveGameReviewsMetrics,
 		SendGameReviewsMetrics:    sendGameReviewsMetrics,
 		SendEndOfFiles:            sendEndOfFiles,
 	}
 }
 
-func (f *PositiveReviewsFilter) Run(actionReviewsJoinersAmount int, englishReviewAccumulatorsAmount int, minPositiveReviews int) {
+func (f *NegativeReviewsFilter) Run(actionReviewsJoinersAmount int, englishReviewAccumulatorsAmount int, minNegativeReviews int) {
 	remainingEOFsMap := make(map[int]int)
-	positiveReviewsMap := make(map[int]map[int][]*ra.GameReviewsMetrics)
+	negativeReviewsMap := make(map[int]map[int][]*ra.GameReviewsMetrics)
 
 	for {
 
@@ -36,10 +36,10 @@ func (f *PositiveReviewsFilter) Run(actionReviewsJoinersAmount int, englishRevie
 			return
 		}
 
-		clientPositiveReviews, exists := positiveReviewsMap[clientID]
+		clientNegativeReviews, exists := negativeReviewsMap[clientID]
 		if !exists {
-			clientPositiveReviews = make(map[int][]*ra.GameReviewsMetrics)
-			positiveReviewsMap[clientID] = clientPositiveReviews
+			clientNegativeReviews = make(map[int][]*ra.GameReviewsMetrics)
+			negativeReviewsMap[clientID] = clientNegativeReviews
 		}
 
 		if eof {
@@ -54,28 +54,37 @@ func (f *PositiveReviewsFilter) Run(actionReviewsJoinersAmount int, englishRevie
 				continue
 			}
 			log.Infof("Received all EOFs for client %d", clientID)
-			f.SendEndOfFiles(clientID, actionReviewsJoinersAmount)
+			err = f.SendEndOfFiles(clientID, actionReviewsJoinersAmount)
+			if err != nil {
+				log.Errorf("Failed to send EOFs: %v", err)
+				return
+			}
+
 			log.Infof("Sent all EOFs to Joiners from client: %d", clientID)
 
-			delete(positiveReviewsMap, clientID)
+			delete(negativeReviewsMap, clientID)
 			delete(remainingEOFsMap, clientID)
 
 			continue
 		}
 
 		for _, gameReviewsMetrics := range gameReviewsMetrics {
-			if gameReviewsMetrics.PositiveReviews >= minPositiveReviews {
-				log.Infof("Game %v has %v positive reviews", gameReviewsMetrics.AppID, gameReviewsMetrics.PositiveReviews)
-				updatePositiveReviewsMap(clientPositiveReviews, gameReviewsMetrics, actionReviewsJoinersAmount)
+			if gameReviewsMetrics.NegativeReviews >= minNegativeReviews {
+				log.Infof("Game %v has %v negative reviews", gameReviewsMetrics.AppID, gameReviewsMetrics.NegativeReviews)
+				updateNegativeReviewsMap(clientNegativeReviews, gameReviewsMetrics, actionReviewsJoinersAmount)
 			}
 		}
 
-		f.SendGameReviewsMetrics(clientID, clientPositiveReviews)
+		err = f.SendGameReviewsMetrics(clientID, clientNegativeReviews)
+		if err != nil {
+			log.Errorf("Failed to send game reviews metrics: %v", err)
+			return
+		}
 	}
 }
 
-func updatePositiveReviewsMap(positiveReviewsMap map[int][]*ra.GameReviewsMetrics, gameReviewsMetrics *ra.GameReviewsMetrics, actionReviewsJoinersAmount int) {
+func updateNegativeReviewsMap(negativeReviewsMap map[int][]*ra.GameReviewsMetrics, gameReviewsMetrics *ra.GameReviewsMetrics, actionReviewsJoinersAmount int) {
 	appIdString := strconv.Itoa(int(gameReviewsMetrics.AppID))
 	shardingKey := u.CalculateShardingKey(appIdString, actionReviewsJoinersAmount)
-	positiveReviewsMap[shardingKey] = append(positiveReviewsMap[shardingKey], gameReviewsMetrics)
+	negativeReviewsMap[shardingKey] = append(negativeReviewsMap[shardingKey], gameReviewsMetrics)
 }

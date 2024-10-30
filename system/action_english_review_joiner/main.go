@@ -2,8 +2,8 @@ package main
 
 import (
 	u "distribuidos-tp/internal/utils"
-	l "distribuidos-tp/system/action_positive_review_joiner/logic"
-	m "distribuidos-tp/system/action_positive_review_joiner/middleware"
+	l "distribuidos-tp/system/action_english_review_joiner/logic"
+	m "distribuidos-tp/system/action_english_review_joiner/middleware"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,7 +13,7 @@ import (
 
 const (
 	IdEnvironmentVariableName                           = "ID"                              //al middleware
-	PositiveReviewsFiltersAmountEnvironmentVariableName = "POSITIVE_REVIEWS_FILTERS_AMOUNT" //al run
+	NegativeReviewsFiltersAmountEnvironmentVariableName = "NEGATIVE_REVIEWS_FILTERS_AMOUNT" //al run
 
 )
 
@@ -25,7 +25,7 @@ func main() {
 
 	doneChannel := make(chan bool)
 
-	positiveReviewsFiltersAmount, err := u.GetEnvInt(PositiveReviewsFiltersAmountEnvironmentVariableName)
+	negativeReviewsFiltersAmount, err := u.GetEnvInt(NegativeReviewsFiltersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -43,12 +43,12 @@ func main() {
 		return
 	}
 
-	positiveActionReviewJoiner := l.NewActionPositiveReviewJoiner(middleware.ReceiveMsg, middleware.SendMetrics, middleware.SendEof)
+	actionEnglishReviewJoiner := l.NewActionEnglishReviewJoiner(middleware.ReceiveMsg, middleware.SendMetrics, middleware.SendEof)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		positiveActionReviewJoiner.Run(positiveReviewsFiltersAmount)
+		actionEnglishReviewJoiner.Run(negativeReviewsFiltersAmount)
 		doneChannel <- true
 	}()
 

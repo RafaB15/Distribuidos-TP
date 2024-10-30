@@ -23,7 +23,7 @@ func NewEnglishReviewsAccumulator(receiveReviews func() (int, []*r.Review, bool,
 	}
 }
 
-func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, positiveReviewsFiltersAmount int) {
+func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, negativeReviewsFiltersAmount int) {
 	remainingEOFsMap := make(map[int]int)
 
 	accumulatedReviews := make(map[int]map[uint32]*ra.GameReviewsMetrics)
@@ -65,7 +65,7 @@ func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, positiveReview
 				return
 			}
 
-			err = a.SendEndOfFiles(clientID, positiveReviewsFiltersAmount)
+			err = a.SendEndOfFiles(clientID, negativeReviewsFiltersAmount)
 			if err != nil {
 				log.Errorf("Failed to send EOFs: %v", err)
 				return
