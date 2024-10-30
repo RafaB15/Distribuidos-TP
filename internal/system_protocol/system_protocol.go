@@ -406,12 +406,13 @@ func DeserializeMsgAccumulatedGameOSInformationV2(message []byte) (*oa.GameOSMet
 // --------------------------------------------------------
 // Message Final Query Results
 
-func AssembleFinalQueryMsg(messageType byte, body []byte) []byte {
+func AssembleFinalQueryMsg(clientID byte, messageType byte, body []byte) []byte {
 	length := len(body)
-	msg := make([]byte, 1+2+length)
-	msg[0] = messageType
-	binary.BigEndian.PutUint16(msg[1:3], uint16(length))
-	copy(msg[3:], body)
+	msg := make([]byte, 1+1+2+length)
+	msg[0] = clientID
+	msg[1] = messageType
+	binary.BigEndian.PutUint16(msg[2:4], uint16(length))
+	copy(msg[4:], body)
 
 	return msg
 }
