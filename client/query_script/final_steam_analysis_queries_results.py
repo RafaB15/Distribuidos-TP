@@ -16,7 +16,7 @@ games_df_cleaned = pd.read_csv('../client_data/games_90k.csv')
 ## Q1: Cantidad de juegos soportados en cada plataforma (Windows, Linux, MAC)
 """
 
-print("\n\nQ1: Cantidad de juegos soportados en cada plataforma (Windows, Linux, MAC)\n\n")
+print("\nQuery 1:")
 
 windows_supported_games = games_df_cleaned[games_df_cleaned["Windows"] == True]
 linux_supported_games = games_df_cleaned[games_df_cleaned["Linux"] == True]
@@ -28,7 +28,7 @@ print("Mac: " + str(mac_supported_games.shape[0]))
 
 """## Q2: Nombre del top 10 de juegos del género "Indie" publicados en la década del 2010 con más tiempo promedio histórico de juego"""
 
-print("\n\nQ2: Nombre del top 10 de juegos del género 'Indie' publicados en la década del 2010 con más tiempo promedio histórico de juego\n\n")
+print("\nQuery 2:")
 
 games_indie = games_df_cleaned[games_df_cleaned["Genres"].str.contains("indie")]
 games_indie_2010_decade = games_indie[games_indie["Release date"].str.contains("201")]
@@ -43,7 +43,7 @@ for index, row in q2_result.iterrows():
 
 """## Q3: Nombre de top 5 juegos del género "Indie" con más reseñas positivas"""
 
-print("\n\nQ3: Nombre de top 5 juegos del género 'Indie' con más reseñas positivas\n\n")
+print("\nQuery 3:")
 
 games_indie_reduced = games_indie[["AppID", "Name"]]
 reviews_reduced_q3 = reviews_df_cleaned[["app_id", "review_score"]]
@@ -60,7 +60,7 @@ for app_id, name, positive_reviews in q3_result.reset_index().values:
 
 """## Q4: Nombre de juegos del género "action" con más de 5.000 reseñas negativas en idioma inglés"""
 
-print("\n\nQ4: Nombre de juegos del género 'action' con más de 5.000 reseñas negativas en idioma inglés\n\n")
+print("\nQuery 4:")
 
 # Nos quedanmos con los juegos de acción
 games_action = games_df_cleaned[games_df_cleaned["Genres"].str.contains("action", case=False, na=False)]
@@ -147,7 +147,7 @@ print(q4_results_games_names)
 
 """## Q5: Nombre de juegos del género "action" dentro del percentil 90 en cantidad de reseñas negativas"""
 
-print("\n\nQ5: Nombre de juegos del género 'action' dentro del percentil 90 en cantidad de reseñas negativas\n\n")
+print("\nQuery 5:")
 
 def negative_score(score):
     return 1 if score < 0 else 0
@@ -169,4 +169,9 @@ percentil_90 = reviews_q5_negative_score_action_by_app_id['count'].quantile(0.90
 q5_result = reviews_q5_negative_score_action_by_app_id[reviews_q5_negative_score_action_by_app_id['count'] >= percentil_90]
 
 q5_result_with_game_names = pd.merge(q5_result, games_action_reduced, left_on='app_id', right_on="AppID", how='inner')
-print(q5_result_with_game_names[["app_id", "Name"]])
+
+for index, row in q5_result_with_game_names.iterrows():
+    app_id = row['app_id']
+    game_name = row['Name']
+    negative_reviews = row['count']
+    print(f"AppID: {app_id}, GameName: {game_name}, NegativeReviews: {negative_reviews}")
