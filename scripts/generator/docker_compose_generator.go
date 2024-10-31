@@ -8,25 +8,25 @@ import (
 )
 
 type Config struct {
-	Rabbitmq                   int `json:"rabbitmq"`
-	Entrypoint                 int `json:"entrypoint"`
-	GameMapper                 int `json:"game_mapper"`
-	OSAccumulator              int `json:"os_accumulator"`
-	OSFinalAccumulator         int `json:"os_final_accumulator"`
-	TopTenAccumulator          int `json:"top_ten_accumulator"`
-	TopPositiveReviews         int `json:"top_positive_reviews"`
-	PercentileAccumulator      int `json:"percentile_accumulator"`
-	ReviewMapper               int `json:"review_mapper"`
-	ReviewsAccumulator         int `json:"reviews_accumulator"`
-	DecadeFilter               int `json:"decade_filter"`
-	EnglishFilter              int `json:"english_filter"`
-	EnglishReviewsAccumulator  int `json:"english_reviews_accumulator"`
-	NegativeReviewsFilter      int `json:"negative_reviews_filter"`
-	ActionEnglishReviewJoiner  int `json:"action_english_review_joiner"`
-	ActionNegativeReviewJoiner int `json:"action_negative_review_joiner"`
-	IndieReviewJoiner          int `json:"indie_review_joiner"`
-	FinalEnglishJoiner         int `json:"final_english_joiner"`
-	FinalNegativeJoiner        int `json:"final_negative_joiner"`
+	Rabbitmq                     int `json:"rabbitmq"`
+	Entrypoint                   int `json:"entrypoint"`
+	GameMapper                   int `json:"game_mapper"`
+	OSAccumulator                int `json:"os_accumulator"`
+	OSFinalAccumulator           int `json:"os_final_accumulator"`
+	TopTenAccumulator            int `json:"top_ten_accumulator"`
+	TopPositiveReviews           int `json:"top_positive_reviews"`
+	PercentileAccumulator        int `json:"percentile_accumulator"`
+	ReviewMapper                 int `json:"review_mapper"`
+	ReviewsAccumulator           int `json:"reviews_accumulator"`
+	DecadeFilter                 int `json:"decade_filter"`
+	EnglishFilter                int `json:"english_filter"`
+	EnglishReviewsAccumulator    int `json:"english_reviews_accumulator"`
+	NegativeReviewsFilter        int `json:"negative_reviews_filter"`
+	ActionEnglishReviewJoiner    int `json:"action_english_review_joiner"`
+	ActionPercentileReviewJoiner int `json:"action_percentile_review_joiner"`
+	IndieReviewJoiner            int `json:"indie_review_joiner"`
+	FinalEnglishJoiner           int `json:"final_english_joiner"`
+	FinalPercentileJoiner        int `json:"final_percentile_joiner"`
 }
 
 func main() {
@@ -200,7 +200,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.ActionNegativeReviewJoiner, config.ReviewsAccumulator)
+`, serviceName, serviceName, config.ActionPercentileReviewJoiner, config.ReviewsAccumulator)
 
 	// ReviewMapper service
 	for i := 1; i <= config.ReviewMapper; i++ {
@@ -365,13 +365,13 @@ func main() {
 
 `, serviceName, serviceName, config.ActionEnglishReviewJoiner)
 
-	// ActionNegativeReviewJoiner service
-	for i := 1; i <= config.ActionNegativeReviewJoiner; i++ {
-		serviceName := fmt.Sprintf("action_negative_review_joiner_%d", i)
+	// ActionPercentileReviewJoiner service
+	for i := 1; i <= config.ActionPercentileReviewJoiner; i++ {
+		serviceName := fmt.Sprintf("action_percentile_review_joiner_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: action_negative_review_joiner:latest
-    entrypoint: /action_negative_review_joiner
+    image: action_percentile_review_joiner:latest
+    entrypoint: /action_percentile_review_joiner
     environment:
       - ID=%d
     depends_on:
@@ -385,13 +385,13 @@ func main() {
 `, serviceName, serviceName, i)
 	}
 
-	serviceName = "final_negative_joiner"
+	serviceName = "final_percentile_joiner"
 	compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: final_negative_joiner:latest
-    entrypoint: /final_negative_joiner
+    image: final_percentile_joiner:latest
+    entrypoint: /final_percentile_joiner
     environment:
-      - ACTION_NEGATIVE_JOINERS_AMOUNT=%d
+      - ACTION_PERCENTILE_JOINERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -400,7 +400,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.ActionNegativeReviewJoiner)
+`, serviceName, serviceName, config.ActionPercentileReviewJoiner)
 
 	// IndieReviewJoiner service
 	for i := 1; i <= config.IndieReviewJoiner; i++ {

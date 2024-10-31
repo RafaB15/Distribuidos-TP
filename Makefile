@@ -18,13 +18,13 @@ docker-image-system:
 	docker build -f ./system/indie_review_joiner/Dockerfile -t "indie_review_joiner:latest" .
 	docker build -f ./system/action_english_review_joiner/Dockerfile -t "action_english_review_joiner:latest" .
 	docker build -f ./system/negative_reviews_filter/Dockerfile -t "negative_reviews_filter:latest" .
-	docker build -f ./system/action_negative_review_joiner/Dockerfile -t "action_negative_review_joiner:latest" .
+	docker build -f ./system/action_percentile_review_joiner/Dockerfile -t "action_percentile_review_joiner:latest" .
 	docker build -f ./system/english_reviews_accumulator/Dockerfile -t "english_reviews_accumulator:latest" .
 	docker build -f ./system/english_reviews_filter/Dockerfile -t "english_reviews_filter:latest" .
 	docker build -f ./system/review_mapper/Dockerfile -t "review_mapper:latest" .
 	docker build -f ./system/entrypoint/Dockerfile -t "entrypoint:latest" .
 	docker build -f ./system/final_english_joiner/Dockerfile -t "final_english_joiner:latest" .
-	docker build -f ./system/final_negative_joiner/Dockerfile -t "final_negative_joiner:latest" .
+	docker build -f ./system/final_percentile_joiner/Dockerfile -t "final_percentile_joiner:latest" .
 	
 .PHONY: docker-image-system
 

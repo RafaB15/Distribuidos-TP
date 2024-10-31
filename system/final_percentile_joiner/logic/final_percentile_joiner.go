@@ -1,4 +1,4 @@
-package final_negative_joiner
+package final_percentile_joiner
 
 import (
 	j "distribuidos-tp/internal/system_protocol/joiner"
@@ -8,19 +8,19 @@ import (
 
 var log = logging.MustGetLogger("log")
 
-type FinalNegativeJoiner struct {
+type FinalPercentileJoiner struct {
 	ReceiveJoinedGameReviews func() (int, *j.JoinedNegativeGameReview, bool, error)
 	SendMetrics              func(int, []*j.JoinedNegativeGameReview) error
 }
 
-func NewFinalNegativeJoiner(receiveJoinedGameReviews func() (int, *j.JoinedNegativeGameReview, bool, error), sendMetrics func(int, []*j.JoinedNegativeGameReview) error) *FinalNegativeJoiner {
-	return &FinalNegativeJoiner{
+func NewFinalPercentileJoiner(receiveJoinedGameReviews func() (int, *j.JoinedNegativeGameReview, bool, error), sendMetrics func(int, []*j.JoinedNegativeGameReview) error) *FinalPercentileJoiner {
+	return &FinalPercentileJoiner{
 		ReceiveJoinedGameReviews: receiveJoinedGameReviews,
 		SendMetrics:              sendMetrics,
 	}
 }
 
-func (f *FinalNegativeJoiner) Run(actionNegativeJoinersAmount int) {
+func (f *FinalPercentileJoiner) Run(actionNegativeJoinersAmount int) {
 	remainingEOFsMap := make(map[int]int)
 	accumulatedGameReviews := make(map[int][]*j.JoinedNegativeGameReview)
 
@@ -51,7 +51,7 @@ func (f *FinalNegativeJoiner) Run(actionNegativeJoinersAmount int) {
 				continue
 			}
 
-			log.Infof("Received all EOFs of client: %d, sending EOF to writer")
+			log.Infof("Received all EOFs of client: %d, sending EOF to writer", clientID)
 			err = f.SendMetrics(clientID, clientAccumulatedGameReviews)
 			if err != nil {
 				log.Errorf("Failed to send metrics: %v", err)

@@ -2,8 +2,8 @@ package main
 
 import (
 	u "distribuidos-tp/internal/utils"
-	l "distribuidos-tp/system/action_negative_review_joiner/logic"
-	m "distribuidos-tp/system/action_negative_review_joiner/middleware"
+	l "distribuidos-tp/system/final_percentile_joiner/logic"
+	m "distribuidos-tp/system/final_percentile_joiner/middleware"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	IdEnvironmentVariableName = "ID"
+	ActionPercentileJoinersAmountEnvironmentVariableName = "ACTION_PERCENTILE_JOINERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -23,24 +23,24 @@ func main() {
 
 	doneChannel := make(chan bool)
 
-	id, err := u.GetEnv(IdEnvironmentVariableName)
+	actionPercentileJoinersAmount, err := u.GetEnvInt(ActionPercentileJoinersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
 	}
 
-	middleware, err := m.NewMiddleware(id)
+	middleware, err := m.NewMiddleware()
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
 	}
 
-	negativeActionReviewJoiner := l.NewActionNegativeReviewJoiner(middleware.ReceiveMsg, middleware.SendMetrics, middleware.SendEof)
+	finalPercentileJoiner := l.NewFinalPercentileJoiner(middleware.ReceiveJoinedGameReviews, middleware.SendQueryResults)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		negativeActionReviewJoiner.Run()
+		finalPercentileJoiner.Run(actionPercentileJoinersAmount)
 		doneChannel <- true
 	}()
 

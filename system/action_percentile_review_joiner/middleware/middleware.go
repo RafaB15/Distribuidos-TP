@@ -21,11 +21,11 @@ const (
 	// lo que recibo del game mapper
 	ActionGameRoutingKeyPrefix = "action_key_"
 
-	ActionNegativeReviewJoinQueueNamePrefix = "action_negative_review_join_queue_"
+	ActionPercentileReviewJoinQueueNamePrefix = "action_percentile_review_join_queue_"
 
-	FinalNegativeJoinerExchangeName = "final_negative_joiner_exchange"
-	WriterRoutingKey                = "final_negative_joiner_key"
-	FinalNegativeJoinerExchangeType = "direct"
+	FinalPercentileJoinerExchangeName = "final_percentile_joiner_exchange"
+	FinalPercentileJoinerRoutingKey   = "final_percentile_joiner_key"
+	FinalPercentileJoinerExchangeType = "direct"
 )
 
 type Middleware struct {
@@ -44,13 +44,13 @@ func NewMiddleware(id string) (*Middleware, error) {
 	actionGameRoutingKey := fmt.Sprintf("%s%s", ActionGameRoutingKeyPrefix, id)
 
 	routingKeys := []string{actionReviewJoinRoutingKey, actionGameRoutingKey}
-	actionReviewJoinQueueName := fmt.Sprintf("%s%s", ActionNegativeReviewJoinQueueNamePrefix, id)
+	actionReviewJoinQueueName := fmt.Sprintf("%s%s", ActionPercentileReviewJoinQueueNamePrefix, id)
 	actionReviewJoinQueue, err := manager.CreateBoundQueueMultipleRoutingKeys(actionReviewJoinQueueName, ActionPercentileReviewJoinExchangeName, ActionPercentileReviewJoinExchangeType, routingKeys, true)
 	if err != nil {
 		return nil, err
 	}
 
-	finalNegativeJoinerExchange, err := manager.CreateExchange(FinalNegativeJoinerExchangeName, FinalNegativeJoinerExchangeType)
+	finalNegativeJoinerExchange, err := manager.CreateExchange(FinalPercentileJoinerExchangeName, FinalPercentileJoinerExchangeType)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedNegat
 		return err
 	}
 
-	return m.FinalNegativeJoinerExchange.Publish(WriterRoutingKey, serializedMetrics)
+	return m.FinalNegativeJoinerExchange.Publish(FinalPercentileJoinerRoutingKey, serializedMetrics)
 }
 
 func HandleGameReviewMetrics(message []byte) ([]*reviews_accumulator.GameReviewsMetrics, error) {
@@ -122,7 +122,7 @@ func HandleGameNames(message []byte) ([]*games.GameName, error) {
 }
 
 func (m *Middleware) SendEof(clientID int) error {
-	err := m.FinalNegativeJoinerExchange.Publish(WriterRoutingKey, sp.SerializeMsgEndOfFile(clientID))
+	err := m.FinalNegativeJoinerExchange.Publish(FinalPercentileJoinerRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
 		return err
 	}

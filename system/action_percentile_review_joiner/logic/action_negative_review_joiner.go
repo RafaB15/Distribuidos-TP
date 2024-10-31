@@ -1,4 +1,4 @@
-package action_negative_review_joiner
+package action_percentile_review_joiner
 
 import (
 	"distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
@@ -10,21 +10,21 @@ import (
 
 var log = logging.MustGetLogger("log")
 
-type ActionNegativeReviewJoiner struct {
+type ActionPercentileReviewJoiner struct {
 	ReceiveMsg  func() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error)
 	SendMetrics func(int, *j.JoinedNegativeGameReview) error
 	SendEof     func(int) error
 }
 
-func NewActionNegativeReviewJoiner(receiveMsg func() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error), sendMetrics func(int, *j.JoinedNegativeGameReview) error, sendEof func(int) error) *ActionNegativeReviewJoiner {
-	return &ActionNegativeReviewJoiner{
+func NewActionPercentileReviewJoiner(receiveMsg func() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error), sendMetrics func(int, *j.JoinedNegativeGameReview) error, sendEof func(int) error) *ActionPercentileReviewJoiner {
+	return &ActionPercentileReviewJoiner{
 		ReceiveMsg:  receiveMsg,
 		SendMetrics: sendMetrics,
 		SendEof:     sendEof,
 	}
 }
 
-func (a *ActionNegativeReviewJoiner) Run() {
+func (a *ActionPercentileReviewJoiner) Run() {
 	remainingEOFsMap := make(map[int]int)
 	accumulatedGameReviews := make(map[int]map[uint32]*j.JoinedNegativeGameReview)
 

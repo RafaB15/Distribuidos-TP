@@ -10,10 +10,10 @@ import (
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
-	FinalNegativeJoinerExchangeName = "final_negative_joiner_exchange"
-	FinalNegativeJoinerRoutingKey   = "final_negative_joiner_key"
-	FinalNegativeJoinerExchangeType = "direct"
-	FinalNegativeJoinerQueueName    = "final_negative_joiner_queue"
+	FinalPercentileJoinerExchangeName = "final_percentile_joiner_exchange"
+	FinalPercentileJoinerRoutingKey   = "final_percentile_joiner_key"
+	FinalPercentileJoinerExchangeType = "direct"
+	FinalPercentileJoinerQueueName    = "final_percentile_joiner_queue"
 
 	QueryResultsExchangeName = "query_results_exchange"
 	QueryRoutingKeyPrefix    = "query_results_key_" // con el id del cliente
@@ -32,7 +32,7 @@ func NewMiddleware() (*Middleware, error) {
 		return nil, err
 	}
 
-	finalNegativeJoinerQueue, err := manager.CreateBoundQueue(FinalNegativeJoinerQueueName, FinalNegativeJoinerExchangeName, FinalNegativeJoinerExchangeType, FinalNegativeJoinerRoutingKey, true)
+	finalNegativeJoinerQueue, err := manager.CreateBoundQueue(FinalPercentileJoinerQueueName, FinalPercentileJoinerExchangeName, FinalPercentileJoinerExchangeType, FinalPercentileJoinerRoutingKey, true)
 	if err != nil {
 		return nil, err
 	}

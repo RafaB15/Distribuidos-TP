@@ -13,9 +13,9 @@
     "english_filter": 4,
     "english_reviews_accumulator": 2,
     "negative_reviews_filter": 2,
-    "action_negative_review_joiner": 2,
+    "action_percentile_review_joiner": 2,
     "action_english_review_joiner": 2,
     "indie_review_joiner": 2,
     "final_english_joiner": 1,
-    "final_negative_joiner": 1
+    "final_percentile_joiner": 1
 }
