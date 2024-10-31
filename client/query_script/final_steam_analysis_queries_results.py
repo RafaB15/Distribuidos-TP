@@ -152,21 +152,24 @@ print("\nQuery 5:")
 def negative_score(score):
     return 1 if score < 0 else 0
 
-games_action = games_df_cleaned[games_df_cleaned["Genres"].str.contains("action")]
-games_action_reduced = games_action[["AppID", "Name"]]
-
+# Calculate negative scores for all reviews
 reviews_q5 = reviews_df_cleaned.copy()
 reviews_q5 = reviews_q5[["app_id", "review_score"]]
 reviews_q5["negative_score"] = reviews_q5["review_score"].apply(negative_score)
 reviews_q5_negative_score = reviews_q5[reviews_q5["negative_score"] == 1]
 
-reviews_q5_negative_score_action = pd.merge(reviews_q5_negative_score, games_action_reduced, left_on='app_id', right_on="AppID", how='inner')
+# Group by app_id to get the count of negative reviews for each game
+reviews_q5_negative_score_by_app_id = reviews_q5_negative_score.groupby('app_id').size().reset_index(name='count')
 
-reviews_q5_negative_score_action_by_app_id = reviews_q5_negative_score_action.groupby('app_id').size().reset_index(name='count')
+# Calculate the 90th percentile over all reviews
+percentil_90 = reviews_q5_negative_score_by_app_id['count'].quantile(0.90)
 
-percentil_90 = reviews_q5_negative_score_action_by_app_id['count'].quantile(0.90)
+# Filter games that are in the 90th percentile or higher
+q5_result = reviews_q5_negative_score_by_app_id[reviews_q5_negative_score_by_app_id['count'] >= percentil_90]
 
-q5_result = reviews_q5_negative_score_action_by_app_id[reviews_q5_negative_score_action_by_app_id['count'] >= percentil_90]
+# Filter the games to only include those in the "action" genre
+games_action = games_df_cleaned[games_df_cleaned["Genres"].str.contains("action")]
+games_action_reduced = games_action[["AppID", "Name"]]
 
 q5_result_with_game_names = pd.merge(q5_result, games_action_reduced, left_on='app_id', right_on="AppID", how='inner')
 
