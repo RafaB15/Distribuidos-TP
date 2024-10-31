@@ -9,7 +9,7 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', 100)
 
 # Load datasets
-reviews_df_cleaned = pd.read_csv('../client_data/steam_reviews_1M.csv')
+reviews_df_cleaned = pd.read_csv('../client_data/steam_reviews_100k.csv')
 games_df_cleaned = pd.read_csv('../client_data/games_90k.csv')
 
 """# Queries resolution
@@ -61,43 +61,41 @@ for app_id, name, positive_reviews in q3_result.reset_index().values:
 
 """## Q4: Nombre de juegos del género "action" con más de 5.000 reseñas negativas en idioma inglés"""
 
-# print("\nQuery 4:")
+print("\nQuery 4:")
 
-# # Nos quedanmos con los juegos de acción
-# games_action = games_df_cleaned[games_df_cleaned["Genres"].str.contains("action", case=False, na=False)]
+# Nos quedanmos con los juegos de acción
+games_action = games_df_cleaned[games_df_cleaned["Genres"].str.contains("action", case=False, na=False)]
 
-# # Nos quedamos con las que tengan reviews negativs
-# negative_reviews = reviews_df_cleaned[reviews_df_cleaned["review_score"] == -1]
+# Nos quedamos con las que tengan reviews negativs
+negative_reviews = reviews_df_cleaned[reviews_df_cleaned["review_score"] == -1]
 
-# # CPU INTENSIVE #############################
-# def detect_language(texto):
-#     language, _ = langid.classify(texto)
-#     return language
-# #############################################
+# CPU INTENSIVE #############################
+def detect_language(texto):
+    language, _ = langid.classify(texto)
+    return language
+#############################################
 
-# # Filtramos por lenguaje
-# negative_reviews = negative_reviews.copy()  # Create a copy to avoid SettingWithCopyWarning
-# negative_reviews["language"] = negative_reviews["review_text"].apply(detect_language)
-# negative_reviews_english = negative_reviews[negative_reviews["language"] == "en"]
+# Filtramos por lenguaje
+negative_reviews = negative_reviews.copy()  # Create a copy to avoid SettingWithCopyWarning
+negative_reviews["language"] = negative_reviews["review_text"].apply(detect_language)
+negative_reviews_english = negative_reviews[negative_reviews["language"] == "en"]
 
-# # Mergeamos las reviews con los juegos filtrados
-# games_action_reviews = pd.merge(games_action, negative_reviews_english, left_on='AppID', right_on='app_id', how='inner')
+# Mergeamos las reviews con los juegos filtrados
+games_action_reviews = pd.merge(games_action, negative_reviews_english, left_on='AppID', right_on='app_id', how='inner')
 
-# # Hacemos group by para contar
-# negative_reviews_count = games_action_reviews.groupby(['AppID', 'Name']).size().reset_index(name='negative_review_count')
+# Hacemos group by para contar
+negative_reviews_count = games_action_reviews.groupby(['AppID', 'Name']).size().reset_index(name='negative_review_count')
 
-# # Nos quedamos con los que tienen más de 5000 reviews
-# games_with_5000_negative_reviews = negative_reviews_count[negative_reviews_count['negative_review_count'] > 1000]
-
-
-# # Printeamos resultados
-# for index, row in games_with_5000_negative_reviews.iterrows():
-#     app_id = row['AppID']
-#     game_name = row['Name']
-#     negative_review_count = row['negative_review_count']
-#     print(f"AppID: {app_id}, GameName: {game_name}, NegativeReviews: {negative_review_count}")
+# Nos quedamos con los que tienen más de 5000 reviews
+games_with_5000_negative_reviews = negative_reviews_count[negative_reviews_count['negative_review_count'] > 5000]
 
 
+# Printeamos resultados
+for index, row in games_with_5000_negative_reviews.iterrows():
+    app_id = row['AppID']
+    game_name = row['Name']
+    negative_review_count = row['negative_review_count']
+    print(f"AppID: {app_id}, GameName: {game_name}, NegativeReviews: {negative_review_count}")
 
 """
 # Juegos de acción

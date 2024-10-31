@@ -68,6 +68,10 @@ En esta instancia (y las subsiguientes) el objetivo es la resolucion de estas co
 
   Este servicio escala para el procesamiento de datos. Para hacer coincidir y que se envíen los correspondientes datos a la instancia que corresponde. Esto se hace mediante la clave de particionamiento explicada en un servicio anterior que hace el envio con particionamiento por afinidad para que los Ids coincidan en una misma instancia de este servicio.
 
+* Final Joiners:
+
+  Son nodos encargados de tomar los resultados de los diferentes joiners y armar una respuesta final que es luego enviada al entrypoint para que se la envíe al usuario.
+
 * Review Mapper:
 
   Es el análogo al servicio de Game Mapper. Filtra aquellos campos que son de importancia para las siguiente instancias de procesamiento tal como el Id y las reseñas. Este servicio puede escalar y procesar información en las distintas instancias que se levanten. 
@@ -80,7 +84,7 @@ En esta instancia (y las subsiguientes) el objetivo es la resolucion de estas co
 
 * Top Positive Reviews:
 
-  Toma los juegos y las reseñas ya matcheadas y guardará aquellas que estén en el Top 5 de las reseñas positivas. Este servicio al igual que el Top 10 Avg Playtime no escala ya que siempre se guarda una cantidad minima de datos (5). A medida que se reciben más datos entonces se evalúa nuevamente si está entre los 5 con más reseñas y se guarda, caso contrario, se descarta. Este servicio requiere de los EOFs del Join anterior ya que para el envío y la finalización de procesamiento de los 5 juegos se requiere el conocimiento de la finalización completa del servicio anterior. Este servicio enviará su información al Writer.
+  Toma los juegos y las reseñas ya matcheadas y guardará aquellas que estén en el Top 5 de las reseñas positivas. Este servicio al igual que el Top 10 Avg Playtime no escala ya que siempre se guarda una cantidad minima de datos (5). A medida que se reciben más datos entonces se evalúa nuevamente si está entre los 5 con más reseñas y se guarda, caso contrario, se descarta. Este servicio requiere de los EOFs del Join anterior ya que para el envío y la finalización de procesamiento de los 5 juegos se requiere el conocimiento de la finalización completa del servicio anterior. Este servicio enviará la respuesta final de su query al entrypoint.
 
   
 * Percentile Accumulator:
@@ -89,19 +93,19 @@ En esta instancia (y las subsiguientes) el objetivo es la resolucion de estas co
   
 ## Diagrama de Robustez
 
-![Link al Diagrama](https://github.com/RafaB15/Distribuidos-TP/blob/sofiajaves-patch-1/images/Diagrama%20de%20Robustez.png)
+![Link al Diagrama](./images/DiagramaDeRobustez.png)
 
 En este diagrama se pueden ver los distintos servicios mencionados en la seccion anterior pero con la conexión entre ellos. 
 
 ## Diagrama de Paquetes
 
-![Link al Diagrama](https://github.com/RafaB15/Distribuidos-TP/blob/sofiajaves-patch-1/images/Paquetes.png)
+![Link al Diagrama](./images/Paquetes.png)
 
 En este diagrama se refleja la organización del código a gran escala por como estan organizadas por sus funcionalidades similares.
 
 ## DAG
 
-![Link al Diagrama](https://github.com/RafaB15/Distribuidos-TP/blob/sofiajaves-patch-1/images/DAG.png)
+![Link al Diagrama](./images/DAG.png)
 
 En el DAG se pueden observar aquellos datos que son necesarios para procesar cada una de las consultas. Las consultas se pueden interpretar como los distintos caminos desde el entrypoint hasta el Post o Writer.
 

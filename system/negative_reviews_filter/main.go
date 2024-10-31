@@ -14,7 +14,7 @@ import (
 const (
 	ActionEnglishReviewsJoinersAmountEnvironmentVariableName = "ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT"
 	EnglishReviewAccumulatorsAmountEnvironmentVariableName   = "ENGLISH_REVIEW_ACCUMULATORS_AMOUNT"
-	MinPositiveReviews                                       = 1000
+	MinPositiveReviews                                       = 5000
 )
 
 var log = logging.MustGetLogger("log")
