@@ -200,10 +200,10 @@ func GetTop10PercentByNegativeReviewsV2(games []*GameReviewsMetrics) ([]*GameRev
 	}
 
 	// Calcular la posición del percentil 90
-	percentileIndex := int(math.Ceil(0.9 * float64(len(games))))
+	percentileIndex := int(math.Floor(0.9 * float64(len(games))))
 
 	fmt.Printf("Reviews must have more than %d negative reviews to be considered\n", games[percentileIndex].NegativeReviews)
 
 	// Retornar solo los juegos que están por encima del percentil 90
-	return games[percentileIndex+1:], nil
+	return games[percentileIndex:], nil
 }
