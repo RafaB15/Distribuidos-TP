@@ -104,7 +104,15 @@ func AddGamesAndMaintainOrder(filename string, newGames []*GameReviewsMetrics) e
 }
 
 func AddGamesAndMaintainOrderV2(existingGames []*GameReviewsMetrics, newGames []*GameReviewsMetrics) []*GameReviewsMetrics {
-	allGames := append(existingGames, newGames...)
+	// Filter out games with zero negative reviews
+	filteredNewGames := make([]*GameReviewsMetrics, 0)
+	for _, game := range newGames {
+		if game.NegativeReviews > 0 {
+			filteredNewGames = append(filteredNewGames, game)
+		}
+	}
+
+	allGames := append(existingGames, filteredNewGames...)
 
 	sort.Slice(allGames, func(i, j int) bool {
 		return allGames[i].NegativeReviews < allGames[j].NegativeReviews
@@ -197,5 +205,5 @@ func GetTop10PercentByNegativeReviewsV2(games []*GameReviewsMetrics) ([]*GameRev
 	fmt.Printf("Reviews must have more than %d negative reviews to be considered\n", games[percentileIndex].NegativeReviews)
 
 	// Retornar solo los juegos que están por encima del percentil 90
-	return games[percentileIndex:], nil
+	return games[percentileIndex+1:], nil
 }
