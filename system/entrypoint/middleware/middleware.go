@@ -203,7 +203,7 @@ func handleMsgActionPositiveReviewsQuery(clientID int, message []byte) ([]byte, 
 
 	var stringRepresentation []byte
 	for _, review := range joinedReviews {
-		stringRep := j.GetStrRepresentationNegativeGameReview(review)
+		stringRep := j.GetStrRepresentationNegativeGameReviewOnlyName(review)
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
 	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgActionPositiveReviewsQuery), stringRepresentation), nil

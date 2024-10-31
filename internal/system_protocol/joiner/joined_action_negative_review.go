@@ -98,3 +98,7 @@ func DeserializeJoinedActionNegativeGameReviewsBatch(data []byte) ([]*JoinedNega
 func GetStrRepresentationNegativeGameReview(joinedActionNegativeGameReview *JoinedNegativeGameReview) string {
 	return "AppID: " + strconv.Itoa(int(joinedActionNegativeGameReview.AppId)) + ", GameName: " + joinedActionNegativeGameReview.GameName + ", NegativeReviews: " + strconv.Itoa(int(joinedActionNegativeGameReview.NegativeReviews)) + "\n"
 }
+
+func GetStrRepresentationNegativeGameReviewOnlyName(joinedActionNegativeGameReview *JoinedNegativeGameReview) string {
+	return "AppID: " + strconv.Itoa(int(joinedActionNegativeGameReview.AppId)) + ", GameName: " + joinedActionNegativeGameReview.GameName + "\n"
+}
