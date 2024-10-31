@@ -1,2 +1,2 @@
 #!/bin/bash
-go run scripts/docker_compose_generator.go -config $1 -output $2
+go run scripts/generator/docker_compose_generator.go -config $1 -output $2

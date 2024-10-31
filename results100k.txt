@@ -16,16 +16,6 @@ AppId: 557400 ReleaseYear: 2017 AvgPlaytimeForever: 19196
 AppId: 719890 ReleaseYear: 2018 AvgPlaytimeForever: 17147
 AppId: 252490 ReleaseYear: 2018 AvgPlaytimeForever: 16623
 
-
-Query 3:
-AppID: 105600, GameName: Terraria, PositiveReviews: 8197
-AppID: 211820, GameName: Starbound, PositiveReviews: 3532
-AppID: 212680, GameName: FTL: Faster Than Light, PositiveReviews: 2516
-AppID: 113200, GameName: The Binding of Isaac, PositiveReviews: 1930
-AppID: 204360, GameName: Castle Crashers®, PositiveReviews: 1459
-
-Parece que la de arriba había perdido algunas reviews. Rari. Creo que fue por los que consumen de la misma cola.
-
 Query 3:
 AppID: 105600, GameName: Terraria, PositiveReviews: 8203
 AppID: 211820, GameName: Starbound, PositiveReviews: 3534

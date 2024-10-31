@@ -45,16 +45,16 @@ func DeserializeMsgIndiePositiveJoinedReviewsQuery(message []byte) ([]*j.JoinedP
 
 // Message ActionPositiveReviewsQuery
 
-func SerializeMsgActionPositiveReviewsQuery(clientID int, joinedReviews []*j.JoinedPositiveGameReview) ([]byte, error) {
-	data, err := j.SerializeJoinedPositiveGameReviewsBatch(joinedReviews)
+func SerializeMsgActionEnglishReviewsQuery(clientID int, joinedReviews []*j.JoinedNegativeGameReview) ([]byte, error) {
+	data, err := j.SerializeJoinedActionNegativeGameReviewsBatch(joinedReviews)
 	if err != nil {
 		return nil, err
 	}
 	return SerializeQuery(MsgActionPositiveReviewsQuery, clientID, data), nil
 }
 
-func DeserializeMsgActionPositiveReviewsQuery(message []byte) ([]*j.JoinedPositiveGameReview, error) {
-	return j.DeserializeJoinedPositiveGameReviewsBatch(message)
+func DeserializeMsgActionPositiveReviewsQuery(message []byte) ([]*j.JoinedNegativeGameReview, error) {
+	return j.DeserializeJoinedActionNegativeGameReviewsBatch(message)
 }
 
 // Message ActionNegativeReviewsQuery

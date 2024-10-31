@@ -268,7 +268,7 @@ services:
     environment:
       - ID=1
       - FILTERS_AMOUNT=4
-      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
+      - NEGATIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -284,7 +284,7 @@ services:
     environment:
       - ID=2
       - FILTERS_AMOUNT=4
-      - POSITIVE_REVIEWS_FILTER_AMOUNT=2
+      - NEGATIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -293,12 +293,12 @@ services:
     networks:
       - distributed_network
 
-  positive_reviews_filter_1:
-    container_name: positive_reviews_filter_1
-    image: positive_reviews_filter:latest
-    entrypoint: /positive_reviews_filter
+  negative_reviews_filter_1:
+    container_name: negative_reviews_filter_1
+    image: negative_reviews_filter:latest
+    entrypoint: /negative_reviews_filter
     environment:
-      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
+      - ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT=2
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
@@ -308,12 +308,12 @@ services:
     networks:
       - distributed_network
 
-  positive_reviews_filter_2:
-    container_name: positive_reviews_filter_2
-    image: positive_reviews_filter:latest
-    entrypoint: /positive_reviews_filter
+  negative_reviews_filter_2:
+    container_name: negative_reviews_filter_2
+    image: negative_reviews_filter:latest
+    entrypoint: /negative_reviews_filter
     environment:
-      - ACTION_POSITIVE_REVIEWS_JOINERS_AMOUNT=2
+      - ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT=2
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
@@ -325,11 +325,11 @@ services:
 
   action_positive_review_joiner_1:
     container_name: action_positive_review_joiner_1
-    image: action_positive_review_joiner:latest
-    entrypoint: /action_positive_review_joiner
+    image: action_english_review_joiner:latest
+    entrypoint: /action_english_review_joiner
     environment:
       - ID=1
-      - POSITIVE_REVIEWS_FILTERS_AMOUNT=2
+      - NEGATIVE_REVIEWS_FILTERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -340,11 +340,11 @@ services:
 
   action_positive_review_joiner_2:
     container_name: action_positive_review_joiner_2
-    image: action_positive_review_joiner:latest
-    entrypoint: /action_positive_review_joiner
+    image: action_english_review_joiner:latest
+    entrypoint: /action_english_review_joiner
     environment:
       - ID=2
-      - POSITIVE_REVIEWS_FILTERS_AMOUNT=2
+      - NEGATIVE_REVIEWS_FILTERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -353,12 +353,12 @@ services:
     networks:
       - distributed_network
 
-  final_positive_joiner:
-    container_name: final_positive_joiner
-    image: final_positive_joiner:latest
-    entrypoint: /final_positive_joiner
+  final_english_joiner:
+    container_name: final_english_joiner
+    image: final_english_joiner:latest
+    entrypoint: /final_english_joiner
     environment:
-      - ACTION_POSITIVE_JOINERS_AMOUNT=2
+      - ACTION_ENGLISH_JOINERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -367,10 +367,10 @@ services:
     networks:
       - distributed_network
 
-  action_negative_review_joiner_1:
-    container_name: action_negative_review_joiner_1
-    image: action_negative_review_joiner:latest
-    entrypoint: /action_negative_review_joiner
+  action_percentile_review_joiner_1:
+    container_name: action_percentile_review_joiner_1
+    image: action_percentile_review_joiner:latest
+    entrypoint: /action_percentile_review_joiner
     environment:
       - ID=1
     depends_on:
@@ -381,10 +381,10 @@ services:
     networks:
       - distributed_network
 
-  action_negative_review_joiner_2:
-    container_name: action_negative_review_joiner_2
-    image: action_negative_review_joiner:latest
-    entrypoint: /action_negative_review_joiner
+  action_percentile_review_joiner_2:
+    container_name: action_percentile_review_joiner_2
+    image: action_percentile_review_joiner:latest
+    entrypoint: /action_percentile_review_joiner
     environment:
       - ID=2
     depends_on:
@@ -395,12 +395,12 @@ services:
     networks:
       - distributed_network
 
-  final_negative_joiner:
-    container_name: final_negative_joiner
-    image: final_negative_joiner:latest
-    entrypoint: /final_negative_joiner
+  final_percentile_joiner:
+    container_name: final_percentile_joiner
+    image: final_percentile_joiner:latest
+    entrypoint: /final_percentile_joiner
     environment:
-      - ACTION_NEGATIVE_JOINERS_AMOUNT=2
+      - ACTION_PERCENTILE_JOINERS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
