@@ -19,6 +19,7 @@ type Config struct {
 	ReviewMapper                 int `json:"review_mapper"`
 	ReviewsAccumulator           int `json:"reviews_accumulator"`
 	DecadeFilter                 int `json:"decade_filter"`
+	NegativeReviewsPreFilter     int `json:"negative_reviews_pre_filter"`
 	EnglishFilter                int `json:"english_filter"`
 	EnglishReviewsAccumulator    int `json:"english_reviews_accumulator"`
 	NegativeReviewsFilter        int `json:"negative_reviews_filter"`
@@ -78,7 +79,7 @@ func main() {
     image: entrypoint:latest
     entrypoint: /entrypoint
     environment:
-      - ENGLISH_FILTERS_AMOUNT=%d
+      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=%d
       - REVIEW_MAPPERS_AMOUNT=%d
     depends_on:
       rabbitmq:
@@ -86,7 +87,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.EnglishFilter, config.ReviewMapper)
+`, serviceName, serviceName, config.NegativeReviewsPreFilter, config.ReviewMapper)
 
 	// GameMapper service
 	serviceName = "game_mapper"
@@ -234,6 +235,7 @@ func main() {
       - ID=%d
       - MAPPERS_AMOUNT=%d
       - INDIE_REVIEW_JOINERS_AMOUNT=%d
+      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -242,7 +244,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.ReviewMapper, config.IndieReviewJoiner)
+`, serviceName, serviceName, i, config.ReviewMapper, config.IndieReviewJoiner, config.NegativeReviewsPreFilter)
 	}
 
 	// DecadeFilter service
@@ -263,6 +265,28 @@ func main() {
 `, serviceName, serviceName)
 	}
 
+	//Negative Reviews Pre Filter service
+	for i := 1; i <= config.NegativeReviewsPreFilter; i++ {
+		serviceName := fmt.Sprintf("negative_reviews_pre_filter_%d", i)
+		compose += fmt.Sprintf(`  %s:
+    container_name: %s
+    image: negative_reviews_pre_filter:latest
+    entrypoint: /negative_reviews_pre_filter
+    environment:
+      - ID=%d
+      - ENGLISH_FILTERS_AMOUNT=%d
+      - ACCUMULATORS_AMOUNT=%d
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+`, serviceName, serviceName, i, config.EnglishFilter, config.ReviewsAccumulator)
+	}
+
 	// EnglishFilter service
 	for i := 1; i <= config.EnglishFilter; i++ {
 		serviceName := fmt.Sprintf("english_filter_%d", i)
@@ -273,6 +297,7 @@ func main() {
     environment:
       - ID=%d
       - ACCUMULATORS_AMOUNT=%d
+      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -281,7 +306,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.EnglishReviewsAccumulator)
+`, serviceName, serviceName, i, config.EnglishReviewsAccumulator, config.NegativeReviewsPreFilter)
 	}
 
 	// EnglishReviewsAccumulator service

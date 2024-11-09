@@ -34,7 +34,7 @@ func NewEntryPoint(
 	}
 }
 
-func (e *EntryPoint) Run(conn net.Conn, clientID int, englishFiltersAmount int, reviewMappersAmount int) {
+func (e *EntryPoint) Run(conn net.Conn, clientID int, negativeReviewsPreFiltersAmount int, reviewMappersAmount int) {
 	eofGames := false
 	eofReviews := false
 
@@ -50,7 +50,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, englishFiltersAmount int, 
 			err = e.SendGamesBatch(clientID, data)
 		} else {
 			// log.Infof("Received review batch for client %d", clientID)
-			err = e.SendReviewsBatch(clientID, englishFiltersAmount, reviewMappersAmount, data)
+			err = e.SendReviewsBatch(clientID, negativeReviewsPreFiltersAmount, reviewMappersAmount, data)
 		}
 
 		if err != nil {
@@ -64,7 +64,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, englishFiltersAmount int, 
 				log.Infof("End of file message published for games with clientID %d", clientID)
 				eofGames = true
 			} else {
-				err = e.SendReviewsEndOfFile(clientID, englishFiltersAmount, reviewMappersAmount)
+				err = e.SendReviewsEndOfFile(clientID, negativeReviewsPreFiltersAmount, reviewMappersAmount)
 				log.Infof("End of file message published for reviews with clientID %d", clientID)
 				eofReviews = true
 			}

@@ -13,6 +13,9 @@ import (
 
 const (
 	MappersAmountEnvironmentVariableName = "MAPPERS_AMOUNT"
+	IdEnvironmentVariableName            = "ID"
+	IndieReviewJoinersAmountName         = "INDIE_REVIEW_JOINERS_AMOUNT"
+	NegativeReviewPreFiltersAmount       = "NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -23,13 +26,31 @@ func main() {
 
 	doneChannel := make(chan bool)
 
-	accumulatorsAmount, err := u.GetEnvInt(MappersAmountEnvironmentVariableName)
+	mappersAmount, err := u.GetEnvInt(MappersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
 	}
 
-	middleware, err := m.NewMiddleware()
+	id, err := u.GetEnvInt(IdEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	indieReviewJoinersAmount, err := u.GetEnvInt(IndieReviewJoinersAmountName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	negativeReviewPreFiltersAmount, err := u.GetEnvInt(NegativeReviewPreFiltersAmount)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	middleware, err := m.NewMiddleware(id)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
@@ -40,7 +61,7 @@ func main() {
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		reviewsAccumulator.Run(accumulatorsAmount)
+		reviewsAccumulator.Run(mappersAmount, indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
 		doneChannel <- true
 	}()
 

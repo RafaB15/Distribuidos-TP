@@ -12,11 +12,11 @@ var log = logging.MustGetLogger("log")
 
 type ReviewsAccumulator struct {
 	ReceiveReviews         func() (int, []*reviews.Review, bool, error)
-	SendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics) error
-	SendEof                func(int) error
+	SendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics, int, int) error
+	SendEof                func(int, int, int) error
 }
 
-func NewReviewsAccumulator(receiveReviews func() (int, []*reviews.Review, bool, error), sendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics) error, sendEof func(int) error) *ReviewsAccumulator {
+func NewReviewsAccumulator(receiveReviews func() (int, []*reviews.Review, bool, error), sendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics, int, int) error, sendEof func(int, int, int) error) *ReviewsAccumulator {
 	return &ReviewsAccumulator{
 		ReceiveReviews:         receiveReviews,
 		SendAccumulatedReviews: sendAccumulatedReviews,
@@ -24,7 +24,7 @@ func NewReviewsAccumulator(receiveReviews func() (int, []*reviews.Review, bool, 
 	}
 }
 
-func (ra *ReviewsAccumulator) Run(accumulatorsAmount int) {
+func (ra *ReviewsAccumulator) Run(accumulatorsAmount int, indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int) {
 	remainingEOFsMap := make(map[int]int)
 	accumulatedReviews := make(map[int]map[uint32]*r.GameReviewsMetrics)
 
@@ -53,16 +53,16 @@ func (ra *ReviewsAccumulator) Run(accumulatorsAmount int) {
 				continue
 			}
 
-			err = ra.SendAccumulatedReviews(clientID, clientAccumulatedReviews)
+			err = ra.SendAccumulatedReviews(clientID, clientAccumulatedReviews, indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
 			if err != nil {
-				log.Errorf("Error sending accumulated reviews: ", err)
+				log.Errorf("error sending accumulated reviews: %s", err)
 				return
 			}
 			log.Info("Sent accumulated reviews")
 
-			err = ra.SendEof(clientID)
+			err = ra.SendEof(clientID, indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
 			if err != nil {
-				log.Errorf("Error sending EOF: ", err)
+				log.Errorf("error sending EOF: %s", err)
 			}
 			log.Info("Sent EOFs")
 

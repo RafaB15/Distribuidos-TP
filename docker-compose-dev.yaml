@@ -21,7 +21,7 @@ services:
     image: entrypoint:latest
     entrypoint: /entrypoint
     environment:
-      - ENGLISH_FILTERS_AMOUNT=4
+      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
       - REVIEW_MAPPERS_AMOUNT=2
     depends_on:
       rabbitmq:
@@ -122,7 +122,7 @@ services:
     entrypoint: /percentile_accumulator
     environment:
       - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=2
-      - NUM_PREVIOUS_ACCUMULATORS=1
+      - NUM_PREVIOUS_ACCUMULATORS=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -137,7 +137,7 @@ services:
     entrypoint: /review_mapper
     environment:
       - ID=1
-      - ACCUMULATORS_AMOUNT=1
+      - ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -152,7 +152,7 @@ services:
     entrypoint: /review_mapper
     environment:
       - ID=2
-      - ACCUMULATORS_AMOUNT=1
+      - ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -169,6 +169,24 @@ services:
       - ID=1
       - MAPPERS_AMOUNT=2
       - INDIE_REVIEW_JOINERS_AMOUNT=2
+      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+  reviews_accumulator_2:
+    container_name: reviews_accumulator_2
+    image: reviews_accumulator:latest
+    entrypoint: /reviews_accumulator
+    environment:
+      - ID=2
+      - MAPPERS_AMOUNT=2
+      - INDIE_REVIEW_JOINERS_AMOUNT=2
+      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -201,6 +219,70 @@ services:
     networks:
       - distributed_network
 
+  negative_reviews_pre_filter_1:
+    container_name: negative_reviews_pre_filter_1
+    image: negative_reviews_pre_filter:latest
+    entrypoint: /negative_reviews_pre_filter
+    environment:
+      - ID=1
+      - ENGLISH_FILTERS_AMOUNT=4
+      - ACCUMULATORS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+  negative_reviews_pre_filter_2:
+    container_name: negative_reviews_pre_filter_2
+    image: negative_reviews_pre_filter:latest
+    entrypoint: /negative_reviews_pre_filter
+    environment:
+      - ID=2
+      - ENGLISH_FILTERS_AMOUNT=4
+      - ACCUMULATORS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+  negative_reviews_pre_filter_3:
+    container_name: negative_reviews_pre_filter_3
+    image: negative_reviews_pre_filter:latest
+    entrypoint: /negative_reviews_pre_filter
+    environment:
+      - ID=3
+      - ENGLISH_FILTERS_AMOUNT=4
+      - ACCUMULATORS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
+  negative_reviews_pre_filter_4:
+    container_name: negative_reviews_pre_filter_4
+    image: negative_reviews_pre_filter:latest
+    entrypoint: /negative_reviews_pre_filter
+    environment:
+      - ID=4
+      - ENGLISH_FILTERS_AMOUNT=4
+      - ACCUMULATORS_AMOUNT=2
+    depends_on:
+      game_mapper:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - distributed_network
+
   english_filter_1:
     container_name: english_filter_1
     image: english_reviews_filter:latest
@@ -208,6 +290,7 @@ services:
     environment:
       - ID=1
       - ACCUMULATORS_AMOUNT=2
+      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -223,6 +306,7 @@ services:
     environment:
       - ID=2
       - ACCUMULATORS_AMOUNT=2
+      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -238,6 +322,7 @@ services:
     environment:
       - ID=3
       - ACCUMULATORS_AMOUNT=2
+      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -253,6 +338,7 @@ services:
     environment:
       - ID=4
       - ACCUMULATORS_AMOUNT=2
+      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -415,7 +501,7 @@ services:
     entrypoint: /indie_review_joiner
     environment:
       - ID=1
-      - REVIEWS_ACCUMULATOR_AMOUNT=1
+      - REVIEWS_ACCUMULATOR_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -430,7 +516,7 @@ services:
     entrypoint: /indie_review_joiner
     environment:
       - ID=2
-      - REVIEWS_ACCUMULATOR_AMOUNT=1
+      - REVIEWS_ACCUMULATOR_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started

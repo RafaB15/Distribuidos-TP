@@ -25,6 +25,7 @@ docker-image-system:
 	docker build -f ./system/entrypoint/Dockerfile -t "entrypoint:latest" .
 	docker build -f ./system/final_english_joiner/Dockerfile -t "final_english_joiner:latest" .
 	docker build -f ./system/final_percentile_joiner/Dockerfile -t "final_percentile_joiner:latest" .
+	docker build -f ./system/negative_reviews_pre_filter/Dockerfile -t "negative_reviews_pre_filter:latest" .
 	
 .PHONY: docker-image-system
 
@@ -50,7 +51,7 @@ docker-client: docker-image-clients
 		-v ./client/client_data:/client_data \
 		--network distributed_network \
 		-e GAME_FILE_PATH=./client_data/games_90k.csv \
-		-e REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv \
+		-e REVIEW_FILE_PATH=./client_data/steam_reviews_1M.csv \
 		client:latest
 .PHONY: docker-client
 
