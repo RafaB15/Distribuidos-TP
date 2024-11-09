@@ -2,6 +2,7 @@ package os_accumulator
 
 import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	rp "distribuidos-tp/system/os_accumulator/persistence"
 	"fmt"
 
 	"github.com/op/go-logging"
@@ -13,19 +14,20 @@ type OSAccumulator struct {
 	ReceiveGamesOS func() (int, []*oa.GameOS, bool, error)
 	SendMetrics    func(int, *oa.GameOSMetrics) error
 	SendEof        func(int) error
+	Repository     *rp.Repository
 }
 
 func NewOSAccumulator(receiveGamesOS func() (int, []*oa.GameOS, bool, error), sendMetrics func(int, *oa.GameOSMetrics) error, sendEof func(int) error) *OSAccumulator {
+
 	return &OSAccumulator{
 		ReceiveGamesOS: receiveGamesOS,
 		SendMetrics:    sendMetrics,
 		SendEof:        sendEof,
+		Repository:     rp.NewRepository("os_accumulator"),
 	}
 }
 
 func (o *OSAccumulator) Run() error {
-	osMetricsMap := make(map[int]*oa.GameOSMetrics)
-
 	for {
 
 		clientID, gamesOS, eof, err := o.ReceiveGamesOS()
@@ -34,11 +36,10 @@ func (o *OSAccumulator) Run() error {
 			return fmt.Errorf("failed to receive game os: %v", err)
 		}
 
-		clientOSMetrics, ok := osMetricsMap[clientID]
-
-		if !ok {
-			osMetricsMap[clientID] = oa.NewGameOSMetrics()
-			clientOSMetrics = osMetricsMap[clientID]
+		clientOSMetrics, err := o.Repository.Load(clientID)
+		if err != nil {
+			log.Errorf("failed to load client %d os metrics: %v", clientID, err)
+			continue
 		}
 
 		if eof {
@@ -52,7 +53,6 @@ func (o *OSAccumulator) Run() error {
 			if err != nil {
 				log.Errorf("failed to send EOF: %v", err)
 			}
-			delete(osMetricsMap, clientID)
 			continue
 		}
 
@@ -60,6 +60,7 @@ func (o *OSAccumulator) Run() error {
 			clientOSMetrics.AddGameOS(gameOS)
 		}
 
+		o.Repository.Persist(clientID, *clientOSMetrics)
 		log.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
 
 	}
