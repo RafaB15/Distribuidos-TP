@@ -17,7 +17,6 @@ func NewRepository(prefixFileName string) *Repository {
 }
 
 func (r *Repository) Persist(clientID int, g oa.GameOSMetrics) {
-
 	body := oa.SerializeGameOSMetrics(&g)
 	f.TruncateAndWriteAllToFile(r.FileName(clientID), body)
 }
