@@ -54,6 +54,7 @@ func main() {
 		middleware.ReceiveGameReviews,
 		middleware.SendEnglishReview,
 		middleware.SendEndOfFiles,
+		middleware.AckLastMessage,
 		log,
 	)
 

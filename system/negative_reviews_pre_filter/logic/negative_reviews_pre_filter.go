@@ -112,8 +112,10 @@ func (f *NegativeReviewsPreFilter) handleRawReviews(clientId int, englishFilters
 			return nil
 		}
 	} else {
-		clientAccumulatedRawReviews[int(rawReview.AppId)] = append(clientAccumulatedRawReviews[int(rawReview.AppId)], rawReview)
-		log.Infof("Accumulated review for client %d", clientId)
+		if !rawReview.Positive {
+			clientAccumulatedRawReviews[int(rawReview.AppId)] = append(clientAccumulatedRawReviews[int(rawReview.AppId)], rawReview)
+			log.Infof("Accumulated review for client %d", clientId)
+		}
 	}
 	return nil
 }

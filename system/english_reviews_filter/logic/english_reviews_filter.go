@@ -9,6 +9,7 @@ type EnglishReviewsFilter struct {
 	ReceiveGameReviews func() (int, *r.RawReview, bool, error)
 	SendEnglishReview  func(clientID int, review *r.Review, englishAccumulatorsAmount int) error
 	SendEnfOfFiles     func(clientID int, accumulatorsAmount int) error
+	AckLastMessage     func() error
 	Logger             *logging.Logger
 }
 
@@ -16,12 +17,14 @@ func NewEnglishReviewsFilter(
 	receiveGameReviews func() (int, *r.RawReview, bool, error),
 	sendEnglishReviews func(int, *r.Review, int) error,
 	sendEndOfFiles func(int, int) error,
+	ackLastMessage func() error,
 	logger *logging.Logger,
 ) *EnglishReviewsFilter {
 	return &EnglishReviewsFilter{
 		ReceiveGameReviews: receiveGameReviews,
 		SendEnglishReview:  sendEnglishReviews,
 		SendEnfOfFiles:     sendEndOfFiles,
+		AckLastMessage:     ackLastMessage,
 		Logger:             logger,
 	}
 }
@@ -49,12 +52,22 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int, negativeReviewsPreFil
 			f.Logger.Infof("Remaining EOFs AFTER: %d", remainingEOFs)
 			remainingEOFsMap[clientID] = remainingEOFs
 			if remainingEOFs > 0 {
+				err := f.AckLastMessage()
+				if err != nil {
+					f.Logger.Errorf("Failed to ack last message: %v", err)
+					return
+				}
 				continue
 			}
 			f.Logger.Info("Received all EOFs, sending EOFs")
 			err = f.SendEnfOfFiles(clientID, accumulatorsAmount)
 			if err != nil {
 				f.Logger.Errorf("Failed to send EOF: %v", err)
+				return
+			}
+			err = f.AckLastMessage()
+			if err != nil {
+				f.Logger.Errorf("Failed to ack last message: %v", err)
 				return
 			}
 			delete(remainingEOFsMap, clientID)
@@ -73,6 +86,11 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int, negativeReviewsPreFil
 			f.Logger.Infof("Sent english review for app %d", rawReview.AppId)
 		} else {
 			f.Logger.Infof("Review for app %d is not in english", rawReview.AppId)
+		}
+		err = f.AckLastMessage()
+		if err != nil {
+			f.Logger.Errorf("Failed to ack last message: %v", err)
+			return
 		}
 	}
 }

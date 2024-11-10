@@ -59,6 +59,7 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 }
 
 func (m *Middleware) ReceiveGameReviews() (int, *r.RawReview, bool, error) {
+	m.Logger.Info("Waiting for message")
 	rawMsg, err := m.RawEnglishReviewsQueue.Consume()
 	if err != nil {
 		return 0, nil, false, fmt.Errorf("failed to consume message: %v", err)
@@ -99,13 +100,6 @@ func (m *Middleware) SendEnglishReview(clientID int, review *r.Review, englishAc
 
 	m.Logger.Infof("Sent review for client %d", clientID)
 
-	err = m.RawEnglishReviewsQueue.AckLastMessage()
-	if err != nil {
-		return fmt.Errorf("failed to ack last message: %v", err)
-	}
-
-	m.Logger.Infof("Acked last message")
-
 	return nil
 }
 
@@ -118,11 +112,15 @@ func (m *Middleware) SendEndOfFiles(clientID int, accumulatorsAmount int) error 
 		}
 	}
 
+	return nil
+}
+
+func (m *Middleware) AckLastMessage() error {
 	err := m.RawEnglishReviewsQueue.AckLastMessage()
 	if err != nil {
 		return fmt.Errorf("failed to ack last message: %v", err)
 	}
-
+	m.Logger.Infof("Acked last message")
 	return nil
 }
 
