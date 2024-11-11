@@ -10,14 +10,14 @@ import (
 var log = logging.MustGetLogger("log")
 
 type EnglishReviewsAccumulator struct {
-	ReceiveReviews         func() (int, []*r.Review, bool, error)
+	ReceiveReview          func() (int, *r.Review, bool, error)
 	SendAccumulatedReviews func(int, []*ra.GameReviewsMetrics) error
 	SendEndOfFiles         func(int, int) error
 }
 
-func NewEnglishReviewsAccumulator(receiveReviews func() (int, []*r.Review, bool, error), sendAccumulatedReviews func(int, []*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int) error) *EnglishReviewsAccumulator {
+func NewEnglishReviewsAccumulator(receiveReview func() (int, *r.Review, bool, error), sendAccumulatedReviews func(int, []*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int) error) *EnglishReviewsAccumulator {
 	return &EnglishReviewsAccumulator{
-		ReceiveReviews:         receiveReviews,
+		ReceiveReview:          receiveReview,
 		SendAccumulatedReviews: sendAccumulatedReviews,
 		SendEndOfFiles:         sendEndOfFiles,
 	}
@@ -29,7 +29,7 @@ func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, negativeReview
 	accumulatedReviews := make(map[int]map[uint32]*ra.GameReviewsMetrics)
 
 	for {
-		clientID, reviews, eof, err := a.ReceiveReviews()
+		clientID, review, eof, err := a.ReceiveReview()
 		if err != nil {
 			log.Errorf("Failed to receive reviews: %v", err)
 			return
@@ -75,20 +75,17 @@ func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, negativeReview
 			continue
 		}
 
-		for _, review := range reviews {
-			if metrics, exists := clientAccumulatedReviews[review.AppId]; exists {
-				log.Info("Updating metrics for appID: ", review.AppId)
-				// Update existing metrics
-				metrics.UpdateWithReview(review)
-			} else {
-				// Create new metrics
-				log.Info("Creating new metrics for appID: ", review.AppId)
-				newMetrics := ra.NewReviewsMetrics(review.AppId)
-				newMetrics.UpdateWithReview(review)
-				clientAccumulatedReviews[review.AppId] = newMetrics
-			}
+		if metrics, exists := clientAccumulatedReviews[review.AppId]; exists {
+			log.Info("Updating metrics for appID: ", review.AppId)
+			// Update existing metrics
+			metrics.UpdateWithReview(review)
+		} else {
+			// Create new metrics
+			log.Info("Creating new metrics for appID: ", review.AppId)
+			newMetrics := ra.NewReviewsMetrics(review.AppId)
+			newMetrics.UpdateWithReview(review)
+			clientAccumulatedReviews[review.AppId] = newMetrics
 		}
-
 	}
 }
 

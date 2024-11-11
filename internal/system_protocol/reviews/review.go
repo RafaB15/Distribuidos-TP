@@ -11,11 +11,11 @@ type Review struct {
 	Positive bool
 }
 
-func NewReview(appId uint32, positive bool) (*Review, error) {
+func NewReview(appId uint32, positive bool) *Review {
 	return &Review{
 		AppId:    appId,
 		Positive: positive,
-	}, nil
+	}
 }
 
 func NewReviewFromStrings(appId string, reviewScore string) (*Review, error) {
