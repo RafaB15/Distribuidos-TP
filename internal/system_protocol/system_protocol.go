@@ -26,6 +26,7 @@ const (
 	MsgJoinedPositiveGameReviews
 	MsgJoinedNegativeGameReviews
 	MsgRawReviewInformation
+	MsgRawReviewInformationBatch
 )
 
 // SerializeMsgEndOfFile Message End of file
@@ -152,7 +153,20 @@ func SerializeMsgRawReviewInformation(clientID int, review *r.RawReview) []byte 
 }
 
 func DeserializeMsgRawReviewInformation(message []byte) (*r.RawReview, error) {
-	return r.DeserializeRawReview(message)
+	rawReview, _, err := r.DeserializeRawReview(message)
+	return rawReview, err
+}
+
+// --------------------------------------------------------
+// Message RawReviewInformationBatch
+
+func SerializeMsgRawReviewInformationBatch(clientID int, reviews []*r.RawReview) []byte {
+	serializedReviews := r.SerializeRawReviewsBatch(reviews)
+	return SerializeMessage(MsgRawReviewInformationBatch, clientID, serializedReviews)
+}
+
+func DeserializeMsgRawReviewInformationBatch(message []byte) ([]*r.RawReview, error) {
+	return r.DeserializeRawReviewsBatch(message)
 }
 
 // --------------------------------------------------------

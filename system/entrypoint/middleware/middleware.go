@@ -18,9 +18,9 @@ const (
 	RawGamesRoutingKey   = "raw_games_key"
 	RawGamesExchangeType = "direct"
 
-	RawReviewsExchangeName     = "raw_reviews_exchange"
-	RawReviewsExchangeType     = "direct"
-	RawReviewsRoutingKeyPrefix = "raw_reviews_key_"
+	ReviewsExchangeName     = "reviews_exchange"
+	ReviewsExchangeType     = "direct"
+	ReviewsRoutingKeyPrefix = "reviews_key_"
 
 	NegativePreFilterExchangeName     = "negative_pre_filter_exchange"
 	NegativePreFilterExchangeType     = "direct"
@@ -39,7 +39,7 @@ const (
 type Middleware struct {
 	Manager                   *mom.MiddlewareManager
 	RawGamesExchange          *mom.Exchange
-	RawReviewsExchange        *mom.Exchange
+	ReviewsExchange           *mom.Exchange
 	NegativePreFilterExchange *mom.Exchange
 	QueryResultsQueue         *mom.Queue
 }
@@ -55,7 +55,7 @@ func NewMiddleware(clientID int) (*Middleware, error) {
 		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
 
-	rawReviewsExchange, err := manager.CreateExchange(RawReviewsExchangeName, RawReviewsExchangeType)
+	reviewsExchange, err := manager.CreateExchange(ReviewsExchangeName, ReviewsExchangeType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
@@ -75,7 +75,7 @@ func NewMiddleware(clientID int) (*Middleware, error) {
 	return &Middleware{
 		Manager:                   manager,
 		RawGamesExchange:          rawGamesExchange,
-		RawReviewsExchange:        rawReviewsExchange,
+		ReviewsExchange:           reviewsExchange,
 		NegativePreFilterExchange: negativePreFilterExchange,
 		QueryResultsQueue:         queryResultsQueue,
 	}, nil
@@ -91,15 +91,18 @@ func (m *Middleware) SendGamesBatch(clientID int, data []byte) error {
 	return nil
 }
 
-func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmount int, reviewMappersAmount int, data []byte) error {
-	reviewsBatch := sp.SerializeMsgBatch(clientID, data)
+func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int, data []byte) error {
+	rawReviews, err := getDeserializedRawReviews(data)
+	if err != nil {
+		return fmt.Errorf("failed to deserialize raw reviews: %v", err)
+	}
 
-	err := m.sendToPreFilterNode(clientID, negativeReviewsPreFiltersAmount, data)
+	err = sendToReviewNode(clientID, negativeReviewsPreFiltersAmount, m.NegativePreFilterExchange, NegativePreFilterRoutingKeyPrefix, rawReviews)
 	if err != nil {
 		return fmt.Errorf("failed to publish message to negative pre filter: %v", err)
 	}
 
-	err = sendToReviewNode(reviewMappersAmount, m.RawReviewsExchange, RawReviewsRoutingKeyPrefix, reviewsBatch)
+	err = sendToReviewNode(clientID, reviewAccumulatorsAmount, m.ReviewsExchange, ReviewsRoutingKeyPrefix, rawReviews)
 	if err != nil {
 		return fmt.Errorf("failed to publish message to review mapper: %v", err)
 	}
@@ -107,12 +110,19 @@ func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmo
 	return nil
 }
 
-func sendToReviewNode(nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, data []byte) error {
-	nodeId := u.GetRandomNumber(nodesAmount)
-	routingKey := fmt.Sprintf("%s%d", routingKeyPrefix, nodeId)
-	err := exchange.Publish(routingKey, data)
-	if err != nil {
-		return fmt.Errorf("failed to publish message: %v", err)
+func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview) error {
+	routingKeyMap := make(map[string][]*r.RawReview)
+	for _, rawReview := range rawReviews {
+		routingKey := u.GetPartitioningKeyFromInt(int(rawReview.AppId), nodesAmount, routingKeyPrefix)
+		routingKeyMap[routingKey] = append(routingKeyMap[routingKey], rawReview)
+	}
+
+	for routingKey, reviews := range routingKeyMap {
+		serializedReviews := sp.SerializeMsgRawReviewInformationBatch(clientID, reviews)
+		err := exchange.Publish(routingKey, serializedReviews)
+		if err != nil {
+			return fmt.Errorf("failed to publish message: %v", err)
+		}
 	}
 
 	return nil
@@ -124,7 +134,7 @@ func (m *Middleware) sendToPreFilterNode(clientID int, reviewsPreFilterNodesAmou
 		return fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
-	rawReviews, err := r.DeserializeRawReviewsBatch(lines, AppIdIndex, ReviewScoreIndex, ReviewTextIndex)
+	rawReviews, err := r.DeserializeRawReviewsBatchFromStrings(lines, AppIdIndex, ReviewScoreIndex, ReviewTextIndex)
 	if err != nil {
 		return fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}
@@ -139,6 +149,20 @@ func (m *Middleware) sendToPreFilterNode(clientID int, reviewsPreFilterNodesAmou
 	}
 
 	return nil
+}
+
+func getDeserializedRawReviews(data []byte) ([]*r.RawReview, error) {
+	lines, err := sp.DeserializeMsgBatch(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deserialize message: %v", err)
+	}
+
+	rawReviews, err := r.DeserializeRawReviewsBatchFromStrings(lines, AppIdIndex, ReviewScoreIndex, ReviewTextIndex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deserialize raw reviews: %v", err)
+	}
+
+	return rawReviews, nil
 }
 
 func (m *Middleware) SendGamesEndOfFile(clientID int) error {
@@ -161,8 +185,8 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, negativeReviewsPreFilter
 	}
 
 	for i := 1; i <= reviewMappersAmount; i++ {
-		routingKey := fmt.Sprintf("%s%d", RawReviewsRoutingKeyPrefix, i)
-		err := m.RawReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
+		routingKey := fmt.Sprintf("%s%d", ReviewsRoutingKeyPrefix, i)
+		err := m.ReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}

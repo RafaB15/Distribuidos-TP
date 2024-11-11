@@ -12,10 +12,9 @@ import (
 )
 
 const (
-	MappersAmountEnvironmentVariableName = "MAPPERS_AMOUNT"
-	IdEnvironmentVariableName            = "ID"
-	IndieReviewJoinersAmountName         = "INDIE_REVIEW_JOINERS_AMOUNT"
-	NegativeReviewPreFiltersAmount       = "NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT"
+	IdEnvironmentVariableName      = "ID"
+	IndieReviewJoinersAmountName   = "INDIE_REVIEW_JOINERS_AMOUNT"
+	NegativeReviewPreFiltersAmount = "NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -25,12 +24,6 @@ func main() {
 	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
 
 	doneChannel := make(chan bool)
-
-	mappersAmount, err := u.GetEnvInt(MappersAmountEnvironmentVariableName)
-	if err != nil {
-		log.Errorf("Failed to get environment variable: %v", err)
-		return
-	}
 
 	id, err := u.GetEnvInt(IdEnvironmentVariableName)
 	if err != nil {
@@ -61,7 +54,7 @@ func main() {
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		reviewsAccumulator.Run(mappersAmount, indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
+		reviewsAccumulator.Run(indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
 		doneChannel <- true
 	}()
 

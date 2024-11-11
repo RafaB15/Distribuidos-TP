@@ -13,13 +13,13 @@ const (
 var log = logging.MustGetLogger("log")
 
 type NegativeReviewsPreFilter struct {
-	ReceiveMessage func() (int, *r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error)
+	ReceiveMessage func() (int, []*r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error)
 	SendReview     func(int, int, *r.RawReview) error
 	SendEndOfFile  func(int, int) error
 }
 
 func NewNegativeReviewsPreFilter(
-	receiveMessage func() (int, *r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error),
+	receiveMessage func() (int, []*r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error),
 	sendReview func(int, int, *r.RawReview) error,
 	sendEndOfFile func(int, int) error,
 ) *NegativeReviewsPreFilter {
@@ -36,7 +36,7 @@ func (f *NegativeReviewsPreFilter) Run(englishFiltersAmount int, accumulatorsAmo
 	gamesToSendMap := make(map[int]map[int]bool)
 
 	for {
-		clientID, review, gameReviewsMetrics, eof, err := f.ReceiveMessage()
+		clientID, reviews, gameReviewsMetrics, eof, err := f.ReceiveMessage()
 		if err != nil {
 			log.Errorf("Failed to receive message: %v", err)
 			return
@@ -79,9 +79,9 @@ func (f *NegativeReviewsPreFilter) Run(englishFiltersAmount int, accumulatorsAmo
 			delete(remainingEOFsMap, clientID)
 		}
 
-		if review != nil {
+		if reviews != nil {
 			log.Infof("Received review for client %d", clientID)
-			err := f.handleRawReviews(clientID, englishFiltersAmount, clientAccumulatedRawReviews, clientGamesToSend, review)
+			err := f.handleRawReviews(clientID, englishFiltersAmount, clientAccumulatedRawReviews, clientGamesToSend, reviews)
 			if err != nil {
 				log.Errorf("Failed to handle raw reviews: %v", err)
 				return
@@ -99,22 +99,24 @@ func (f *NegativeReviewsPreFilter) Run(englishFiltersAmount int, accumulatorsAmo
 	}
 }
 
-func (f *NegativeReviewsPreFilter) handleRawReviews(clientId int, englishFiltersAmount int, clientAccumulatedRawReviews map[int][]*r.RawReview, clientGamesToSend map[int]bool, rawReview *r.RawReview) error {
-	if shouldSend, exists := clientGamesToSend[int(rawReview.AppId)]; exists {
-		if shouldSend && !rawReview.Positive {
-			err := f.SendReview(clientId, englishFiltersAmount, rawReview)
-			if err != nil {
-				log.Errorf("Failed to send review: %v", err)
-				return err
+func (f *NegativeReviewsPreFilter) handleRawReviews(clientId int, englishFiltersAmount int, clientAccumulatedRawReviews map[int][]*r.RawReview, clientGamesToSend map[int]bool, rawReviews []*r.RawReview) error {
+	for _, rawReview := range rawReviews {
+		if shouldSend, exists := clientGamesToSend[int(rawReview.AppId)]; exists {
+			if shouldSend && !rawReview.Positive {
+				err := f.SendReview(clientId, englishFiltersAmount, rawReview)
+				if err != nil {
+					log.Errorf("Failed to send review: %v", err)
+					return err
+				}
+				log.Infof("Sent review for client %d", clientId)
+			} else {
+				return nil
 			}
-			log.Infof("Sent review for client %d", clientId)
 		} else {
-			return nil
-		}
-	} else {
-		if !rawReview.Positive {
-			clientAccumulatedRawReviews[int(rawReview.AppId)] = append(clientAccumulatedRawReviews[int(rawReview.AppId)], rawReview)
-			log.Infof("Accumulated review for client %d", clientId)
+			if !rawReview.Positive {
+				clientAccumulatedRawReviews[int(rawReview.AppId)] = append(clientAccumulatedRawReviews[int(rawReview.AppId)], rawReview)
+				log.Infof("Accumulated review for client %d", clientId)
+			}
 		}
 	}
 	return nil

@@ -75,7 +75,7 @@ func NewMiddleware(id int) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveReviews() (int, []*reviews.Review, bool, error) {
+func (m *Middleware) ReceiveReviews() (int, []*reviews.RawReview, bool, error) {
 	rawMsg, err := m.ReviewsQueue.Consume()
 	if err != nil {
 		return 0, nil, false, err
@@ -83,7 +83,7 @@ func (m *Middleware) ReceiveReviews() (int, []*reviews.Review, bool, error) {
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("Failed to deserialize message: %v", err)
+		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
 	fmt.Printf("Received message from client %d\n", message.ClientID)
@@ -91,8 +91,8 @@ func (m *Middleware) ReceiveReviews() (int, []*reviews.Review, bool, error) {
 	switch message.Type {
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
-	case sp.MsgReviewInformation:
-		reviewsInformation, err := sp.DeserializeMsgReviewInformation(message.Body)
+	case sp.MsgRawReviewInformationBatch:
+		reviewsInformation, err := sp.DeserializeMsgRawReviewInformationBatch(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, fmt.Errorf("failed to deserialize reviewsInformation: %v", err)
 		}

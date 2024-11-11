@@ -16,7 +16,6 @@ type Config struct {
 	TopTenAccumulator            int `json:"top_ten_accumulator"`
 	TopPositiveReviews           int `json:"top_positive_reviews"`
 	PercentileAccumulator        int `json:"percentile_accumulator"`
-	ReviewMapper                 int `json:"review_mapper"`
 	ReviewsAccumulator           int `json:"reviews_accumulator"`
 	DecadeFilter                 int `json:"decade_filter"`
 	NegativeReviewsPreFilter     int `json:"negative_reviews_pre_filter"`
@@ -80,14 +79,14 @@ func main() {
     entrypoint: /entrypoint
     environment:
       - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=%d
-      - REVIEW_MAPPERS_AMOUNT=%d
+      - REVIEW_ACCUMULATORS_AMOUNT=%d
     depends_on:
       rabbitmq:
         condition: service_healthy
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.NegativeReviewsPreFilter, config.ReviewMapper)
+`, serviceName, serviceName, config.NegativeReviewsPreFilter, config.ReviewsAccumulator)
 
 	// GameMapper service
 	serviceName = "game_mapper"
@@ -203,27 +202,6 @@ func main() {
 
 `, serviceName, serviceName, config.ActionPercentileReviewJoiner, config.ReviewsAccumulator)
 
-	// ReviewMapper service
-	for i := 1; i <= config.ReviewMapper; i++ {
-		serviceName := fmt.Sprintf("review_mapper_%d", i)
-		compose += fmt.Sprintf(`  %s:
-    container_name: %s
-    image: review_mapper:latest
-    entrypoint: /review_mapper
-    environment:
-      - ID=%d
-      - ACCUMULATORS_AMOUNT=%d
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-`, serviceName, serviceName, i, config.ReviewsAccumulator)
-	}
-
 	// ReviewsAccumulator service
 	for i := 1; i <= config.ReviewsAccumulator; i++ {
 		serviceName := fmt.Sprintf("reviews_accumulator_%d", i)
@@ -233,7 +211,6 @@ func main() {
     entrypoint: /reviews_accumulator
     environment:
       - ID=%d
-      - MAPPERS_AMOUNT=%d
       - INDIE_REVIEW_JOINERS_AMOUNT=%d
       - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=%d
     depends_on:
@@ -244,7 +221,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.ReviewMapper, config.IndieReviewJoiner, config.NegativeReviewsPreFilter)
+`, serviceName, serviceName, i, config.IndieReviewJoiner, config.NegativeReviewsPreFilter)
 	}
 
 	// DecadeFilter service

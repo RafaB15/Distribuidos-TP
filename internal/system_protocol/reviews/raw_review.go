@@ -38,7 +38,57 @@ func NewRawReviewFromStrings(appId string, reviewScore string, reviewText string
 	}, nil
 }
 
-func DeserializeRawReviewsBatch(reviews []string, appIdIndex int, reviewScoreIndex int, reviewTextIndex int) ([]*RawReview, error) {
+func (r *RawReview) Serialize() []byte {
+	appIdSize := 4
+	amountSize := 4
+	boolSize := 1
+
+	rawReviewSize := appIdSize + boolSize + amountSize + len(r.ReviewText)
+
+	buf := make([]byte, rawReviewSize)
+	binary.LittleEndian.PutUint32(buf[:appIdSize], r.AppId)
+	if r.Positive {
+		buf[4] = 1
+	} else {
+		buf[4] = 0
+	}
+
+	amount := len(r.ReviewText)
+	binary.LittleEndian.PutUint32(buf[appIdSize+boolSize:appIdSize+boolSize+amountSize], uint32(amount))
+	copy(buf[appIdSize+boolSize+amountSize:], []byte(r.ReviewText))
+
+	return buf
+}
+
+func DeserializeRawReview(buf []byte) (*RawReview, int, error) {
+	appIdSize := 4
+	amountSize := 4
+	boolSize := 1
+
+	if len(buf) < appIdSize+boolSize+amountSize {
+		return nil, 0, errors.New("buffer too short")
+	}
+
+	appId := binary.LittleEndian.Uint32(buf[:appIdSize])
+	positive := buf[4] == 1
+	amount := binary.LittleEndian.Uint32(buf[appIdSize+boolSize : appIdSize+boolSize+amountSize])
+
+	if len(buf) < int(appIdSize+boolSize+amountSize+int(amount)) {
+		return nil, 0, errors.New("buffer too short for review text")
+	}
+
+	reviewText := string(buf[9 : 9+amount])
+
+	totalRead := appIdSize + amountSize + boolSize + int(amount)
+
+	return &RawReview{
+		AppId:      appId,
+		Positive:   positive,
+		ReviewText: reviewText,
+	}, totalRead, nil
+}
+
+func DeserializeRawReviewsBatchFromStrings(reviews []string, appIdIndex int, reviewScoreIndex int, reviewTextIndex int) ([]*RawReview, error) {
 	rawReviews := make([]*RawReview, 0)
 
 	for _, line := range reviews {
@@ -63,50 +113,42 @@ func DeserializeRawReviewsBatch(reviews []string, appIdIndex int, reviewScoreInd
 	return rawReviews, nil
 }
 
-func (r *RawReview) Serialize() []byte {
-	appIdSize := 4
-	amountSize := 4
-	boolSize := 1
+func SerializeRawReviewsBatch(reviews []*RawReview) []byte {
+	var result []byte
 
-	rawReviewSize := appIdSize + boolSize + amountSize + len(r.ReviewText)
+	// Add the amount of reviews as a uint16 at the beginning
+	reviewCount := uint16(len(reviews))
+	countBytes := make([]byte, 2)
+	binary.LittleEndian.PutUint16(countBytes, reviewCount)
+	result = append(result, countBytes...)
 
-	buf := make([]byte, rawReviewSize)
-	binary.LittleEndian.PutUint32(buf[:appIdSize], r.AppId)
-	if r.Positive {
-		buf[4] = 1
-	} else {
-		buf[4] = 0
+	for _, review := range reviews {
+		serializedReview := review.Serialize()
+		result = append(result, serializedReview...)
 	}
 
-	amount := len(r.ReviewText)
-	binary.LittleEndian.PutUint32(buf[appIdSize+boolSize:appIdSize+boolSize+amountSize], uint32(amount))
-	copy(buf[appIdSize+boolSize+amountSize:], []byte(r.ReviewText))
-
-	return buf
+	return result
 }
 
-func DeserializeRawReview(buf []byte) (*RawReview, error) {
-	appIdSize := 4
-	amountSize := 4
-	boolSize := 1
-
-	if len(buf) < appIdSize+boolSize+amountSize {
+func DeserializeRawReviewsBatch(buf []byte) ([]*RawReview, error) {
+	if len(buf) < 2 {
 		return nil, errors.New("buffer too short")
 	}
 
-	appId := binary.LittleEndian.Uint32(buf[:appIdSize])
-	positive := buf[4] == 1
-	amount := binary.LittleEndian.Uint32(buf[appIdSize+boolSize : appIdSize+boolSize+amountSize])
+	reviewCount := binary.LittleEndian.Uint16(buf[:2])
+	buf = buf[2:]
 
-	if len(buf) < int(appIdSize+boolSize+amountSize+int(amount)) {
-		return nil, errors.New("buffer too short for review text")
+	rawReviews := make([]*RawReview, 0)
+
+	for i := 0; i < int(reviewCount); i++ {
+		review, amountRead, err := DeserializeRawReview(buf)
+		if err != nil {
+			return nil, err
+		}
+
+		rawReviews = append(rawReviews, review)
+		buf = buf[amountRead:]
 	}
 
-	reviewText := string(buf[9 : 9+amount])
-
-	return &RawReview{
-		AppId:      appId,
-		Positive:   positive,
-		ReviewText: reviewText,
-	}, nil
+	return rawReviews, nil
 }

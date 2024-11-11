@@ -54,7 +54,7 @@ func NewMiddleware(id int) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMessage() (int, *r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error) {
+func (m *Middleware) ReceiveMessage() (int, []*r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error) {
 	rawMsg, err := m.NegativePreFilterQueue.Consume()
 	if err != nil {
 		return 0, nil, nil, false, fmt.Errorf("failed to consume message: %v", err)
@@ -68,12 +68,12 @@ func (m *Middleware) ReceiveMessage() (int, *r.RawReview, []*reviews_accumulator
 	switch message.Type {
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, nil, true, nil
-	case sp.MsgRawReviewInformation:
-		rawReview, err := sp.DeserializeMsgRawReviewInformation(message.Body)
+	case sp.MsgRawReviewInformationBatch:
+		rawReviews, err := sp.DeserializeMsgRawReviewInformationBatch(message.Body)
 		if err != nil {
 			return message.ClientID, nil, nil, false, err
 		}
-		return message.ClientID, rawReview, nil, false, nil
+		return message.ClientID, rawReviews, nil, false, nil
 
 	case sp.MsgGameReviewsMetrics:
 		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(message.Body)
