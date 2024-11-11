@@ -49,7 +49,7 @@ func main() {
 		return
 	}
 
-	reviewsAccumulator := l.NewReviewsAccumulator(middleware.ReceiveReviews, middleware.SendAccumulatedReviews, middleware.SendEof)
+	reviewsAccumulator := l.NewReviewsAccumulator(middleware.ReceiveReviews, middleware.SendAccumulatedReviews, middleware.AckLastMessage, middleware.SendEof)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 

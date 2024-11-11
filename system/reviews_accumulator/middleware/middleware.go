@@ -46,7 +46,7 @@ func NewMiddleware(id int) (*Middleware, error) {
 
 	reviewQueueName := fmt.Sprintf("%s%v", ReviewQueueNamePrefix, id)
 	reviewsRoutingKey := fmt.Sprintf("%s%v", ReviewsRoutingKeyPrefix, id)
-	reviewsQueue, err := manager.CreateBoundQueue(reviewQueueName, ReviewsExchangeName, ReviewsExchangeType, reviewsRoutingKey, true)
+	reviewsQueue, err := manager.CreateBoundQueue(reviewQueueName, ReviewsExchangeName, ReviewsExchangeType, reviewsRoutingKey, false)
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +163,14 @@ func idMapToKeyMap(idMap map[uint32]*r.GameReviewsMetrics, nodeAmount int, routi
 		keyMap[key] = append(keyMap[key], metrics)
 	}
 	return keyMap
+}
+
+func (m *Middleware) AckLastMessage() error {
+	err := m.ReviewsQueue.AckLastMessage()
+	if err != nil {
+		return fmt.Errorf("failed to ack last message: %v", err)
+	}
+	return nil
 }
 
 func (m *Middleware) Close() error {

@@ -13,13 +13,20 @@ var log = logging.MustGetLogger("log")
 type ReviewsAccumulator struct {
 	ReceiveReviews         func() (int, []*reviews.RawReview, bool, error)
 	SendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics, int, int) error
+	AckLastMessage         func() error
 	SendEof                func(int, int, int) error
 }
 
-func NewReviewsAccumulator(receiveReviews func() (int, []*reviews.RawReview, bool, error), sendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics, int, int) error, sendEof func(int, int, int) error) *ReviewsAccumulator {
+func NewReviewsAccumulator(receiveReviews func() (
+	int,
+	[]*reviews.RawReview, bool, error),
+	sendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics, int, int) error,
+	ackLastMessage func() error,
+	sendEof func(int, int, int) error) *ReviewsAccumulator {
 	return &ReviewsAccumulator{
 		ReceiveReviews:         receiveReviews,
 		SendAccumulatedReviews: sendAccumulatedReviews,
+		AckLastMessage:         ackLastMessage,
 		SendEof:                sendEof,
 	}
 }
@@ -52,8 +59,15 @@ func (ra *ReviewsAccumulator) Run(indieReviewJoinersAmount int, negativeReviewPr
 			err = ra.SendEof(clientID, indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
 			if err != nil {
 				log.Errorf("error sending EOF: %s", err)
+				return
 			}
 			log.Info("Sent EOFs")
+
+			err := ra.AckLastMessage()
+			if err != nil {
+				log.Errorf("error acking last message: %s", err)
+				return
+			}
 
 			delete(accumulatedReviews, clientID)
 			continue
@@ -69,6 +83,12 @@ func (ra *ReviewsAccumulator) Run(indieReviewJoinersAmount int, negativeReviewPr
 				newMetrics.UpdateWithRawReview(review)
 				clientAccumulatedReviews[review.AppId] = newMetrics
 			}
+		}
+
+		err = ra.AckLastMessage()
+		if err != nil {
+			log.Errorf("error acking last message: %s", err)
+			return
 		}
 	}
 }
