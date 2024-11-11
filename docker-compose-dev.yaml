@@ -137,7 +137,6 @@ services:
     entrypoint: /reviews_accumulator
     environment:
       - ID=1
-      - MAPPERS_AMOUNT=4
       - INDIE_REVIEW_JOINERS_AMOUNT=2
       - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
     depends_on:
@@ -154,7 +153,6 @@ services:
     entrypoint: /reviews_accumulator
     environment:
       - ID=2
-      - MAPPERS_AMOUNT=4
       - INDIE_REVIEW_JOINERS_AMOUNT=2
       - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
     depends_on:
@@ -171,7 +169,6 @@ services:
     entrypoint: /reviews_accumulator
     environment:
       - ID=3
-      - MAPPERS_AMOUNT=4
       - INDIE_REVIEW_JOINERS_AMOUNT=2
       - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
     depends_on:
@@ -188,7 +185,6 @@ services:
     entrypoint: /reviews_accumulator
     environment:
       - ID=4
-      - MAPPERS_AMOUNT=4
       - INDIE_REVIEW_JOINERS_AMOUNT=2
       - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
     depends_on:

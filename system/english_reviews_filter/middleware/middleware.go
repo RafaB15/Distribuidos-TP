@@ -91,7 +91,7 @@ func (m *Middleware) ReceiveGameReviews() (int, *r.RawReview, bool, error) {
 
 func (m *Middleware) SendEnglishReview(clientID int, review *r.Review, englishAccumulatorsAmount int) error {
 	routingKey := u.GetPartitioningKeyFromInt(int(review.AppId), englishAccumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
-	serializedReview := sp.SerializeMsgReviewInformation(clientID, []*r.Review{review})
+	serializedReview := sp.SerializeMsgReviewInformation(clientID, review)
 
 	err := m.EnglishReviewsExchange.Publish(routingKey, serializedReview)
 	if err != nil {

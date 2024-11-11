@@ -222,52 +222,13 @@ func DeserializeMsgGameYearAndAvgPtf(message []byte) ([]*df.GameYearAndAvgPtf, e
 // --------------------------------------------------------
 
 // SerializeMsgReviewInformation Message Review Information
-func SerializeMsgReviewInformation(clientID int, reviews []*r.Review) []byte {
-	reviewSize := 5
-	amountSize := 2
-
-	count := len(reviews)
-	body := make([]byte, amountSize+count*reviewSize)
-
-	binary.BigEndian.PutUint16(body[:amountSize], uint16(count))
-
-	offset := amountSize
-	for i, review := range reviews {
-		serializedReview := review.Serialize()
-		copy(body[offset+i*reviewSize:], serializedReview)
-	}
-
-	return SerializeMessage(MsgReviewInformation, clientID, body)
+func SerializeMsgReviewInformation(clientID int, review *r.Review) []byte {
+	serializedReview := review.Serialize()
+	return SerializeMessage(MsgReviewInformation, clientID, serializedReview)
 }
 
-func DeserializeMsgReviewInformation(message []byte) ([]*r.Review, error) {
-	reviewSize := 5
-	amountSize := 2
-
-	if len(message) < amountSize {
-		return nil, errors.New("message too short to contain count")
-	}
-
-	count := binary.BigEndian.Uint16(message[:amountSize])
-	offset := amountSize
-
-	expectedLength := int(count) * reviewSize
-	if len(message[offset:]) < expectedLength {
-		return nil, errors.New("message length does not match expected count")
-	}
-
-	var reviews []*r.Review
-	for i := 0; i < int(count); i++ {
-		start := offset + i*reviewSize
-		end := start + reviewSize
-		review, err := r.DeserializeReview(message[start:end])
-		if err != nil {
-			return nil, err
-		}
-		reviews = append(reviews, review)
-	}
-
-	return reviews, nil
+func DeserializeMsgReviewInformation(message []byte) (*r.Review, error) {
+	return r.DeserializeReview(message)
 }
 
 // --------------------------------------------------------
