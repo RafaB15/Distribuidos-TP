@@ -2,107 +2,95 @@ package english_reviews_filter
 
 import (
 	r "distribuidos-tp/internal/system_protocol/reviews"
-	u "distribuidos-tp/internal/utils"
-	"encoding/csv"
-	"io"
-	"strconv"
-	"strings"
-
 	"github.com/op/go-logging"
 )
 
-const (
-	APP_ID_INDEX       = 0
-	REVIEW_TEXT_INDEX  = 1
-	REVIEW_SCORE_INDEX = 2
-)
-
-var log = logging.MustGetLogger("log")
-
 type EnglishReviewsFilter struct {
-	ReceiveGameReviews func() (int, []string, bool, error)
-	SendEnglishReviews func(clientID int, reviewsMap map[int][]*r.Review) error
+	ReceiveGameReviews func() (int, *r.RawReview, bool, error)
+	SendEnglishReview  func(clientID int, review *r.Review, englishAccumulatorsAmount int) error
 	SendEnfOfFiles     func(clientID int, accumulatorsAmount int) error
+	AckLastMessage     func() error
+	Logger             *logging.Logger
 }
 
 func NewEnglishReviewsFilter(
-	receiveGameReviews func() (int, []string, bool, error),
-	sendEnglishReviews func(int, map[int][]*r.Review) error,
+	receiveGameReviews func() (int, *r.RawReview, bool, error),
+	sendEnglishReviews func(int, *r.Review, int) error,
 	sendEndOfFiles func(int, int) error,
+	ackLastMessage func() error,
+	logger *logging.Logger,
 ) *EnglishReviewsFilter {
 	return &EnglishReviewsFilter{
 		ReceiveGameReviews: receiveGameReviews,
-		SendEnglishReviews: sendEnglishReviews,
+		SendEnglishReview:  sendEnglishReviews,
 		SendEnfOfFiles:     sendEndOfFiles,
+		AckLastMessage:     ackLastMessage,
+		Logger:             logger,
 	}
 }
 
-func (f *EnglishReviewsFilter) Run(accumulatorsAmount int) {
+func (f *EnglishReviewsFilter) Run(accumulatorsAmount int, negativeReviewsPreFilterAmount int) {
+	remainingEOFsMap := make(map[int]int)
 	languageIdentifier := r.NewLanguageIdentifier()
 
 	for {
-		clientID, reviews, eof, err := f.ReceiveGameReviews()
+		clientID, rawReview, eof, err := f.ReceiveGameReviews()
 		if err != nil {
-			log.Errorf("Failed to receive game reviews: %v", err)
+			f.Logger.Errorf("Failed to receive game review: %v", err)
 			return
 		}
 
 		if eof {
-			log.Info("Received end of file")
+			f.Logger.Info("Received EOF for client ", clientID)
+
+			remainingEOFs, exists := remainingEOFsMap[clientID]
+			if !exists {
+				remainingEOFs = negativeReviewsPreFilterAmount
+			}
+			f.Logger.Infof("Remaining EOFs: %d", remainingEOFs)
+			remainingEOFs--
+			f.Logger.Infof("Remaining EOFs AFTER: %d", remainingEOFs)
+			remainingEOFsMap[clientID] = remainingEOFs
+			if remainingEOFs > 0 {
+				err := f.AckLastMessage()
+				if err != nil {
+					f.Logger.Errorf("Failed to ack last message: %v", err)
+					return
+				}
+				continue
+			}
+			f.Logger.Info("Received all EOFs, sending EOFs")
 			err = f.SendEnfOfFiles(clientID, accumulatorsAmount)
 			if err != nil {
-				log.Errorf("Failed to send end of files: %v", err)
+				f.Logger.Errorf("Failed to send EOF: %v", err)
 				return
 			}
+			err = f.AckLastMessage()
+			if err != nil {
+				f.Logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+			delete(remainingEOFsMap, clientID)
 			continue
 		}
 
-		reviewsMap, err := collectReviews(reviews, accumulatorsAmount, languageIdentifier)
-		if err != nil {
-			log.Errorf("Failed to handle message batch: %v", err)
-			return
-		}
-
-		err = f.SendEnglishReviews(clientID, reviewsMap)
-		if err != nil {
-			log.Errorf("Failed to send english reviews: %v", err)
-			return
-		}
-
-		reviewsMap = nil
-	}
-}
-
-func collectReviews(reviews []string, accumulatorsAmount int, languageIdentifier *r.LanguageIdentifier) (map[int][]*r.Review, error) {
-	shardingKeyMap := make(map[int][]*r.Review)
-
-	for _, line := range reviews {
-		reader := csv.NewReader(strings.NewReader(line))
-		records, err := reader.Read()
-
-		if err != nil {
-			if err == io.EOF {
-				break
+		f.Logger.Debugf("Before entering if statement")
+		if languageIdentifier.IsEnglish(rawReview.ReviewText) {
+			f.Logger.Infof("About to check if the review is in english")
+			review := r.NewReview(rawReview.AppId, rawReview.Positive)
+			err := f.SendEnglishReview(clientID, review, accumulatorsAmount)
+			if err != nil {
+				f.Logger.Errorf("Failed to send english review: %v", err)
+				return
 			}
-			return nil, err
+			f.Logger.Infof("Sent english review for app %d", rawReview.AppId)
+		} else {
+			f.Logger.Infof("Review for app %d is not in english", rawReview.AppId)
 		}
-
-		review, err := r.NewReviewFromStrings(records[APP_ID_INDEX], records[REVIEW_SCORE_INDEX])
+		err = f.AckLastMessage()
 		if err != nil {
-			log.Error("Error creating review with text")
-			return nil, err
-		}
-
-		if languageIdentifier.IsEnglish(records[REVIEW_TEXT_INDEX]) {
-			updateEnglishReviewsMap(review, shardingKeyMap, accumulatorsAmount)
+			f.Logger.Errorf("Failed to ack last message: %v", err)
+			return
 		}
 	}
-
-	return shardingKeyMap, nil
-}
-
-func updateEnglishReviewsMap(review *r.Review, routingKeyMap map[int][]*r.Review, accumulatorsAmount int) {
-	appIdStr := strconv.Itoa(int(review.AppId))
-	englishReviewShardingKey := u.CalculateShardingKey(appIdStr, accumulatorsAmount)
-	routingKeyMap[englishReviewShardingKey] = append(routingKeyMap[englishReviewShardingKey], review)
 }

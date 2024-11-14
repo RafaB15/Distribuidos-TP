@@ -6,15 +6,16 @@ import (
 	"os/signal"
 	"syscall"
 
-	l "distribuidos-tp/system/review_mapper/logic"
-	m "distribuidos-tp/system/review_mapper/middleware"
+	l "distribuidos-tp/system/negative_reviews_pre_filter/logic"
+	m "distribuidos-tp/system/negative_reviews_pre_filter/middleware"
 
 	"github.com/op/go-logging"
 )
 
 const (
-	AccumulatorsAmountEnvironmentVariableName = "ACCUMULATORS_AMOUNT"
-	IdEnvironmentVariableName                 = "ID"
+	EnglishFiltersAmountEnvironmentVariableName = "ENGLISH_FILTERS_AMOUNT"
+	AccumulatorsAmountEnvironmentVariableName   = "ACCUMULATORS_AMOUNT"
+	IdEnvironmentVariableName                   = "ID"
 )
 
 var log = logging.MustGetLogger("log")
@@ -26,6 +27,12 @@ func main() {
 	doneChannel := make(chan bool)
 
 	id, err := u.GetEnvInt(IdEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	englishFiltersAmount, err := u.GetEnvInt(EnglishFiltersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -43,12 +50,16 @@ func main() {
 		return
 	}
 
-	gameMapper := l.NewReviewMapper(middleware.ReceiveGameReviews, middleware.SendReviews, middleware.SendEndOfFiles)
+	negativeReviewsPreFilter := l.NewNegativeReviewsPreFilter(
+		middleware.ReceiveMessage,
+		middleware.SendRawReview,
+		middleware.SendEndOfFile,
+	)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		gameMapper.Run(accumulatorsAmount)
+		negativeReviewsPreFilter.Run(englishFiltersAmount, accumulatorsAmount)
 		doneChannel <- true
 	}()
 

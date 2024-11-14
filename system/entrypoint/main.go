@@ -16,10 +16,9 @@ import (
 )
 
 const (
-	port = ":3000"
-
-	EnglishFiltersAmountEnvironmentVariableName = "ENGLISH_FILTERS_AMOUNT"
-	ReviewMappersAmountEnvironmentVariableName  = "REVIEW_MAPPERS_AMOUNT"
+	port                                                   = ":3000"
+	NegativeReviewsPreFiltersAmountEnvironmentVariableName = "NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT"
+	ReviewAccumulatorsAmountEnvironmentVariableName        = "REVIEW_ACCUMULATORS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -30,13 +29,13 @@ func main() {
 
 	var mainWG sync.WaitGroup
 
-	englishFiltersAmount, err := u.GetEnvInt(EnglishFiltersAmountEnvironmentVariableName)
+	negativeReviewsPreFiltersAmount, err := u.GetEnvInt(NegativeReviewsPreFiltersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
 	}
 
-	reviewMappersAmount, err := u.GetEnvInt(ReviewMappersAmountEnvironmentVariableName)
+	reviewAccumulatorsAmount, err := u.GetEnvInt(ReviewAccumulatorsAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -60,14 +59,14 @@ func main() {
 		}
 
 		mainWG.Add(1)
-		go handleConnection(conn, englishFiltersAmount, reviewMappersAmount, clientID, &mainWG)
+		go handleConnection(conn, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount, clientID, &mainWG)
 		clientID++
 	}
 
 	mainWG.Wait()
 }
 
-func handleConnection(conn net.Conn, englishFiltersAmount int, reviewMappersAmount int, clientID int, mainWG *sync.WaitGroup) {
+func handleConnection(conn net.Conn, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int, clientID int, mainWG *sync.WaitGroup) {
 	defer mainWG.Done()
 	defer conn.Close()
 
@@ -94,7 +93,7 @@ func handleConnection(conn net.Conn, englishFiltersAmount int, reviewMappersAmou
 	go handleClientGracefulShutdown(clientID, conn, &clientWG, middleware, signalChannel, doneChannel)
 
 	go func() {
-		entryPoint.Run(conn, clientID, englishFiltersAmount, reviewMappersAmount)
+		entryPoint.Run(conn, clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount)
 		doneChannel <- true
 	}()
 

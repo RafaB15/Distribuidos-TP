@@ -3,14 +3,16 @@ package middleware
 import (
 	sp "distribuidos-tp/internal/system_protocol"
 	r "distribuidos-tp/internal/system_protocol/reviews"
+	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
+	"github.com/op/go-logging"
 )
 
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
-	RawReviewsExchangeName           = "raw_reviews_exchange"
+	RawReviewsExchangeName           = "raw_english_reviews_exchange"
 	RawReviewsExchangeType           = "direct"
 	RawEnglishReviewsKeyPrefix       = "raw_english_reviews_key_"
 	RawEnglishReviewsQueueNamePrefix = "raw_english_reviews_queue_"
@@ -24,9 +26,10 @@ type Middleware struct {
 	Manager                *mom.MiddlewareManager
 	RawEnglishReviewsQueue *mom.Queue
 	EnglishReviewsExchange *mom.Exchange
+	Logger                 *logging.Logger
 }
 
-func NewMiddleware(id int) (*Middleware, error) {
+func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create middleware manager: %v", err)
@@ -40,6 +43,8 @@ func NewMiddleware(id int) (*Middleware, error) {
 		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
 
+	logger.Infof("Created queue %s bound to exchange %s and routing key %s\n", rawEnglishReviewsQueueName, RawReviewsExchangeName, rawEnglishReviewsRoutingKey)
+
 	englishReviewsExchange, err := manager.CreateExchange(EnglishReviewsExchangeName, EnglishReviewsExchangeType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to declare exchange: %v", err)
@@ -49,10 +54,12 @@ func NewMiddleware(id int) (*Middleware, error) {
 		Manager:                manager,
 		RawEnglishReviewsQueue: rawEnglishReviewsQueue,
 		EnglishReviewsExchange: englishReviewsExchange,
+		Logger:                 logger,
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameReviews() (int, []string, bool, error) {
+func (m *Middleware) ReceiveGameReviews() (int, *r.RawReview, bool, error) {
+	m.Logger.Info("Waiting for message")
 	rawMsg, err := m.RawEnglishReviewsQueue.Consume()
 	if err != nil {
 		return 0, nil, false, fmt.Errorf("failed to consume message: %v", err)
@@ -62,42 +69,36 @@ func (m *Middleware) ReceiveGameReviews() (int, []string, bool, error) {
 	if err != nil {
 		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
-	fmt.Printf("Received message from client %d\n", message.ClientID)
-	fmt.Printf("Received message type %d\n", message.Type)
-	fmt.Printf("Received message body %d\n", len(message.Body))
-
-	var lines []string
+	m.Logger.Infof("Received message from client %d", message.ClientID)
+	m.Logger.Infof("Received message type %d", message.Type)
+	m.Logger.Infof("Received message body %d", len(message.Body))
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
-	case sp.MsgBatch:
-		lines, err = sp.DeserializeMsgBatch(message.Body)
+	case sp.MsgRawReviewInformation:
+		m.Logger.Debugf("Received raw review information")
+		rawReview, err := sp.DeserializeMsgRawReviewInformation(message.Body)
+		m.Logger.Debugf("Deserialized raw review information")
 		if err != nil {
 			return message.ClientID, nil, false, err
 		}
+		return message.ClientID, rawReview, false, nil
 	default:
 		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %d", message.Type)
 	}
-
-	return message.ClientID, lines, false, nil
 }
 
-func (m *Middleware) SendEnglishReviews(clientID int, reviewsMap map[int][]*r.Review) error {
-	for shardingKey, reviews := range reviewsMap {
-		routingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, shardingKey)
+func (m *Middleware) SendEnglishReview(clientID int, review *r.Review, englishAccumulatorsAmount int) error {
+	routingKey := u.GetPartitioningKeyFromInt(int(review.AppId), englishAccumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
+	serializedReview := sp.SerializeMsgReviewInformation(clientID, review)
 
-		serializedReviews := sp.SerializeMsgReviewInformation(clientID, reviews)
-		err := m.EnglishReviewsExchange.Publish(routingKey, serializedReviews)
-		if err != nil {
-			return fmt.Errorf("failed to publish message: %v", err)
-		}
-	}
-
-	err := m.RawEnglishReviewsQueue.AckLastMessage()
+	err := m.EnglishReviewsExchange.Publish(routingKey, serializedReview)
 	if err != nil {
-		return fmt.Errorf("failed to ack last message: %v", err)
+		return fmt.Errorf("failed to publish message: %v", err)
 	}
+
+	m.Logger.Infof("Sent review for client %d", clientID)
 
 	return nil
 }
@@ -111,11 +112,15 @@ func (m *Middleware) SendEndOfFiles(clientID int, accumulatorsAmount int) error 
 		}
 	}
 
+	return nil
+}
+
+func (m *Middleware) AckLastMessage() error {
 	err := m.RawEnglishReviewsQueue.AckLastMessage()
 	if err != nil {
 		return fmt.Errorf("failed to ack last message: %v", err)
 	}
-
+	m.Logger.Infof("Acked last message")
 	return nil
 }
 

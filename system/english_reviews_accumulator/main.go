@@ -50,7 +50,7 @@ func main() {
 	}
 
 	englishReviewsAccumulator := l.NewEnglishReviewsAccumulator(
-		middleware.ReceiveReviews,
+		middleware.ReceiveReview,
 		middleware.SendAccumulatedReviews,
 		middleware.SendEndOfFiles,
 	)

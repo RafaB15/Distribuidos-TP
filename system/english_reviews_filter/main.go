@@ -13,13 +13,14 @@ import (
 )
 
 const (
-	AccumulatorsAmountEnvironmentVariableName = "ACCUMULATORS_AMOUNT"
-	IdEnvironmentVariableName                 = "ID"
+	AccumulatorsAmountEnvironmentVariableName              = "ACCUMULATORS_AMOUNT"
+	IdEnvironmentVariableName                              = "ID"
+	NegativeReviewsPreFiltersAmountEnvironmentVariableName = "NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT"
 )
 
-var log = logging.MustGetLogger("log")
-
 func main() {
+	var log = logging.MustGetLogger("log")
+
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
 
@@ -37,7 +38,13 @@ func main() {
 		return
 	}
 
-	middleware, err := m.NewMiddleware(id)
+	negativeReviewsPreFiltersAmount, err := u.GetEnvInt(NegativeReviewsPreFiltersAmountEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
+
+	middleware, err := m.NewMiddleware(id, log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
@@ -45,14 +52,16 @@ func main() {
 
 	englishReviewsFilter := l.NewEnglishReviewsFilter(
 		middleware.ReceiveGameReviews,
-		middleware.SendEnglishReviews,
+		middleware.SendEnglishReview,
 		middleware.SendEndOfFiles,
+		middleware.AckLastMessage,
+		log,
 	)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		englishReviewsFilter.Run(accumulatorsAmount)
+		englishReviewsFilter.Run(accumulatorsAmount, negativeReviewsPreFiltersAmount)
 		doneChannel <- true
 	}()
 
