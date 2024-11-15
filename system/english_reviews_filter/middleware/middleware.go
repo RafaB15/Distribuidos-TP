@@ -116,7 +116,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, accumulatorsAmount int) error 
 }
 
 func (m *Middleware) AckLastMessage() error {
-	err := m.RawEnglishReviewsQueue.AckLastMessage()
+	err := m.RawEnglishReviewsQueue.AckLastMessages()
 	if err != nil {
 		return fmt.Errorf("failed to ack last message: %v", err)
 	}

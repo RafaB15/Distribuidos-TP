@@ -166,7 +166,7 @@ func idMapToKeyMap(idMap map[uint32]*r.GameReviewsMetrics, nodeAmount int, routi
 }
 
 func (m *Middleware) AckLastMessage() error {
-	err := m.ReviewsQueue.AckLastMessage()
+	err := m.ReviewsQueue.AckLastMessages()
 	if err != nil {
 		return fmt.Errorf("failed to ack last message: %v", err)
 	}
