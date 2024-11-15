@@ -161,7 +161,7 @@ func UploadTopTenAvgPlaytimeForeverFromFile(filePath string) ([]*GameYearAndAvgP
 	}
 	defer file.Close()
 
-	bytesToRead, err := u.ReadExactFromFile(file, 1)
+	bytesToRead, err := u.ReadExact(file, 1)
 	if err != nil {
 		if err == io.EOF {
 			return games, nil
@@ -170,7 +170,7 @@ func UploadTopTenAvgPlaytimeForeverFromFile(filePath string) ([]*GameYearAndAvgP
 		return nil, err
 	}
 
-	gamesBytes, err := u.ReadExactFromFile(file, int(bytesToRead[0])*10)
+	gamesBytes, err := u.ReadExact(file, int(bytesToRead[0])*10)
 	if err != nil {
 		log.Errorf("Error reading file: %v", err)
 		return nil, err

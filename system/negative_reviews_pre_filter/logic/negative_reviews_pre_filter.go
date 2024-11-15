@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	MinPositiveReviews = 5000
+	MinNegativeReviews = 5000
 )
 
 var log = logging.MustGetLogger("log")
@@ -124,7 +124,7 @@ func (f *NegativeReviewsPreFilter) handleRawReviews(clientId int, englishFilters
 
 func (f *NegativeReviewsPreFilter) handleGameReviewsMetrics(clientId int, englishFiltersAmount int, clientAccumulatedRawReviews map[int][]*r.RawReview, clientGamesToSend map[int]bool, gameReviewsMetrics []*reviews_accumulator.GameReviewsMetrics) error {
 	for _, gameReviewsMetric := range gameReviewsMetrics {
-		if gameReviewsMetric.NegativeReviews >= MinPositiveReviews {
+		if gameReviewsMetric.NegativeReviews >= MinNegativeReviews {
 			clientGamesToSend[int(gameReviewsMetric.AppID)] = true
 			if reviews, exists := clientAccumulatedRawReviews[int(gameReviewsMetric.AppID)]; exists {
 				for _, rawReview := range reviews {
@@ -139,6 +139,7 @@ func (f *NegativeReviewsPreFilter) handleGameReviewsMetrics(clientId int, englis
 			}
 		} else {
 			clientGamesToSend[int(gameReviewsMetric.AppID)] = false
+			delete(clientAccumulatedRawReviews, int(gameReviewsMetric.AppID))
 		}
 	}
 
