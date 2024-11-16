@@ -331,7 +331,7 @@ func main() {
 
 	// ActionEnglishReviewJoiner service
 	for i := 1; i <= config.ActionEnglishReviewJoiner; i++ {
-		serviceName := fmt.Sprintf("action_positive_review_joiner_%d", i)
+		serviceName := fmt.Sprintf("action_english_review_joiner_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: action_english_review_joiner:latest

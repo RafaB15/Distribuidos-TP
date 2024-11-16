@@ -37,7 +37,7 @@ func NewMiddleware(id int) (*Middleware, error) {
 	negativePreFilterQueueName := fmt.Sprintf("%s%d", NegativePreFilterQueueNamePrefix, id)
 	negativePreFilterRoutingKey := fmt.Sprintf("%s%d", NegativePreFilterRoutingKeyPrefix, id)
 
-	negativePreFilterQueue, err := manager.CreateBoundQueue(negativePreFilterQueueName, NegativePreFilterExchangeName, NegativePreFilterExchangeType, negativePreFilterRoutingKey, true)
+	negativePreFilterQueue, err := manager.CreateBoundQueue(negativePreFilterQueueName, NegativePreFilterExchangeName, NegativePreFilterExchangeType, negativePreFilterRoutingKey, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
@@ -109,6 +109,14 @@ func (m *Middleware) SendEndOfFile(clientID int, englishFiltersAmount int) error
 		fmt.Printf("Sent EOF to english filter %d with routing key %s\n", i, routingKey)
 	}
 
+	return nil
+}
+
+func (m *Middleware) AckLastMessage() error {
+	err := m.NegativePreFilterQueue.AckLastMessages()
+	if err != nil {
+		return fmt.Errorf("failed to ack last message: %v", err)
+	}
 	return nil
 }
 

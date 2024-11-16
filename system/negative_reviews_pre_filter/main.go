@@ -54,6 +54,7 @@ func main() {
 	negativeReviewsPreFilter := l.NewNegativeReviewsPreFilter(
 		middleware.ReceiveMessage,
 		middleware.SendRawReview,
+		middleware.AckLastMessage,
 		middleware.SendEndOfFile,
 	)
 

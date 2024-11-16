@@ -409,8 +409,8 @@ services:
     networks:
       - distributed_network
 
-  action_positive_review_joiner_1:
-    container_name: action_positive_review_joiner_1
+  action_english_review_joiner_1:
+    container_name: action_english_review_joiner_1
     image: action_english_review_joiner:latest
     entrypoint: /action_english_review_joiner
     environment:
@@ -424,8 +424,8 @@ services:
     networks:
       - distributed_network
 
-  action_positive_review_joiner_2:
-    container_name: action_positive_review_joiner_2
+  action_english_review_joiner_2:
+    container_name: action_english_review_joiner_2
     image: action_english_review_joiner:latest
     entrypoint: /action_english_review_joiner
     environment:

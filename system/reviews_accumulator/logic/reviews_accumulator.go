@@ -34,6 +34,8 @@ func NewReviewsAccumulator(receiveReviews func() (
 func (ra *ReviewsAccumulator) Run(indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int) {
 	accumulatedReviews := make(map[int]map[uint32]*r.GameReviewsMetrics)
 
+	ackCounter := 50
+
 	for {
 		clientID, rawReviews, eof, err := ra.ReceiveReviews()
 		if err != nil {
@@ -68,6 +70,7 @@ func (ra *ReviewsAccumulator) Run(indieReviewJoinersAmount int, negativeReviewPr
 				log.Errorf("error acking last message: %s", err)
 				return
 			}
+			ackCounter = 50
 
 			delete(accumulatedReviews, clientID)
 			continue
@@ -85,10 +88,15 @@ func (ra *ReviewsAccumulator) Run(indieReviewJoinersAmount int, negativeReviewPr
 			}
 		}
 
-		err = ra.AckLastMessage()
-		if err != nil {
-			log.Errorf("error acking last message: %s", err)
-			return
+		if ackCounter == 0 {
+			err = ra.AckLastMessage()
+			if err != nil {
+				log.Errorf("error acking last message: %s", err)
+				return
+			}
+			ackCounter = 50
+		} else {
+			ackCounter--
 		}
 	}
 }

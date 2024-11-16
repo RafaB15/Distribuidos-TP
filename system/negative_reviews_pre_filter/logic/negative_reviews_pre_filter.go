@@ -8,6 +8,7 @@ import (
 
 const (
 	MinNegativeReviews = 5000
+	AckBatchSize       = 50
 )
 
 var log = logging.MustGetLogger("log")
@@ -15,17 +16,20 @@ var log = logging.MustGetLogger("log")
 type NegativeReviewsPreFilter struct {
 	ReceiveMessage func() (int, []*r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error)
 	SendReview     func(int, int, *r.RawReview) error
+	AckLastMessage func() error
 	SendEndOfFile  func(int, int) error
 }
 
 func NewNegativeReviewsPreFilter(
 	receiveMessage func() (int, []*r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error),
 	sendReview func(int, int, *r.RawReview) error,
+	ackLastMessage func() error,
 	sendEndOfFile func(int, int) error,
 ) *NegativeReviewsPreFilter {
 	return &NegativeReviewsPreFilter{
 		ReceiveMessage: receiveMessage,
 		SendReview:     sendReview,
+		AckLastMessage: ackLastMessage,
 		SendEndOfFile:  sendEndOfFile,
 	}
 }
@@ -34,6 +38,8 @@ func (f *NegativeReviewsPreFilter) Run(englishFiltersAmount int, accumulatorsAmo
 	remainingEOFsMap := make(map[int]int)
 	accumulatedRawReviewsMap := make(map[int]map[int][]*r.RawReview)
 	gamesToSendMap := make(map[int]map[int]bool)
+
+	messagesUntilAck := AckBatchSize
 
 	for {
 		clientID, reviews, gameReviewsMetrics, eof, err := f.ReceiveMessage()
@@ -75,6 +81,13 @@ func (f *NegativeReviewsPreFilter) Run(englishFiltersAmount int, accumulatorsAmo
 				return
 			}
 
+			err := f.AckLastMessage()
+			if err != nil {
+				log.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+			messagesUntilAck = AckBatchSize
+
 			for k := range accumulatedRawReviewsMap[clientID] {
 				delete(accumulatedRawReviewsMap[clientID], k)
 			}
@@ -103,6 +116,17 @@ func (f *NegativeReviewsPreFilter) Run(englishFiltersAmount int, accumulatorsAmo
 				log.Errorf("Failed to handle game reviews metrics: %v", err)
 				return
 			}
+		}
+
+		if messagesUntilAck == 0 {
+			err = f.AckLastMessage()
+			if err != nil {
+				log.Errorf("error acking last message: %s", err)
+				return
+			}
+			messagesUntilAck = 50
+		} else {
+			messagesUntilAck--
 		}
 	}
 }
