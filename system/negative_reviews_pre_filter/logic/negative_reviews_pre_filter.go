@@ -74,6 +74,14 @@ func (f *NegativeReviewsPreFilter) Run(englishFiltersAmount int, accumulatorsAmo
 				log.Errorf("Failed to send EOF: %v", err)
 				return
 			}
+
+			for k := range accumulatedRawReviewsMap[clientID] {
+				delete(accumulatedRawReviewsMap[clientID], k)
+			}
+			for k := range gamesToSendMap[clientID] {
+				delete(gamesToSendMap[clientID], k)
+			}
+
 			delete(accumulatedRawReviewsMap, clientID)
 			delete(gamesToSendMap, clientID)
 			delete(remainingEOFsMap, clientID)
