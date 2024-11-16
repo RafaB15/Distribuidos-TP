@@ -6,10 +6,10 @@ import (
 )
 
 type Queue struct {
-	channel         *amqp.Channel
-	data            *amqp.Queue
-	messages        <-chan amqp.Delivery
-	unackedMessages []*amqp.Delivery
+	channel            *amqp.Channel
+	data               *amqp.Queue
+	messages           <-chan amqp.Delivery
+	lastUnackedMessage *amqp.Delivery
 }
 
 func NewQueue(ch *amqp.Channel, name string, autoAck bool) (*Queue, error) {
@@ -50,10 +50,10 @@ func NewQueue(ch *amqp.Channel, name string, autoAck bool) (*Queue, error) {
 	}
 
 	return &Queue{
-		channel:         ch,
-		data:            &queueData,
-		messages:        msgs,
-		unackedMessages: make([]*amqp.Delivery, 0),
+		channel:            ch,
+		data:               &queueData,
+		messages:           msgs,
+		lastUnackedMessage: nil,
 	}, nil
 }
 
@@ -63,9 +63,8 @@ func (q *Queue) Consume() ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("channel closed")
 	}
-	q.unackedMessages = append(q.unackedMessages, &msg)
+	q.lastUnackedMessage = &msg
 	return msg.Body, nil
-
 }
 
 func (q *Queue) Bind(exchange string, routingKey string) error {
@@ -82,16 +81,13 @@ func (q *Queue) Bind(exchange string, routingKey string) error {
 }
 
 func (q *Queue) AckLastMessages() error {
-	// Nota: Pasarle true al ack podría ser interesante. Eso haría ack de todos los
-	// mensajes anteriores también. Podríamos solo hacer ack al último del batch entonces
-	// Además sería una operación más difícil de interrumpir.
-	for _, msg := range q.unackedMessages {
-		err := msg.Ack(false)
+	if q.lastUnackedMessage != nil {
+		err := q.lastUnackedMessage.Ack(true)
 		if err != nil {
 			return err
 		}
+		q.lastUnackedMessage = nil
 	}
-	q.unackedMessages = make([]*amqp.Delivery, 0)
 	return nil
 }
 

@@ -59,7 +59,6 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 }
 
 func (m *Middleware) ReceiveGameReviews() (int, *r.RawReview, bool, error) {
-	m.Logger.Info("Waiting for message")
 	rawMsg, err := m.RawEnglishReviewsQueue.Consume()
 	if err != nil {
 		return 0, nil, false, fmt.Errorf("failed to consume message: %v", err)
@@ -69,17 +68,12 @@ func (m *Middleware) ReceiveGameReviews() (int, *r.RawReview, bool, error) {
 	if err != nil {
 		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
-	m.Logger.Infof("Received message from client %d", message.ClientID)
-	m.Logger.Infof("Received message type %d", message.Type)
-	m.Logger.Infof("Received message body %d", len(message.Body))
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
 	case sp.MsgRawReviewInformation:
-		m.Logger.Debugf("Received raw review information")
 		rawReview, err := sp.DeserializeMsgRawReviewInformation(message.Body)
-		m.Logger.Debugf("Deserialized raw review information")
 		if err != nil {
 			return message.ClientID, nil, false, err
 		}
