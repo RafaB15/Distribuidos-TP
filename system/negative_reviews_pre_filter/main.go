@@ -4,6 +4,7 @@ import (
 	u "distribuidos-tp/internal/utils"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	l "distribuidos-tp/system/negative_reviews_pre_filter/logic"
@@ -56,7 +57,9 @@ func main() {
 		middleware.SendEndOfFile,
 	)
 
-	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
+	var wg sync.WaitGroup
+
+	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
 		negativeReviewsPreFilter.Run(englishFiltersAmount, accumulatorsAmount)
