@@ -1,4 +1,4 @@
-package persistence
+package node
 
 import "encoding/binary"
 
@@ -9,7 +9,11 @@ type IntMap[T any] struct {
 }
 
 func NewIntMap[T any](serialize func(T) []byte, deserialize func([]byte) (T, error)) *IntMap[T] {
-	return &IntMap[T]{contents: make(map[int]T)}
+	return &IntMap[T]{
+		serialize:   serialize,
+		deserialize: deserialize,
+		contents:    make(map[int]T),
+	}
 }
 
 func (m *IntMap[T]) Get(key int) (T, bool) {

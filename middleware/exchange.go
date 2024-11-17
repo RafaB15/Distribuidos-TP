@@ -61,6 +61,23 @@ func (e *Exchange) PublishWithoutKey(body []byte) error {
 	return nil
 }
 
+func (e *Exchange) PublishWithPriority(routingKey string, body []byte, priority uint8) error {
+	err := e.channel.Publish(
+		e.Name,     // exchange
+		routingKey, // routing key
+		false,      // mandatory
+		false,      // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        body,
+			Priority:    priority,
+		})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (e *Exchange) CloseExchange() error {
 	if e.channel != nil {
 		return e.channel.Close()

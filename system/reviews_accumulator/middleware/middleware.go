@@ -24,6 +24,7 @@ const (
 	NegativePreFilterExchangeName     = "negative_pre_filter_exchange"
 	NegativePreFilterExchangeType     = "direct"
 	NegativePreFilterRoutingKeyPrefix = "negative_pre_filter_key_"
+	NegativePreFilterExchangePriority = 1
 
 	IndieReviewJoinExchangeName             = "indie_review_join_exchange"
 	IndieReviewJoinExchangeType             = "direct"
@@ -123,7 +124,7 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map
 	for routingKey, metrics := range preFilterKeyMap {
 		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
 
-		err := m.NegativeReviewsPreFilter.Publish(routingKey, serializedMetricsBatch)
+		err := m.NegativeReviewsPreFilter.PublishWithPriority(routingKey, serializedMetricsBatch, NegativePreFilterExchangePriority)
 		if err != nil {
 			return err
 		}

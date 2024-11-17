@@ -76,6 +76,30 @@ func (m *MiddlewareManager) CreateBoundQueueMultipleRoutingKeys(queueName string
 	return queue, nil
 }
 
+func (m *MiddlewareManager) CreateBoundQueueWithPriority(queueName string, exchangeName string, exchangeKind string, routingKey string, autoAck bool, maxPriority int) (*Queue, error) {
+	ch, err := m.conn.Channel()
+	if err != nil {
+		return nil, err
+	}
+
+	queue, err := NewPriorityQueue(ch, queueName, autoAck, maxPriority)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create queue: %w", err)
+	}
+
+	_, err = NewExchange(ch, exchangeName, exchangeKind)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create exchange to bind the queue: %w", err)
+	}
+
+	err = queue.Bind(exchangeName, routingKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind queue to exchange: %w", err)
+	}
+
+	return queue, nil
+}
+
 func (m *MiddlewareManager) CreateExchange(name string, kind string) (*Exchange, error) {
 	ch, err := m.conn.Channel()
 	if err != nil {

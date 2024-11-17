@@ -16,6 +16,7 @@ const (
 	NegativePreFilterExchangeType     = "direct"
 	NegativePreFilterRoutingKeyPrefix = "negative_pre_filter_key_"
 	NegativePreFilterQueueNamePrefix  = "negative_pre_filter_queue_"
+	NegativePreFilterQueueMaxPriority = 1
 
 	RawEnglishReviewsExchangeName     = "raw_english_reviews_exchange"
 	RawEnglishReviewsExchangeType     = "direct"
@@ -37,7 +38,7 @@ func NewMiddleware(id int) (*Middleware, error) {
 	negativePreFilterQueueName := fmt.Sprintf("%s%d", NegativePreFilterQueueNamePrefix, id)
 	negativePreFilterRoutingKey := fmt.Sprintf("%s%d", NegativePreFilterRoutingKeyPrefix, id)
 
-	negativePreFilterQueue, err := manager.CreateBoundQueue(negativePreFilterQueueName, NegativePreFilterExchangeName, NegativePreFilterExchangeType, negativePreFilterRoutingKey, false)
+	negativePreFilterQueue, err := manager.CreateBoundQueueWithPriority(negativePreFilterQueueName, NegativePreFilterExchangeName, NegativePreFilterExchangeType, negativePreFilterRoutingKey, false, NegativePreFilterQueueMaxPriority)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}

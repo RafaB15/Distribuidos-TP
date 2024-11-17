@@ -9,6 +9,7 @@ import (
 
 	l "distribuidos-tp/system/negative_reviews_pre_filter/logic"
 	m "distribuidos-tp/system/negative_reviews_pre_filter/middleware"
+	p "distribuidos-tp/system/negative_reviews_pre_filter/persistence"
 
 	"github.com/op/go-logging"
 )
@@ -56,14 +57,17 @@ func main() {
 		middleware.SendRawReview,
 		middleware.AckLastMessage,
 		middleware.SendEndOfFile,
+		log,
 	)
 
 	var wg sync.WaitGroup
 
+	repository := p.NewRepository(&wg, log)
+
 	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		negativeReviewsPreFilter.Run(englishFiltersAmount, accumulatorsAmount)
+		negativeReviewsPreFilter.Run(repository, englishFiltersAmount, accumulatorsAmount)
 		doneChannel <- true
 	}()
 

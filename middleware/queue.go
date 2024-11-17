@@ -5,6 +5,10 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+const (
+	PreFetchCount = 300
+)
+
 type Queue struct {
 	channel            *amqp.Channel
 	data               *amqp.Queue
@@ -15,9 +19,9 @@ type Queue struct {
 func NewQueue(ch *amqp.Channel, name string, autoAck bool) (*Queue, error) {
 
 	err := ch.Qos(
-		100,   // prefetch count
-		0,     // prefetch size
-		false, // global
+		PreFetchCount, // prefetch count
+		0,             // prefetch size
+		false,         // global
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set QoS: %w", err)
@@ -30,6 +34,54 @@ func NewQueue(ch *amqp.Channel, name string, autoAck bool) (*Queue, error) {
 		false, // exclusive
 		false, // no-wait
 		nil,   // arguments
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	msgs, err := ch.Consume(
+		queueData.Name, // queue
+		"",             // consumer
+		autoAck,        // auto-ack
+		false,          // exclusive
+		false,          // no-local
+		false,          // no-wait
+		nil,            // args
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Queue{
+		channel:            ch,
+		data:               &queueData,
+		messages:           msgs,
+		lastUnackedMessage: nil,
+	}, nil
+}
+
+func NewPriorityQueue(ch *amqp.Channel, name string, autoAck bool, maxPriority int) (*Queue, error) {
+	args := amqp.Table{
+		"x-max-priority": int32(maxPriority),
+	}
+
+	err := ch.Qos(
+		PreFetchCount, // prefetch count
+		0,             // prefetch size
+		false,         // global
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set QoS: %w", err)
+	}
+
+	queueData, err := ch.QueueDeclare(
+		name,  // name
+		true,  // durable
+		false, // delete when unused
+		false, // exclusive
+		false, // no-wait
+		args,  // arguments
 	)
 	if err != nil {
 		return nil, err
