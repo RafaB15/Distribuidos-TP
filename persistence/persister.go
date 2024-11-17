@@ -16,26 +16,23 @@ const (
 
 type Persister[T any] struct {
 	fileName    string
-	serialize   func(*T) ([]byte, error)
-	deserialize func([]byte) (*T, error)
+	serialize   func(T) []byte
+	deserialize func([]byte) (T, error)
 	wg          *sync.WaitGroup
 	logger      *logging.Logger
 }
 
-func NewPersister[T any](fileName string, serialize func(*T) ([]byte, error), deserialize func([]byte) (*T, error), wg *sync.WaitGroup, logger *logging.Logger) *Persister[T] {
+func NewPersister[T any](fileName string, serialize func(T) []byte, deserialize func([]byte) (T, error), wg *sync.WaitGroup, logger *logging.Logger) *Persister[T] {
 	return &Persister[T]{fileName, serialize, deserialize, wg, logger}
 }
 
-func (p *Persister[T]) Save(data *T) error {
-	serializedData, err := p.serialize(data)
-	if err != nil {
-		return err
-	}
+func (p *Persister[T]) Save(data T) error {
+	serializedData := p.serialize(data)
 
 	p.wg.Add(1)
 
 	oldFileName := p.fileName + CopySuffix
-	err = os.Rename(p.fileName, oldFileName)
+	err := os.Rename(p.fileName, oldFileName)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -69,12 +66,13 @@ func (p *Persister[T]) Save(data *T) error {
 	return nil
 }
 
-func (p *Persister[T]) Load() (*T, error) {
+func (p *Persister[T]) Load() (T, error) {
 	p.wg.Add(1)
 
 	file, err := os.OpenFile(p.fileName, os.O_RDONLY|os.O_CREATE, 0644)
 	if err != nil {
-		return nil, err
+		var zero T
+		return zero, err
 	}
 
 	defer func() {
@@ -87,13 +85,15 @@ func (p *Persister[T]) Load() (*T, error) {
 
 	fileLengthBytes, err := u.ReadExact(file, FileLengthSize)
 	if err != nil {
-		return nil, err
+		var zero T
+		return zero, err
 	}
 
 	fileLength := binary.BigEndian.Uint64(fileLengthBytes)
 	data, err := u.ReadExact(file, int(fileLength))
 	if err != nil {
-		return nil, err
+		var zero T
+		return zero, err
 	}
 
 	return p.deserialize(data)
