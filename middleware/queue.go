@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	PreFetchCount = 300
+	PreFetchCount = 550
 )
 
 type Queue struct {

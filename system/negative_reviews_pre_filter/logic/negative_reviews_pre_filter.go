@@ -11,7 +11,7 @@ import (
 
 const (
 	MinNegativeReviews = 5000
-	AckBatchSize       = 150
+	AckBatchSize       = 500
 )
 
 type NegativeReviewsPreFilter struct {
@@ -39,14 +39,9 @@ func NewNegativeReviewsPreFilter(
 }
 
 func (f *NegativeReviewsPreFilter) Run(repository *p.Repository, englishFiltersAmount int, accumulatorsAmount int) {
-	remainingEOFsMap := make(map[int]int)
-
+	eofController := repository.LoadEOFController(accumulatorsAmount + 1)
 	accumulatedRawReviewsMap := repository.LoadAccumulatedRawReviews()
-
 	gamesToSendMap := repository.LoadGamesToSend()
-
-	//accumulatedRawReviewsMap := make(map[int]map[int][]*r.RawReview)
-	//gamesToSendMap := make(map[int]map[int]bool)
 
 	messagesUntilAck := AckBatchSize
 
@@ -72,17 +67,10 @@ func (f *NegativeReviewsPreFilter) Run(repository *p.Repository, englishFiltersA
 		if eof {
 			f.logger.Info("Received EOF for client ", clientID)
 
-			remainingEOFs, exists := remainingEOFsMap[clientID]
-			if !exists {
-				remainingEOFs = accumulatorsAmount + 1
-			}
-			f.logger.Infof("Remaining EOFs: %d", remainingEOFs)
-			remainingEOFs--
-			f.logger.Infof("Remaining EOFs AFTER: %d", remainingEOFs)
-			remainingEOFsMap[clientID] = remainingEOFs
-			if remainingEOFs > 0 {
+			if !eofController.RegisterEOF(clientID) {
 				continue
 			}
+
 			f.logger.Info("Received all EOFs, sending EOFs")
 			err = f.SendEndOfFile(clientID, englishFiltersAmount)
 			if err != nil {
@@ -90,24 +78,22 @@ func (f *NegativeReviewsPreFilter) Run(repository *p.Repository, englishFiltersA
 				return
 			}
 
-			err := f.AckLastMessage()
+			err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, eofController)
+			if err != nil {
+				f.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
+			err = f.AckLastMessage()
 			if err != nil {
 				f.logger.Errorf("Failed to ack last message: %v", err)
 				return
 			}
 			messagesUntilAck = AckBatchSize
 
-			/* Lo dejo para acordarme que si hay problemas de memoria puedo intentar emular esto
-			for k := range accumulatedRawReviewsMap[clientID] {
-				delete(accumulatedRawReviewsMap[clientID], k)
-			}
-			for k := range gamesToSendMap[clientID] {
-				delete(gamesToSendMap[clientID], k)
-			}*/
-
 			accumulatedRawReviewsMap.Delete(clientID)
 			gamesToSendMap.Delete(clientID)
-			delete(remainingEOFsMap, clientID)
+			eofController.DeleteEOF(clientID)
 		}
 
 		if reviews != nil {
@@ -129,15 +115,9 @@ func (f *NegativeReviewsPreFilter) Run(repository *p.Repository, englishFiltersA
 		}
 
 		if messagesUntilAck == 0 {
-			err := repository.SaveAccumulatedRawReviews(accumulatedRawReviewsMap)
+			err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, eofController)
 			if err != nil {
-				f.logger.Errorf("Failed to save accumulated raw reviews: %v", err)
-				return
-			}
-
-			err = repository.SaveGamesToSend(gamesToSendMap)
-			if err != nil {
-				f.logger.Errorf("Failed to save games to send: %v", err)
+				f.logger.Errorf("Failed to save data: %v", err)
 				return
 			}
 
@@ -164,7 +144,7 @@ func (f *NegativeReviewsPreFilter) handleRawReviews(clientId int, englishFilters
 				}
 				f.logger.Infof("Sent review for client %d", clientId)
 			} else {
-				return nil
+				continue
 			}
 		} else {
 			if !rawReview.Positive {
