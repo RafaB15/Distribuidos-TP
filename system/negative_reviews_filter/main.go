@@ -14,6 +14,7 @@ import (
 const (
 	ActionEnglishReviewsJoinersAmountEnvironmentVariableName = "ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT"
 	EnglishReviewAccumulatorsAmountEnvironmentVariableName   = "ENGLISH_REVIEW_ACCUMULATORS_AMOUNT"
+	IdEnvironmentVariableName                                = "ID"
 	MinPositiveReviews                                       = 5000
 )
 
@@ -24,6 +25,12 @@ func main() {
 	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
 
 	doneChannel := make(chan bool)
+
+	id, err := u.GetEnvInt(IdEnvironmentVariableName)
+	if err != nil {
+		log.Errorf("Failed to get environment variable: %v", err)
+		return
+	}
 
 	actionReviewsJoinersAmount, err := u.GetEnvInt(ActionEnglishReviewsJoinersAmountEnvironmentVariableName)
 	if err != nil {
@@ -37,7 +44,7 @@ func main() {
 		return
 	}
 
-	middleware, err := m.NewMiddleware()
+	middleware, err := m.NewMiddleware(id)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return

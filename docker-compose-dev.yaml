@@ -386,6 +386,7 @@ services:
     environment:
       - ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT=2
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
+      - ID=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -401,6 +402,7 @@ services:
     environment:
       - ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT=2
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
+      - ID=2
     depends_on:
       game_mapper:
         condition: service_started

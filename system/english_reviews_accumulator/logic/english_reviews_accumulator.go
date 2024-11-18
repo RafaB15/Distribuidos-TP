@@ -11,11 +11,11 @@ var log = logging.MustGetLogger("log")
 
 type EnglishReviewsAccumulator struct {
 	ReceiveReview          func() (int, *r.Review, bool, error)
-	SendAccumulatedReviews func(int, []*ra.GameReviewsMetrics) error
+	SendAccumulatedReviews func(int, int, []*ra.GameReviewsMetrics) error
 	SendEndOfFiles         func(int, int) error
 }
 
-func NewEnglishReviewsAccumulator(receiveReview func() (int, *r.Review, bool, error), sendAccumulatedReviews func(int, []*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int) error) *EnglishReviewsAccumulator {
+func NewEnglishReviewsAccumulator(receiveReview func() (int, *r.Review, bool, error), sendAccumulatedReviews func(int, int, []*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int) error) *EnglishReviewsAccumulator {
 	return &EnglishReviewsAccumulator{
 		ReceiveReview:          receiveReview,
 		SendAccumulatedReviews: sendAccumulatedReviews,
@@ -59,7 +59,7 @@ func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, negativeReview
 			log.Info("Received all EOFs")
 
 			metrics := idMapToList(clientAccumulatedReviews)
-			err = a.SendAccumulatedReviews(clientID, metrics)
+			err = a.SendAccumulatedReviews(clientID, negativeReviewsFiltersAmount, metrics)
 			if err != nil {
 				log.Errorf("Failed to send accumulated reviews: %v", err)
 				return

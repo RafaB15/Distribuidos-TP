@@ -318,6 +318,7 @@ func main() {
     environment:
       - ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT=%d
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=%d
+      - ID=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -326,7 +327,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.ActionEnglishReviewJoiner, config.EnglishReviewsAccumulator)
+`, serviceName, serviceName, config.ActionEnglishReviewJoiner, config.EnglishReviewsAccumulator, i)
 	}
 
 	// ActionEnglishReviewJoiner service

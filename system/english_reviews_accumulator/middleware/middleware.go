@@ -4,6 +4,7 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	r "distribuidos-tp/internal/system_protocol/reviews"
+	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
 )
@@ -16,9 +17,9 @@ const (
 	EnglishReviewsRoutingKeyPrefix = "english_reviews_key_"
 	EnglishReviewQueueNamePrefix   = "english_reviews_queue_"
 
-	AccumulatedEnglishReviewsExchangeName = "accumulated_english_reviews_exchange"
-	AccumulatedEnglishReviewsExchangeType = "direct"
-	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews_key"
+	AccumulatedEnglishReviewsExchangeName     = "accumulated_english_reviews_exchange"
+	AccumulatedEnglishReviewsExchangeType     = "direct"
+	AccumulatedEnglishReviewsRoutingKeyPrefix = "accumulated_english_reviews_key_"
 )
 
 type Middleware struct {
@@ -30,19 +31,19 @@ type Middleware struct {
 func NewMiddleware(id int) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create middleware manager: %v", err)
+		return nil, fmt.Errorf("failed to create middleware manager: %v", err)
 	}
 
 	englishReviewQueueName := fmt.Sprintf("%s%d", EnglishReviewQueueNamePrefix, id)
 	englishReviewsRoutingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, id)
 	englishReviewsQueue, err := manager.CreateBoundQueue(englishReviewQueueName, EnglishReviewsExchangeName, EnglishReviewsExchangeType, englishReviewsRoutingKey, true)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create queue: %v", err)
+		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
 
 	accumulatedEnglishReviewsExchange, err := manager.CreateExchange(AccumulatedEnglishReviewsExchangeName, AccumulatedEnglishReviewsExchangeType)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to declare exchange: %v", err)
+		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
 
 	return &Middleware{
@@ -79,19 +80,23 @@ func (m *Middleware) ReceiveReview() (int, *r.Review, bool, error) {
 	}
 }
 
-func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.GameReviewsMetrics) error {
+func (m *Middleware) SendAccumulatedReviews(clientID int, negativeReviewsFiltersAmount int, metrics []*ra.GameReviewsMetrics) error {
+	nodeId := u.GetRandomNumber(negativeReviewsFiltersAmount)
+	routingKey := fmt.Sprintf("%s%d", AccumulatedEnglishReviewsRoutingKeyPrefix, nodeId)
 	serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
-	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedMetricsBatch)
+	err := m.AccumulatedEnglishReviewsExchange.Publish(routingKey, serializedMetricsBatch)
 	if err != nil {
 		return fmt.Errorf("failed to publish accumulated reviews: %v", err)
 	}
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(clientID int, positiveReviewsFilterAmount int) error {
-	for i := 1; i <= positiveReviewsFilterAmount; i++ {
+func (m *Middleware) SendEndOfFiles(clientID int, negativeReviewsFilterAmount int) error {
+	for i := 1; i <= negativeReviewsFilterAmount; i++ {
 		serializedEOF := sp.SerializeMsgEndOfFile(clientID)
-		err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedEOF)
+		routingKey := fmt.Sprintf("%s%d", AccumulatedEnglishReviewsRoutingKeyPrefix, i)
+		fmt.Printf("Sending EOF to %s\n", routingKey)
+		err := m.AccumulatedEnglishReviewsExchange.Publish(routingKey, serializedEOF)
 		if err != nil {
 			return fmt.Errorf("failed to publish end of file: %v", err)
 		}

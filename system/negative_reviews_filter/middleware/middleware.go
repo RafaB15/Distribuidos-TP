@@ -10,10 +10,10 @@ import (
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
-	AccumulatedEnglishReviewsExchangeName = "accumulated_english_reviews_exchange"
-	AccumulatedEnglishReviewsExchangeType = "direct"
-	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews_key"
-	AccumulatedEnglishReviewQueueName     = "accumulated_english_reviews_queue"
+	AccumulatedEnglishReviewsExchangeName     = "accumulated_english_reviews_exchange"
+	AccumulatedEnglishReviewsExchangeType     = "direct"
+	AccumulatedEnglishReviewsRoutingKeyPrefix = "accumulated_english_reviews_key_"
+	AccumulatedEnglishReviewQueueNamePrefix   = "accumulated_english_reviews_queue_"
 
 	PositiveJoinReviewsExchangeName     = "action_review_join_exchange"
 	PositiveJoinReviewsExchangeType     = "direct"
@@ -26,13 +26,15 @@ type Middleware struct {
 	PositiveJoinedReviewsExchange  *mom.Exchange
 }
 
-func NewMiddleware() (*Middleware, error) {
+func NewMiddleware(id int) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, err
 	}
 
-	accumulatedEnglishReviewsQueue, err := manager.CreateBoundQueue(AccumulatedEnglishReviewQueueName, AccumulatedEnglishReviewsExchangeName, AccumulatedEnglishReviewsExchangeType, AccumulatedEnglishReviewsRoutingKey, true)
+	accumulatedEnglishReviewRoutingKey := fmt.Sprintf("%s%d", AccumulatedEnglishReviewsRoutingKeyPrefix, id)
+	accumulatedEnglishReviewQueueName := fmt.Sprintf("%s%d", AccumulatedEnglishReviewQueueNamePrefix, id)
+	accumulatedEnglishReviewsQueue, err := manager.CreateBoundQueue(accumulatedEnglishReviewQueueName, AccumulatedEnglishReviewsExchangeName, AccumulatedEnglishReviewsExchangeType, accumulatedEnglishReviewRoutingKey, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
