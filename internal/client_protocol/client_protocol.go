@@ -16,7 +16,7 @@ var log = logging.MustGetLogger("log")
 const LineLengthBytesAmount = 4
 
 // Size of the bytes to store the number of lines in the payload
-const LinesNumberBytesAmount = 1
+const LinesNumberBytesAmount = 4
 
 // Size of the bytes to store the origin of the file
 const FileOriginBytesAmount = 1
@@ -68,7 +68,7 @@ func SerializeBatch(fileScanner *bufio.Scanner, pendingBytes []byte, maxBytes in
 	result = append(result, eofFlag)
 
 	numLinesBytes := make([]byte, LinesNumberBytesAmount)
-	numLinesBytes[0] = byte(actualNumLines)
+	binary.BigEndian.PutUint32(numLinesBytes, uint32(actualNumLines))
 	result = append(result, numLinesBytes...)
 
 	result = append(result, serializedLines...)

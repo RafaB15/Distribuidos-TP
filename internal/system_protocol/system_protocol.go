@@ -46,9 +46,9 @@ func DeserializeMsgBatch(data []byte) ([]string, error) {
 		return []string{}, nil
 	}
 
-	numLines := int(data[0])
+	numLines := int(binary.BigEndian.Uint32(data[:4]))
 
-	serializedLines := data[1:]
+	serializedLines := data[4:]
 	var lines []string
 
 	offset := 0
