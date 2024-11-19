@@ -91,23 +91,25 @@ func (m *Middleware) SendGamesBatch(clientID int, data []byte) error {
 	return nil
 }
 
-func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int, data []byte) error {
-	rawReviews, err := getDeserializedRawReviews(data)
+func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int) (int, error) {
+	rawReviews, err := getDeserializedRawReviews(data, currentReviewId)
 	if err != nil {
-		return fmt.Errorf("failed to deserialize raw reviews: %v", err)
+		return 0, fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}
+
+	newReviewId := currentReviewId + len(rawReviews)
 
 	err = sendToReviewNode(clientID, negativeReviewsPreFiltersAmount, m.NegativePreFilterExchange, NegativePreFilterRoutingKeyPrefix, rawReviews)
 	if err != nil {
-		return fmt.Errorf("failed to publish message to negative pre filter: %v", err)
+		return 0, fmt.Errorf("failed to publish message to negative pre filter: %v", err)
 	}
 
 	err = sendToReviewNode(clientID, reviewAccumulatorsAmount, m.ReviewsExchange, ReviewsRoutingKeyPrefix, rawReviews)
 	if err != nil {
-		return fmt.Errorf("failed to publish message to review mapper: %v", err)
+		return 0, fmt.Errorf("failed to publish message to review mapper: %v", err)
 	}
 
-	return nil
+	return newReviewId, nil
 }
 
 func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview) error {
@@ -128,36 +130,13 @@ func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, rou
 	return nil
 }
 
-func (m *Middleware) sendToPreFilterNode(clientID int, reviewsPreFilterNodesAmount int, data []byte) error {
-	lines, err := sp.DeserializeMsgBatch(data)
-	if err != nil {
-		return fmt.Errorf("failed to deserialize message: %v", err)
-	}
-
-	rawReviews, err := r.DeserializeRawReviewsBatchFromStrings(lines, AppIdIndex, ReviewScoreIndex, ReviewTextIndex)
-	if err != nil {
-		return fmt.Errorf("failed to deserialize raw reviews: %v", err)
-	}
-
-	for _, rawReview := range rawReviews {
-		shardingKey := u.GetPartitioningKeyFromInt(int(rawReview.AppId), reviewsPreFilterNodesAmount, NegativePreFilterRoutingKeyPrefix)
-		serializedMsg := sp.SerializeMsgRawReviewInformation(clientID, rawReview)
-		err := m.NegativePreFilterExchange.Publish(shardingKey, serializedMsg)
-		if err != nil {
-			return fmt.Errorf("failed to publish message: %v", err)
-		}
-	}
-
-	return nil
-}
-
-func getDeserializedRawReviews(data []byte) ([]*r.RawReview, error) {
+func getDeserializedRawReviews(data []byte, currentReviewId int) ([]*r.RawReview, error) {
 	lines, err := sp.DeserializeMsgBatch(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
-	rawReviews, err := r.DeserializeRawReviewsBatchFromStrings(lines, AppIdIndex, ReviewScoreIndex, ReviewTextIndex)
+	rawReviews, err := r.DeserializeRawReviewsBatchFromStrings(lines, AppIdIndex, ReviewScoreIndex, ReviewTextIndex, currentReviewId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}

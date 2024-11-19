@@ -12,7 +12,7 @@ var log = logging.MustGetLogger("log")
 
 type EntryPoint struct {
 	SendGamesBatch       func(int, []byte) error
-	SendReviewsBatch     func(int, int, int, []byte) error
+	SendReviewsBatch     func(int, int, int, []byte, int) (int, error)
 	SendGamesEndOfFile   func(int) error
 	SendReviewsEndOfFile func(int, int, int) error
 	ReceiveQueryResult   func() ([]byte, error)
@@ -20,7 +20,7 @@ type EntryPoint struct {
 
 func NewEntryPoint(
 	sendGamesBatch func(int, []byte) error,
-	sendReviewsBatch func(int, int, int, []byte) error,
+	sendReviewsBatch func(int, int, int, []byte, int) (int, error),
 	sendGamesEndOfFile func(int) error,
 	sendReviewsEndOfFile func(int, int, int) error,
 	receiveQueryResponse func() ([]byte, error),
@@ -38,6 +38,8 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, negativeReviewsPreFiltersA
 	eofGames := false
 	eofReviews := false
 
+	currentReviewId := 0
+
 	for !eofGames || !eofReviews {
 		data, fileOrigin, eofFlag, err := cp.ReceiveBatch(conn)
 		if err != nil {
@@ -46,16 +48,18 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, negativeReviewsPreFiltersA
 		}
 
 		if fileOrigin == cp.GameFile {
-			// log.Infof("Received game batch for client %d", clientID)
 			err = e.SendGamesBatch(clientID, data)
+			if err != nil {
+				log.Errorf("Error sending batch for client %d: %v", clientID, err)
+				return
+			}
 		} else {
-			// log.Infof("Received review batch for client %d", clientID)
-			err = e.SendReviewsBatch(clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount, data)
-		}
-
-		if err != nil {
-			log.Errorf("Error sending batch for client %d: %v", clientID, err)
-			return
+			reviewsSent, err := e.SendReviewsBatch(clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount, data, currentReviewId)
+			if err != nil {
+				log.Errorf("Error sending batch for client %d: %v", clientID, err)
+				return
+			}
+			currentReviewId += reviewsSent
 		}
 
 		if eofFlag {

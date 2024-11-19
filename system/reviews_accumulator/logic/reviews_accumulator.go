@@ -77,6 +77,7 @@ func (ra *ReviewsAccumulator) Run(indieReviewJoinersAmount int, negativeReviewPr
 		}
 
 		for _, review := range rawReviews {
+			log.Infof("Received review for app %d with review id %d", review.AppId, review.ReviewId)
 			if metrics, exists := clientAccumulatedReviews[review.AppId]; exists {
 				log.Infof("Accumulating review for app %d", review.AppId)
 				metrics.UpdateWithRawReview(review)
