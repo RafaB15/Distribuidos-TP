@@ -15,7 +15,7 @@ const (
 )
 
 type NegativeReviewsPreFilter struct {
-	ReceiveMessage func() (int, []*r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error)
+	ReceiveMessage func(tracker *n.MessageTracker) (int, []*r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, bool, error)
 	SendReview     func(int, int, *r.RawReview) error
 	AckLastMessage func() error
 	SendEndOfFile  func(int, int) error
@@ -23,7 +23,7 @@ type NegativeReviewsPreFilter struct {
 }
 
 func NewNegativeReviewsPreFilter(
-	receiveMessage func() (int, []*r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error),
+	receiveMessage func(tracker *n.MessageTracker) (int, []*r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, bool, error),
 	sendReview func(int, int, *r.RawReview) error,
 	ackLastMessage func() error,
 	sendEndOfFile func(int, int) error,
@@ -43,10 +43,12 @@ func (f *NegativeReviewsPreFilter) Run(repository *p.Repository, englishFiltersA
 	accumulatedRawReviewsMap := repository.LoadAccumulatedRawReviews()
 	gamesToSendMap := repository.LoadGamesToSend()
 
+	messageTracker := n.NewMessageTracker()
+
 	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, reviews, gameReviewsMetrics, eof, err := f.ReceiveMessage()
+		clientID, reviews, gameReviewsMetrics, eof, newMessage, err := f.ReceiveMessage(messageTracker)
 		if err != nil {
 			f.logger.Errorf("Failed to receive message: %v", err)
 			return
@@ -64,54 +66,58 @@ func (f *NegativeReviewsPreFilter) Run(repository *p.Repository, englishFiltersA
 			gamesToSendMap.Set(clientID, clientGamesToSend)
 		}
 
-		if eof {
-			f.logger.Info("Received EOF for client ", clientID)
+		if newMessage {
 
-			if !eofController.RegisterEOF(clientID) {
-				continue
+			if eof {
+				f.logger.Info("Received EOF for client ", clientID)
+
+				if !eofController.RegisterEOF(clientID) {
+					continue
+				}
+
+				f.logger.Info("Received all EOFs, sending EOFs")
+				err = f.SendEndOfFile(clientID, englishFiltersAmount)
+				if err != nil {
+					f.logger.Errorf("Failed to send EOF: %v", err)
+					return
+				}
+
+				err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, eofController)
+				if err != nil {
+					f.logger.Errorf("Failed to save data: %v", err)
+					return
+				}
+
+				err = f.AckLastMessage()
+				if err != nil {
+					f.logger.Errorf("Failed to ack last message: %v", err)
+					return
+				}
+				messagesUntilAck = AckBatchSize
+
+				accumulatedRawReviewsMap.Delete(clientID)
+				gamesToSendMap.Delete(clientID)
+				eofController.DeleteEOF(clientID)
 			}
 
-			f.logger.Info("Received all EOFs, sending EOFs")
-			err = f.SendEndOfFile(clientID, englishFiltersAmount)
-			if err != nil {
-				f.logger.Errorf("Failed to send EOF: %v", err)
-				return
+			if reviews != nil {
+				f.logger.Infof("Received review for client %d", clientID)
+				err := f.handleRawReviews(clientID, englishFiltersAmount, clientAccumulatedRawReviews, clientGamesToSend, reviews)
+				if err != nil {
+					f.logger.Errorf("Failed to handle raw reviews: %v", err)
+					return
+				}
 			}
 
-			err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, eofController)
-			if err != nil {
-				f.logger.Errorf("Failed to save data: %v", err)
-				return
+			if gameReviewsMetrics != nil {
+				f.logger.Infof("Received game reviews metrics for client %d", clientID)
+				err := f.handleGameReviewsMetrics(clientID, englishFiltersAmount, clientAccumulatedRawReviews, clientGamesToSend, gameReviewsMetrics)
+				if err != nil {
+					f.logger.Errorf("Failed to handle game reviews metrics: %v", err)
+					return
+				}
 			}
 
-			err = f.AckLastMessage()
-			if err != nil {
-				f.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
-			messagesUntilAck = AckBatchSize
-
-			accumulatedRawReviewsMap.Delete(clientID)
-			gamesToSendMap.Delete(clientID)
-			eofController.DeleteEOF(clientID)
-		}
-
-		if reviews != nil {
-			f.logger.Infof("Received review for client %d", clientID)
-			err := f.handleRawReviews(clientID, englishFiltersAmount, clientAccumulatedRawReviews, clientGamesToSend, reviews)
-			if err != nil {
-				f.logger.Errorf("Failed to handle raw reviews: %v", err)
-				return
-			}
-		}
-
-		if gameReviewsMetrics != nil {
-			f.logger.Infof("Received game reviews metrics for client %d", clientID)
-			err := f.handleGameReviewsMetrics(clientID, englishFiltersAmount, clientAccumulatedRawReviews, clientGamesToSend, gameReviewsMetrics)
-			if err != nil {
-				f.logger.Errorf("Failed to handle game reviews metrics: %v", err)
-				return
-			}
 		}
 
 		if messagesUntilAck == 0 {

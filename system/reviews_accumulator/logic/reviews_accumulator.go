@@ -82,7 +82,6 @@ func (ra *ReviewsAccumulator) Run(indieReviewJoinersAmount int, negativeReviewPr
 				log.Infof("Accumulating review for app %d", review.AppId)
 				metrics.UpdateWithRawReview(review)
 			} else {
-				log.Infof("Creating metrics for app %d", review.AppId)
 				newMetrics := r.NewReviewsMetrics(review.AppId)
 				newMetrics.UpdateWithRawReview(review)
 				clientAccumulatedReviews[review.AppId] = newMetrics

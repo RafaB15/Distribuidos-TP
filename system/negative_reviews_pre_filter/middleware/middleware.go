@@ -3,6 +3,7 @@ package middleware
 import (
 	sp "distribuidos-tp/internal/system_protocol"
 	"distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
@@ -55,35 +56,44 @@ func NewMiddleware(id int) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMessage() (int, []*r.RawReview, []*reviews_accumulator.GameReviewsMetrics, bool, error) {
+func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID int, rawReviews []*r.RawReview, reviewMetrics []*reviews_accumulator.GameReviewsMetrics, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.NegativePreFilterQueue.Consume()
 	if err != nil {
-		return 0, nil, nil, false, fmt.Errorf("failed to consume message: %v", err)
+		return 0, nil, nil, false, false, fmt.Errorf("failed to consume message: %v", err)
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
+		return 0, nil, nil, false, false, fmt.Errorf("failed to deserialize message: %v", err)
+	}
+
+	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
+	if err != nil {
+		return 0, nil, nil, false, false, fmt.Errorf("failed to process message: %v", err)
+	}
+
+	if !newMessage {
+		return message.ClientID, nil, nil, false, false, nil
 	}
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return message.ClientID, nil, nil, true, nil
+		return message.ClientID, nil, nil, true, true, nil
 	case sp.MsgRawReviewInformationBatch:
 		rawReviews, err := sp.DeserializeMsgRawReviewInformationBatch(message.Body)
 		if err != nil {
-			return message.ClientID, nil, nil, false, err
+			return message.ClientID, nil, nil, false, false, err
 		}
-		return message.ClientID, rawReviews, nil, false, nil
+		return message.ClientID, rawReviews, nil, false, true, nil
 
 	case sp.MsgGameReviewsMetrics:
 		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(message.Body)
 		if err != nil {
-			return message.ClientID, nil, nil, false, err
+			return message.ClientID, nil, nil, false, false, err
 		}
-		return message.ClientID, nil, gameReviewsMetrics, false, nil
+		return message.ClientID, nil, gameReviewsMetrics, false, true, nil
 	default:
-		return message.ClientID, nil, nil, false, fmt.Errorf("received unexpected message type: %v", message.Type)
+		return message.ClientID, nil, nil, false, false, fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
 }
 

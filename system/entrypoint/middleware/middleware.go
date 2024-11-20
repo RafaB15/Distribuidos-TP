@@ -97,8 +97,6 @@ func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmo
 		return 0, fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}
 
-	newReviewId := currentReviewId + len(rawReviews)
-
 	err = sendToReviewNode(clientID, negativeReviewsPreFiltersAmount, m.NegativePreFilterExchange, NegativePreFilterRoutingKeyPrefix, rawReviews)
 	if err != nil {
 		return 0, fmt.Errorf("failed to publish message to negative pre filter: %v", err)
@@ -109,7 +107,7 @@ func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmo
 		return 0, fmt.Errorf("failed to publish message to review mapper: %v", err)
 	}
 
-	return newReviewId, nil
+	return len(rawReviews), nil
 }
 
 func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview) error {
