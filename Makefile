@@ -25,7 +25,7 @@ docker-image-system:
 	docker build -f ./system/final_english_joiner/Dockerfile -t "final_english_joiner:latest" .
 	docker build -f ./system/final_percentile_joiner/Dockerfile -t "final_percentile_joiner:latest" .
 	docker build -f ./system/negative_reviews_pre_filter/Dockerfile -t "negative_reviews_pre_filter:latest" .
-	
+	docker build -f ./system/watchdog/Dockerfile -t "watchdog:latest" .	
 .PHONY: docker-image-system
 
 docker-compose-up: docker-image-system
