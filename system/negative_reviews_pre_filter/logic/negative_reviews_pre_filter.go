@@ -39,69 +39,34 @@ func NewNegativeReviewsPreFilter(
 }
 
 func (f *NegativeReviewsPreFilter) Run(repository *p.Repository, englishFiltersAmount int, accumulatorsAmount int) {
-	eofController := repository.LoadEOFController(accumulatorsAmount + 1)
+	messageTracker := repository.LoadMessageTracker(accumulatorsAmount + 1)
 	accumulatedRawReviewsMap := repository.LoadAccumulatedRawReviews()
 	gamesToSendMap := repository.LoadGamesToSend()
-
-	messageTracker := n.NewMessageTracker()
 
 	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, reviews, gameReviewsMetrics, eof, newMessage, err := f.ReceiveMessage(messageTracker)
+		clientID, reviews, gameReviewsMetrics, _, newMessage, err := f.ReceiveMessage(messageTracker)
 		if err != nil {
 			f.logger.Errorf("Failed to receive message: %v", err)
 			return
 		}
 
-		clientAccumulatedRawReviews, exists := accumulatedRawReviewsMap.Get(clientID)
-		if !exists {
-			clientAccumulatedRawReviews = repository.InitializeRawReviewMap()
-			accumulatedRawReviewsMap.Set(clientID, clientAccumulatedRawReviews)
-		}
-
-		clientGamesToSend, exists := gamesToSendMap.Get(clientID)
-		if !exists {
-			clientGamesToSend = repository.InitializeGamesToSendMap()
-			gamesToSendMap.Set(clientID, clientGamesToSend)
-		}
-
 		if newMessage {
 
-			if eof {
-				f.logger.Info("Received EOF for client ", clientID)
+			clientAccumulatedRawReviews, exists := accumulatedRawReviewsMap.Get(clientID)
+			if !exists {
+				clientAccumulatedRawReviews = repository.InitializeRawReviewMap()
+				accumulatedRawReviewsMap.Set(clientID, clientAccumulatedRawReviews)
+			}
 
-				if !eofController.RegisterEOF(clientID) {
-					continue
-				}
-
-				f.logger.Info("Received all EOFs, sending EOFs")
-				err = f.SendEndOfFile(clientID, englishFiltersAmount)
-				if err != nil {
-					f.logger.Errorf("Failed to send EOF: %v", err)
-					return
-				}
-
-				err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, eofController)
-				if err != nil {
-					f.logger.Errorf("Failed to save data: %v", err)
-					return
-				}
-
-				err = f.AckLastMessage()
-				if err != nil {
-					f.logger.Errorf("Failed to ack last message: %v", err)
-					return
-				}
-				messagesUntilAck = AckBatchSize
-
-				accumulatedRawReviewsMap.Delete(clientID)
-				gamesToSendMap.Delete(clientID)
-				eofController.DeleteEOF(clientID)
+			clientGamesToSend, exists := gamesToSendMap.Get(clientID)
+			if !exists {
+				clientGamesToSend = repository.InitializeGamesToSendMap()
+				gamesToSendMap.Set(clientID, clientGamesToSend)
 			}
 
 			if reviews != nil {
-				f.logger.Infof("Received review for client %d", clientID)
 				err := f.handleRawReviews(clientID, englishFiltersAmount, clientAccumulatedRawReviews, clientGamesToSend, reviews)
 				if err != nil {
 					f.logger.Errorf("Failed to handle raw reviews: %v", err)
@@ -118,10 +83,37 @@ func (f *NegativeReviewsPreFilter) Run(repository *p.Repository, englishFiltersA
 				}
 			}
 
+			if messageTracker.ClientFinished(clientID, f.logger) {
+				f.logger.Infof("Client %d finished", clientID)
+
+				f.logger.Info("Sending EOFs")
+				err = f.SendEndOfFile(clientID, englishFiltersAmount)
+				if err != nil {
+					f.logger.Errorf("Failed to send EOF: %v", err)
+					return
+				}
+
+				err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, messageTracker)
+				if err != nil {
+					f.logger.Errorf("Failed to save data: %v", err)
+					return
+				}
+
+				err = f.AckLastMessage()
+				if err != nil {
+					f.logger.Errorf("Failed to ack last message: %v", err)
+					return
+				}
+				messagesUntilAck = AckBatchSize
+
+				accumulatedRawReviewsMap.Delete(clientID)
+				gamesToSendMap.Delete(clientID)
+				messageTracker.DeleteEOF(clientID)
+			}
 		}
 
 		if messagesUntilAck == 0 {
-			err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, eofController)
+			err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, messageTracker)
 			if err != nil {
 				f.logger.Errorf("Failed to save data: %v", err)
 				return
@@ -156,7 +148,7 @@ func (f *NegativeReviewsPreFilter) handleRawReviews(clientId int, englishFilters
 			if !rawReview.Positive {
 				currentReviews, _ := clientAccumulatedRawReviews.Get(int(rawReview.AppId))
 				clientAccumulatedRawReviews.Set(int(rawReview.AppId), append(currentReviews, rawReview))
-				f.logger.Infof("Accumulated review for client %d", clientId)
+				// f.logger.Infof("Accumulated review for client %d", clientId)
 			}
 		}
 	}
@@ -174,7 +166,7 @@ func (f *NegativeReviewsPreFilter) handleGameReviewsMetrics(clientId int, englis
 						f.logger.Errorf("Failed to send review: %v", err)
 						return err
 					}
-					f.logger.Infof("Sent review for client %d", clientId)
+					// f.logger.Infof("Sent review for client %d", clientId)
 				}
 				clientAccumulatedRawReviews.Delete(int(gameReviewsMetric.AppID))
 			}

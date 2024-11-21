@@ -7,6 +7,7 @@ import (
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
+	"strconv"
 )
 
 const (
@@ -103,7 +104,7 @@ func (m *Middleware) ReceiveReviews() (int, []*reviews.RawReview, bool, error) {
 	}
 }
 
-func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics, indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int) error {
+func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics, indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int, sentMessages map[int]int) error {
 	keyMap := idMapToKeyMap(accumulatedReviews, indieReviewJoinersAmount, IndieReviewJoinExchangeRoutingKeyPrefix)
 
 	for routingKey, metrics := range keyMap {
@@ -128,12 +129,19 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map
 		if err != nil {
 			return err
 		}
+
+		lastChar := string(routingKey[len(routingKey)-1])
+		key, err := strconv.Atoi(lastChar)
+		if err != nil {
+			return fmt.Errorf("failed to convert routing key to int: %v", err)
+		}
+		sentMessages[key]++
 	}
 
 	return nil
 }
 
-func (m *Middleware) SendEof(clientID int, indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int) error {
+func (m *Middleware) SendEof(clientID int, senderID int, indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int, sentMessages map[int]int) error {
 	err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
 		return err
@@ -147,7 +155,7 @@ func (m *Middleware) SendEof(clientID int, indieReviewJoinersAmount int, negativ
 	}
 
 	for nodeId := 1; nodeId <= negativeReviewPreFiltersAmount; nodeId++ {
-		err = m.NegativeReviewsPreFilter.Publish(fmt.Sprintf("%s%d", NegativePreFilterRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFile(clientID))
+		err = m.NegativeReviewsPreFilter.Publish(fmt.Sprintf("%s%d", NegativePreFilterRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFileV2(clientID, senderID, sentMessages[nodeId]))
 		fmt.Printf("Sending EOF to negative pre filter %d\n", nodeId)
 		if err != nil {
 			return err

@@ -18,7 +18,7 @@ const (
 type Repository struct {
 	accumulatedRawReviewsPersister *p.Persister[*n.IntMap[*n.IntMap[[]*rv.RawReview]]]
 	gamesToSendPersister           *p.Persister[*n.IntMap[*n.IntMap[bool]]]
-	eofControllerPersister         *p.Persister[*n.EndOfFileController]
+	messageTrackerPersister        *p.Persister[*n.MessageTracker]
 	logger                         *logging.Logger
 }
 
@@ -31,12 +31,12 @@ func NewRepository(wg *sync.WaitGroup, logger *logging.Logger) *Repository {
 	accumulatedGamesToSendMap := n.NewIntMap(gamesToSendMap.Serialize, gamesToSendMap.Deserialize)
 	gamesToSendPersister := p.NewPersister(GamesToSendFileName, accumulatedGamesToSendMap.Serialize, accumulatedGamesToSendMap.Deserialize, wg, logger)
 
-	eofControllerPersister := p.NewPersister("eof_controller", n.SerializeEndOfFileController, n.DeserializeEndOfFileController, wg, logger)
+	messageTrackerPersister := p.NewPersister("message_tracker", n.SerializeMessageTracker, n.DeserializeMessageTracker, wg, logger)
 
 	return &Repository{
 		accumulatedRawReviewsPersister: accumulatedRawReviewsPersister,
 		gamesToSendPersister:           gamesToSendPersister,
-		eofControllerPersister:         eofControllerPersister,
+		messageTrackerPersister:        messageTrackerPersister,
 		logger:                         logger,
 	}
 }
@@ -71,17 +71,17 @@ func (r *Repository) LoadGamesToSend() *n.IntMap[*n.IntMap[bool]] {
 	return gamesToSend
 }
 
-func (r *Repository) SaveEOFController(eofController *n.EndOfFileController) error {
-	return r.eofControllerPersister.Save(eofController)
+func (r *Repository) SaveMessageTracker(messageTracker *n.MessageTracker) error {
+	return r.messageTrackerPersister.Save(messageTracker)
 }
 
-func (r *Repository) LoadEOFController(expectedEOFs int) *n.EndOfFileController {
-	eofController, err := r.eofControllerPersister.Load()
+func (r *Repository) LoadMessageTracker(expectedEOFs int) *n.MessageTracker {
+	messageTracker, err := r.messageTrackerPersister.Load()
 	if err != nil {
-		r.logger.Errorf("Failed to load EOF controller from file: %v. Returning new one", err)
-		return n.NewEndOfFileController(expectedEOFs)
+		r.logger.Errorf("Failed to load message tracker from file: %v. Returning new one", err)
+		return n.NewMessageTracker(expectedEOFs)
 	}
-	return eofController
+	return messageTracker
 }
 
 func (r *Repository) InitializeRawReviewMap() *n.IntMap[[]*rv.RawReview] {
@@ -92,7 +92,7 @@ func (r *Repository) InitializeGamesToSendMap() *n.IntMap[bool] {
 	return n.NewIntMap(u.SerializeBool, u.DeserializeBool)
 }
 
-func (r *Repository) SaveAll(accumulatedRawReviewsMap *n.IntMap[*n.IntMap[[]*rv.RawReview]], gamesToSendMap *n.IntMap[*n.IntMap[bool]], eofController *n.EndOfFileController) error {
+func (r *Repository) SaveAll(accumulatedRawReviewsMap *n.IntMap[*n.IntMap[[]*rv.RawReview]], gamesToSendMap *n.IntMap[*n.IntMap[bool]], messageTracker *n.MessageTracker) error {
 	err := r.SaveAccumulatedRawReviews(accumulatedRawReviewsMap)
 	if err != nil {
 		return fmt.Errorf("failed to save accumulated raw reviews: %v", err)
@@ -103,9 +103,9 @@ func (r *Repository) SaveAll(accumulatedRawReviewsMap *n.IntMap[*n.IntMap[[]*rv.
 		return fmt.Errorf("failed to save games to send: %v", err)
 	}
 
-	err = r.SaveEOFController(eofController)
+	err = r.SaveMessageTracker(messageTracker)
 	if err != nil {
-		return fmt.Errorf("failed to save EOF controller: %v", err)
+		return fmt.Errorf("failed to save message tracker: %v", err)
 	}
 
 	return nil

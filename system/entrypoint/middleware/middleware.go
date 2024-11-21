@@ -9,6 +9,7 @@ import (
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
+	"strconv"
 )
 
 const (
@@ -91,13 +92,13 @@ func (m *Middleware) SendGamesBatch(clientID int, data []byte) error {
 	return nil
 }
 
-func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int) (int, error) {
+func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, sentMessages map[int]int) (int, error) {
 	rawReviews, err := getDeserializedRawReviews(data, currentReviewId)
 	if err != nil {
 		return 0, fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}
 
-	err = sendToReviewNode(clientID, negativeReviewsPreFiltersAmount, m.NegativePreFilterExchange, NegativePreFilterRoutingKeyPrefix, rawReviews)
+	err = sendToReviewNodeV2(clientID, negativeReviewsPreFiltersAmount, m.NegativePreFilterExchange, NegativePreFilterRoutingKeyPrefix, rawReviews, sentMessages)
 	if err != nil {
 		return 0, fmt.Errorf("failed to publish message to negative pre filter: %v", err)
 	}
@@ -128,6 +129,30 @@ func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, rou
 	return nil
 }
 
+func sendToReviewNodeV2(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview, messagesSent map[int]int) error {
+	routingKeyMap := make(map[string][]*r.RawReview)
+	for _, rawReview := range rawReviews {
+		routingKey := u.GetPartitioningKeyFromInt(int(rawReview.AppId), nodesAmount, routingKeyPrefix)
+		routingKeyMap[routingKey] = append(routingKeyMap[routingKey], rawReview)
+	}
+
+	for routingKey, reviews := range routingKeyMap {
+		serializedReviews := sp.SerializeMsgRawReviewInformationBatch(clientID, reviews)
+		err := exchange.Publish(routingKey, serializedReviews)
+		if err != nil {
+			return fmt.Errorf("failed to publish message: %v", err)
+		}
+		lastChar := string(routingKey[len(routingKey)-1])
+		key, err := strconv.Atoi(lastChar)
+		if err != nil {
+			return fmt.Errorf("failed to convert routing key to int: %v", err)
+		}
+		messagesSent[key]++
+	}
+
+	return nil
+}
+
 func getDeserializedRawReviews(data []byte, currentReviewId int) ([]*r.RawReview, error) {
 	lines, err := sp.DeserializeMsgBatch(data)
 	if err != nil {
@@ -151,10 +176,10 @@ func (m *Middleware) SendGamesEndOfFile(clientID int) error {
 	return nil
 }
 
-func (m *Middleware) SendReviewsEndOfFile(clientID int, negativeReviewsPreFiltersAmount int, reviewMappersAmount int) error {
+func (m *Middleware) SendReviewsEndOfFile(clientID int, negativeReviewsPreFiltersAmount int, reviewMappersAmount int, sentMessages map[int]int) error {
 	for i := 1; i <= negativeReviewsPreFiltersAmount; i++ {
 		negativePreFilterRoutingKey := fmt.Sprintf("%s%d", NegativePreFilterRoutingKeyPrefix, i)
-		err := m.NegativePreFilterExchange.Publish(negativePreFilterRoutingKey, sp.SerializeMsgEndOfFile(clientID))
+		err := m.NegativePreFilterExchange.Publish(negativePreFilterRoutingKey, sp.SerializeMsgEndOfFileV2(clientID, 0, sentMessages[i]))
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}

@@ -54,7 +54,7 @@ func main() {
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		reviewsAccumulator.Run(indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
+		reviewsAccumulator.Run(id, indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
 		doneChannel <- true
 	}()
 

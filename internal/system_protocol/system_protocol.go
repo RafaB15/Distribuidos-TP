@@ -6,6 +6,7 @@ import (
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	g "distribuidos-tp/internal/system_protocol/games"
 	j "distribuidos-tp/internal/system_protocol/joiner"
+	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/binary"
 	"errors"
@@ -32,6 +33,16 @@ const (
 // SerializeMsgEndOfFile Message End of file
 func SerializeMsgEndOfFile(clientId int) []byte {
 	return SerializeMessage(MsgEndOfFile, clientId, nil)
+}
+
+func SerializeMsgEndOfFileV2(clientId int, senderID int, messagesSent int) []byte {
+	endOfFile := n.NewEndOfFile(senderID, messagesSent)
+	return SerializeMessage(MsgEndOfFile, clientId, endOfFile.Serialize())
+}
+
+func DeserializeMsgEndOfFile(data []byte) (*n.EndOfFile, error) {
+	endOfFile, err := n.DeserializeEOF(data)
+	return endOfFile, err
 }
 
 // --------------------------------------------------------

@@ -89,3 +89,7 @@ func (m *IntMap[T]) Deserialize(serializedMap []byte) (*IntMap[T], error) {
 
 	return newClientMap, nil
 }
+
+func (m *IntMap[T]) Size() int {
+	return len(m.contents)
+}

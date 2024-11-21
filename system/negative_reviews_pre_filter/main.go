@@ -46,7 +46,7 @@ func main() {
 		return
 	}
 
-	middleware, err := m.NewMiddleware(id)
+	middleware, err := m.NewMiddleware(id, log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return

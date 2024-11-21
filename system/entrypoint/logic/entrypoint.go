@@ -12,17 +12,17 @@ var log = logging.MustGetLogger("log")
 
 type EntryPoint struct {
 	SendGamesBatch       func(int, []byte) error
-	SendReviewsBatch     func(int, int, int, []byte, int) (int, error)
+	SendReviewsBatch     func(int, int, int, []byte, int, map[int]int) (int, error)
 	SendGamesEndOfFile   func(int) error
-	SendReviewsEndOfFile func(int, int, int) error
+	SendReviewsEndOfFile func(int, int, int, map[int]int) error
 	ReceiveQueryResult   func() ([]byte, error)
 }
 
 func NewEntryPoint(
 	sendGamesBatch func(int, []byte) error,
-	sendReviewsBatch func(int, int, int, []byte, int) (int, error),
+	sendReviewsBatch func(int, int, int, []byte, int, map[int]int) (int, error),
 	sendGamesEndOfFile func(int) error,
-	sendReviewsEndOfFile func(int, int, int) error,
+	sendReviewsEndOfFile func(int, int, int, map[int]int) error,
 	receiveQueryResponse func() ([]byte, error),
 ) *EntryPoint {
 	return &EntryPoint{
@@ -38,6 +38,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, negativeReviewsPreFiltersA
 	eofGames := false
 	eofReviews := false
 
+	messagesSent := make(map[int]int)
 	currentReviewId := 0
 
 	for !eofGames || !eofReviews {
@@ -54,7 +55,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, negativeReviewsPreFiltersA
 				return
 			}
 		} else {
-			reviewsSent, err := e.SendReviewsBatch(clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount, data, currentReviewId)
+			reviewsSent, err := e.SendReviewsBatch(clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount, data, currentReviewId, messagesSent)
 			if err != nil {
 				log.Errorf("Error sending batch for client %d: %v", clientID, err)
 				return
@@ -68,7 +69,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, negativeReviewsPreFiltersA
 				log.Infof("End of file message published for games with clientID %d", clientID)
 				eofGames = true
 			} else {
-				err = e.SendReviewsEndOfFile(clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount)
+				err = e.SendReviewsEndOfFile(clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount, messagesSent)
 				log.Infof("End of file message published for reviews with clientID %d", clientID)
 				eofReviews = true
 			}

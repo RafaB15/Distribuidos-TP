@@ -8,6 +8,7 @@ import (
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
+	"github.com/op/go-logging"
 )
 
 const (
@@ -28,9 +29,10 @@ type Middleware struct {
 	Manager                   *mom.MiddlewareManager
 	NegativePreFilterQueue    *mom.Queue
 	RawEnglishReviewsExchange *mom.Exchange
+	logger                    *logging.Logger
 }
 
-func NewMiddleware(id int) (*Middleware, error) {
+func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, err
@@ -53,6 +55,7 @@ func NewMiddleware(id int) (*Middleware, error) {
 		Manager:                   manager,
 		NegativePreFilterQueue:    negativePreFilterQueue,
 		RawEnglishReviewsExchange: rawEnglishReviewsExchange,
+		logger:                    logger,
 	}, nil
 }
 
@@ -78,6 +81,23 @@ func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID 
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
+		m.logger.Infof("Received EOF from client %d", message.ClientID)
+		if message.Body == nil {
+			m.logger.Errorf("EOF message body is nil")
+		} else {
+			m.logger.Infof("EOF message body: %v", message.Body)
+			m.logger.Infof("EOF message body length: %v", len(message.Body))
+		}
+		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
+		if err != nil {
+			return message.ClientID, nil, nil, false, false, err
+		}
+
+		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
+		if err != nil {
+			return message.ClientID, nil, nil, false, false, err
+		}
+
 		return message.ClientID, nil, nil, true, true, nil
 	case sp.MsgRawReviewInformationBatch:
 		rawReviews, err := sp.DeserializeMsgRawReviewInformationBatch(message.Body)
@@ -117,7 +137,7 @@ func (m *Middleware) SendEndOfFile(clientID int, englishFiltersAmount int) error
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}
-		fmt.Printf("Sent EOF to english filter %d with routing key %s\n", i, routingKey)
+		m.logger.Infof("Sent EOF to english filter %d with routing key %s", i, routingKey)
 	}
 
 	return nil
