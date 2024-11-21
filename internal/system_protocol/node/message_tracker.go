@@ -127,12 +127,12 @@ func DeserializeMessageTracker(data []byte) (*MessageTracker, error) {
 
 	offset := 0
 
-	length, err := u.DeserializeInt(data[offset:])
+	length, err := u.DeserializeInt(data[offset : offset+8])
 	if err != nil {
 		return nil, err
 	}
 
-	offset += 4
+	offset += 8
 
 	processedMessagesData := data[offset : offset+length]
 	deserializedProcessedMessages, err := processedMessages.Deserialize(processedMessagesData)
@@ -142,7 +142,7 @@ func DeserializeMessageTracker(data []byte) (*MessageTracker, error) {
 
 	offset += length
 
-	length, err = u.DeserializeInt(data[offset:])
+	length, err = u.DeserializeInt(data[offset : offset+8])
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func DeserializeMessageTracker(data []byte) (*MessageTracker, error) {
 
 	offset += length
 
-	length, err = u.DeserializeInt(data[offset:])
+	length, err = u.DeserializeInt(data[offset : offset+8])
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func DeserializeMessageTracker(data []byte) (*MessageTracker, error) {
 
 	offset += length
 
-	expectedEOFs, err := u.DeserializeInt(data[offset:])
+	expectedEOFs, err := u.DeserializeInt(data[offset : offset+8])
 	if err != nil {
 		return nil, err
 	}

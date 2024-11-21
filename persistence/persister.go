@@ -13,6 +13,7 @@ import (
 const (
 	CopySuffix     = "_old"
 	FileLengthSize = 8
+	SyncNumberSize = 8
 )
 
 type Persister[T any] struct {
@@ -27,7 +28,7 @@ func NewPersister[T any](fileName string, serialize func(T) []byte, deserialize 
 	return &Persister[T]{fileName, serialize, deserialize, wg, logger}
 }
 
-func (p *Persister[T]) Save(data T) error {
+func (p *Persister[T]) Save(data T, syncNumber uint64) error {
 	serializedData := p.serialize(data)
 
 	p.wg.Add(1)
@@ -54,8 +55,14 @@ func (p *Persister[T]) Save(data T) error {
 		p.wg.Done()
 	}()
 
-	lengthBytes := make([]byte, FileLengthSize)
-	binary.BigEndian.PutUint64(lengthBytes, uint64(len(serializedData)))
+	syncNumberBytes := u.SerializeInt(int(syncNumber))
+
+	err = u.WriteExact(file, syncNumberBytes)
+	if err != nil {
+		return err
+	}
+
+	lengthBytes := u.SerializeInt(len(serializedData))
 
 	err = u.WriteExact(file, lengthBytes)
 	if err != nil {
@@ -70,36 +77,46 @@ func (p *Persister[T]) Save(data T) error {
 	return nil
 }
 
-func (p *Persister[T]) Load() (T, error) {
+func (p *Persister[T]) LoadPrimaryFile() (T, uint64, error) {
+	return p.loadFile(p.fileName)
+}
+
+func (p *Persister[T]) LoadBackupFile() (T, uint64, error) {
+	return p.loadFile(p.fileName + CopySuffix)
+}
+
+func (p *Persister[T]) Load() (T, uint64, error) {
 	var zero T
 	p.wg.Add(1)
 	defer p.wg.Done()
 
 	// We try to load the primary file
-	data, err := p.loadFile(p.fileName)
+	persistedStructure, syncNumber, err := p.loadFile(p.fileName)
 	if err == nil {
 		p.logger.Infof("Loaded data from primary file: %s", p.fileName)
-		return p.deserialize(data)
+		return persistedStructure, syncNumber, nil
 	} else {
 		p.logger.Errorf("Failed to load data from primary file: %v", err)
 	}
 
 	// If there were problems with the primary, we try to load the backup file
-	data, err = p.loadFile(p.fileName + CopySuffix)
+	persistedStructure, syncNumber, err = p.loadFile(p.fileName)
 	if err == nil {
 		p.logger.Infof("Loaded data from backup file: %s", p.fileName+CopySuffix)
-		return p.deserialize(data)
+		return persistedStructure, syncNumber, nil
 	} else {
-		p.logger.Errorf("Failed to load data from backup file: %v", err)
+		p.logger.Errorf("Failed to load data from backupfile file: %v", err)
 	}
 
-	return zero, fmt.Errorf("failed to load data from both primary and backup files: %v", err)
+	return zero, 0, fmt.Errorf("failed to load data from both primary and backup files: %v", err)
 }
 
-func (p *Persister[T]) loadFile(fileName string) ([]byte, error) {
+func (p *Persister[T]) loadFile(fileName string) (T, uint64, error) {
+	var zero T
+
 	file, err := os.OpenFile(fileName, os.O_RDONLY, 0644)
 	if err != nil {
-		return nil, err
+		return zero, 0, err
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
@@ -107,16 +124,27 @@ func (p *Persister[T]) loadFile(fileName string) ([]byte, error) {
 		}
 	}()
 
+	syncNumberBytes, err := u.ReadExact(file, SyncNumberSize)
+	if err != nil {
+		return zero, 0, err
+	}
+	syncNumber := binary.BigEndian.Uint64(syncNumberBytes)
+
 	fileLengthBytes, err := u.ReadExact(file, FileLengthSize)
 	if err != nil {
-		return nil, err
+		return zero, 0, err
 	}
-
 	fileLength := binary.BigEndian.Uint64(fileLengthBytes)
+
 	data, err := u.ReadExact(file, int(fileLength))
 	if err != nil {
-		return nil, err
+		return zero, 0, err
 	}
 
-	return data, nil
+	deserializedStruct, err := p.deserialize(data)
+	if err != nil {
+		return zero, 0, err
+	}
+
+	return deserializedStruct, syncNumber, nil
 }

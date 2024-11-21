@@ -39,9 +39,11 @@ func NewNegativeReviewsPreFilter(
 }
 
 func (f *NegativeReviewsPreFilter) Run(repository *p.Repository, englishFiltersAmount int, accumulatorsAmount int) {
-	messageTracker := repository.LoadMessageTracker(accumulatorsAmount + 1)
-	accumulatedRawReviewsMap := repository.LoadAccumulatedRawReviews()
-	gamesToSendMap := repository.LoadGamesToSend()
+	accumulatedRawReviewsMap, gamesToSendMap, messageTracker, syncNumber, err := repository.LoadAll(accumulatorsAmount + 1)
+	if err != nil {
+		f.logger.Errorf("Failed to load data: %v", err)
+		return
+	}
 
 	messagesUntilAck := AckBatchSize
 
@@ -93,27 +95,30 @@ func (f *NegativeReviewsPreFilter) Run(repository *p.Repository, englishFiltersA
 					return
 				}
 
-				err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, messageTracker)
+				accumulatedRawReviewsMap.Delete(clientID)
+				gamesToSendMap.Delete(clientID)
+				messageTracker.DeleteEOF(clientID) //Sería mejor borrar toda la info
+
+				syncNumber++
+				err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, messageTracker, syncNumber)
 				if err != nil {
 					f.logger.Errorf("Failed to save data: %v", err)
 					return
 				}
 
+				messagesUntilAck = AckBatchSize
 				err = f.AckLastMessage()
 				if err != nil {
 					f.logger.Errorf("Failed to ack last message: %v", err)
 					return
 				}
-				messagesUntilAck = AckBatchSize
 
-				accumulatedRawReviewsMap.Delete(clientID)
-				gamesToSendMap.Delete(clientID)
-				messageTracker.DeleteEOF(clientID)
 			}
 		}
 
 		if messagesUntilAck == 0 {
-			err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, messageTracker)
+			syncNumber++
+			err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, messageTracker, syncNumber)
 			if err != nil {
 				f.logger.Errorf("Failed to save data: %v", err)
 				return
