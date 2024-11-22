@@ -1,23 +1,33 @@
 package english_reviews_filter
 
 import (
+	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"github.com/op/go-logging"
 )
 
+const (
+	AckBatchSize = 100
+)
+
+type ReceiveGameReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, rawReview *r.RawReview, eof bool, newMessage bool, e error)
+type SendEnglishReviewFunc func(clientID int, review *r.Review, englishAccumulatorsAmount int) error
+type SendEndOfFilesFunc func(clientID int, accumulatorsAmount int) error
+type AckLastMessageFunc func() error
+
 type EnglishReviewsFilter struct {
-	ReceiveGameReviews func() (int, *r.RawReview, bool, error)
-	SendEnglishReview  func(clientID int, review *r.Review, englishAccumulatorsAmount int) error
-	SendEnfOfFiles     func(clientID int, accumulatorsAmount int) error
-	AckLastMessage     func() error
-	Logger             *logging.Logger
+	ReceiveGameReviews ReceiveGameReviewsFunc
+	SendEnglishReview  SendEnglishReviewFunc
+	SendEnfOfFiles     SendEndOfFilesFunc
+	AckLastMessage     AckLastMessageFunc
+	logger             *logging.Logger
 }
 
 func NewEnglishReviewsFilter(
-	receiveGameReviews func() (int, *r.RawReview, bool, error),
-	sendEnglishReviews func(int, *r.Review, int) error,
-	sendEndOfFiles func(int, int) error,
-	ackLastMessage func() error,
+	receiveGameReviews ReceiveGameReviewsFunc,
+	sendEnglishReviews SendEnglishReviewFunc,
+	sendEndOfFiles SendEndOfFilesFunc,
+	ackLastMessage AckLastMessageFunc,
 	logger *logging.Logger,
 ) *EnglishReviewsFilter {
 	return &EnglishReviewsFilter{
@@ -25,72 +35,67 @@ func NewEnglishReviewsFilter(
 		SendEnglishReview:  sendEnglishReviews,
 		SendEnfOfFiles:     sendEndOfFiles,
 		AckLastMessage:     ackLastMessage,
-		Logger:             logger,
+		logger:             logger,
 	}
 }
 
 func (f *EnglishReviewsFilter) Run(accumulatorsAmount int, negativeReviewsPreFilterAmount int) {
-	remainingEOFsMap := make(map[int]int)
+	messageTracker := n.NewMessageTracker(negativeReviewsPreFilterAmount)
+
+	messagesUntilAck := AckBatchSize
+
 	languageIdentifier := r.NewLanguageIdentifier()
 
 	for {
-		clientID, rawReview, eof, err := f.ReceiveGameReviews()
+		clientID, rawReview, eof, newMessage, err := f.ReceiveGameReviews(messageTracker)
 		if err != nil {
-			f.Logger.Errorf("Failed to receive game review: %v", err)
+			f.logger.Errorf("Failed to receive game review: %v", err)
 			return
 		}
 
-		if eof {
-			f.Logger.Info("Received EOF for client ", clientID)
-
-			remainingEOFs, exists := remainingEOFsMap[clientID]
-			if !exists {
-				remainingEOFs = negativeReviewsPreFilterAmount
-			}
-			f.Logger.Infof("Remaining EOFs: %d", remainingEOFs)
-			remainingEOFs--
-			f.Logger.Infof("Remaining EOFs AFTER: %d", remainingEOFs)
-			remainingEOFsMap[clientID] = remainingEOFs
-			if remainingEOFs > 0 {
-				err := f.AckLastMessage()
+		if newMessage && !eof {
+			if languageIdentifier.IsEnglish(rawReview.ReviewText) {
+				review := r.NewReview(rawReview.AppId, rawReview.Positive)
+				err := f.SendEnglishReview(clientID, review, accumulatorsAmount)
 				if err != nil {
-					f.Logger.Errorf("Failed to ack last message: %v", err)
+					f.logger.Errorf("Failed to send english review: %v", err)
 					return
 				}
-				continue
+				f.logger.Infof("Sent english review for app %d", rawReview.AppId)
+			} else {
+				f.logger.Infof("Review for app %d is not in english", rawReview.AppId)
 			}
-			f.Logger.Info("Received all EOFs, sending EOFs")
-			err = f.SendEnfOfFiles(clientID, accumulatorsAmount)
-			if err != nil {
-				f.Logger.Errorf("Failed to send EOF: %v", err)
-				return
-			}
-			err = f.AckLastMessage()
-			if err != nil {
-				f.Logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
-			delete(remainingEOFsMap, clientID)
-			continue
 		}
 
-		f.Logger.Debugf("Before entering if statement")
-		if languageIdentifier.IsEnglish(rawReview.ReviewText) {
-			f.Logger.Infof("About to check if the review is in english")
-			review := r.NewReview(rawReview.AppId, rawReview.Positive)
-			err := f.SendEnglishReview(clientID, review, accumulatorsAmount)
+		if messageTracker.ClientFinished(clientID, f.logger) {
+			f.logger.Infof("Client %d finished", clientID)
+
+			f.logger.Info("Sending EOFs")
+			err = f.SendEnfOfFiles(clientID, accumulatorsAmount)
 			if err != nil {
-				f.Logger.Errorf("Failed to send english review: %v", err)
+				f.logger.Errorf("Failed to send EOF: %v", err)
 				return
 			}
-			f.Logger.Infof("Sent english review for app %d", rawReview.AppId)
-		} else {
-			f.Logger.Infof("Review for app %d is not in english", rawReview.AppId)
+
+			messageTracker.DeleteClientInfo(clientID)
+
+			messagesUntilAck = AckBatchSize
+			err = f.AckLastMessage()
+			if err != nil {
+				f.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
 		}
-		err = f.AckLastMessage()
-		if err != nil {
-			f.Logger.Errorf("Failed to ack last message: %v", err)
-			return
+
+		if messagesUntilAck == 0 {
+			err = f.AckLastMessage()
+			if err != nil {
+				f.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+			messagesUntilAck = AckBatchSize
+		} else {
+			messagesUntilAck--
 		}
 	}
 }

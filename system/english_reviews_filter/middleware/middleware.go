@@ -2,6 +2,7 @@ package middleware
 
 import (
 	sp "distribuidos-tp/internal/system_protocol"
+	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
@@ -26,7 +27,7 @@ type Middleware struct {
 	Manager                *mom.MiddlewareManager
 	RawEnglishReviewsQueue *mom.Queue
 	EnglishReviewsExchange *mom.Exchange
-	Logger                 *logging.Logger
+	logger                 *logging.Logger
 }
 
 func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
@@ -54,32 +55,52 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 		Manager:                manager,
 		RawEnglishReviewsQueue: rawEnglishReviewsQueue,
 		EnglishReviewsExchange: englishReviewsExchange,
-		Logger:                 logger,
+		logger:                 logger,
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameReviews() (int, *r.RawReview, bool, error) {
+func (m *Middleware) ReceiveGameReviews(messageTracker *n.MessageTracker) (clientID int, rawReview *r.RawReview, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.RawEnglishReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("failed to consume message: %v", err)
+		return 0, nil, false, false, fmt.Errorf("failed to consume message: %v", err)
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
+		return 0, nil, false, false, fmt.Errorf("failed to deserialize message: %v", err)
+	}
+
+	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
+	if err != nil {
+		return 0, nil, false, false, fmt.Errorf("failed to process message: %v", err)
+	}
+
+	if !newMessage {
+		return message.ClientID, nil, false, false, nil
 	}
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return message.ClientID, nil, true, nil
+		m.logger.Infof("Received EOF from client %d", message.ClientID)
+		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
+		if err != nil {
+			return message.ClientID, nil, false, false, err
+		}
+
+		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
+		if err != nil {
+			return message.ClientID, nil, false, false, err
+		}
+
+		return message.ClientID, nil, true, true, nil
 	case sp.MsgRawReviewInformation:
 		rawReview, err := sp.DeserializeMsgRawReviewInformation(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, err
+			return message.ClientID, nil, false, true, err
 		}
-		return message.ClientID, rawReview, false, nil
+		return message.ClientID, rawReview, false, true, nil
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %d", message.Type)
+		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %d", message.Type)
 	}
 }
 
@@ -92,7 +113,7 @@ func (m *Middleware) SendEnglishReview(clientID int, review *r.Review, englishAc
 		return fmt.Errorf("failed to publish message: %v", err)
 	}
 
-	m.Logger.Infof("Sent review for client %d", clientID)
+	m.logger.Infof("Sent review for client %d", clientID)
 
 	return nil
 }
@@ -114,7 +135,7 @@ func (m *Middleware) AckLastMessage() error {
 	if err != nil {
 		return fmt.Errorf("failed to ack last message: %v", err)
 	}
-	m.Logger.Infof("Acked last message")
+	m.logger.Infof("Acked last message")
 	return nil
 }
 

@@ -181,7 +181,7 @@ func startHeartbeat() {
 
 func performLeaderTask() {
 	for {
-		// time.Sleep(20 * time.Second) // Adjust the interval as needed
+		time.Sleep(5 * time.Second) // Adjust the interval as needed
 		isLeaderMutex.Lock()
 		if isLeader {
 			fmt.Printf("Node %d is performing the leader task\n", nodeID)

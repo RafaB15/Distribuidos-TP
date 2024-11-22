@@ -82,12 +82,6 @@ func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID 
 	switch message.Type {
 	case sp.MsgEndOfFile:
 		m.logger.Infof("Received EOF from client %d", message.ClientID)
-		if message.Body == nil {
-			m.logger.Errorf("EOF message body is nil")
-		} else {
-			m.logger.Infof("EOF message body: %v", message.Body)
-			m.logger.Infof("EOF message body length: %v", len(message.Body))
-		}
 		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
 			return message.ClientID, nil, nil, false, false, err
@@ -117,22 +111,25 @@ func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID 
 	}
 }
 
-func (m *Middleware) SendRawReview(clientID int, englishFiltersAmount int, rawReview *r.RawReview) error {
-	nodeId := u.GetRandomNumber(englishFiltersAmount)
-	routingKey := fmt.Sprintf("%s%d", RawEnglishReviewsRoutingKeyPrefix, nodeId)
+func (m *Middleware) SendRawReview(clientID int, englishFiltersAmount int, rawReview *r.RawReview, messageTracker *n.MessageTracker) error {
+	routingKey := u.GetPartitioningKeyFromInt(int(rawReview.ReviewId), englishFiltersAmount, RawEnglishReviewsRoutingKeyPrefix)
 	serializedMsg := sp.SerializeMsgRawReviewInformation(clientID, rawReview)
 	err := m.RawEnglishReviewsExchange.Publish(routingKey, serializedMsg)
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %v", err)
 	}
+	messageTracker.RegisterSentMessage(clientID, routingKey)
 
 	return nil
 }
 
-func (m *Middleware) SendEndOfFile(clientID int, englishFiltersAmount int) error {
+func (m *Middleware) SendEndOfFile(clientID int, senderID int, englishFiltersAmount int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+
 	for i := 1; i <= englishFiltersAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", RawEnglishReviewsRoutingKeyPrefix, i)
-		serializedMsg := sp.SerializeMsgEndOfFile(clientID)
+		messagesSentToNode := messagesSent[routingKey]
+		serializedMsg := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
 		err := m.RawEnglishReviewsExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)

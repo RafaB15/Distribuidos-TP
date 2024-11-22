@@ -126,6 +126,10 @@ func (r *Repository) SaveAll(accumulatedRawReviewsMap *n.IntMap[*n.IntMap[[]*rv.
 		return fmt.Errorf("failed to save games to send: %v", err)
 	}
 
+	//if rand.Float32() < 0.05 {
+	//	return fmt.Errorf("simulated random error")
+	//}
+
 	err = r.SaveMessageTracker(messageTracker, syncNumber)
 	if err != nil {
 		return fmt.Errorf("failed to save message tracker: %v", err)
@@ -136,8 +140,13 @@ func (r *Repository) SaveAll(accumulatedRawReviewsMap *n.IntMap[*n.IntMap[[]*rv.
 
 func (r *Repository) LoadAll(expectedEOFs int) (*n.IntMap[*n.IntMap[[]*rv.RawReview]], *n.IntMap[*n.IntMap[bool]], *n.MessageTracker, uint64, error) {
 	accumulatedRawReviewsMap, accumulatedRawReviewsMapSyncNumber := r.LoadAccumulatedRawReviews(false)
+	r.logger.Infof("Loaded accumulated raw reviews with sync number %d", accumulatedRawReviewsMapSyncNumber)
+
 	gamesToSendMap, gamesToSendMapSyncNumber := r.LoadGamesToSend(false)
+	r.logger.Infof("Loaded games to send with sync number %d", gamesToSendMapSyncNumber)
+
 	messageTracker, messageTrackerSyncNumber := r.LoadMessageTracker(expectedEOFs, false)
+	r.logger.Infof("Loaded message tracker with sync number %d", messageTrackerSyncNumber)
 
 	minSyncNumber := accumulatedRawReviewsMapSyncNumber
 	if gamesToSendMapSyncNumber < minSyncNumber {
@@ -148,12 +157,27 @@ func (r *Repository) LoadAll(expectedEOFs int) (*n.IntMap[*n.IntMap[[]*rv.RawRev
 	}
 
 	if accumulatedRawReviewsMapSyncNumber > minSyncNumber {
+		r.logger.Infof("Loading accumulated raw reviews from backup because min sync number is %d", minSyncNumber)
+		err := r.accumulatedRawReviewsPersister.Rollback()
+		if err != nil {
+			return nil, nil, nil, 0, fmt.Errorf("failed to rollback accumulated raw reviews persister: %v", err)
+		}
 		accumulatedRawReviewsMap, accumulatedRawReviewsMapSyncNumber = r.LoadAccumulatedRawReviews(true)
 	}
 	if gamesToSendMapSyncNumber > minSyncNumber {
+		r.logger.Infof("Loading games to send from backup because min sync number is %d", minSyncNumber)
+		err := r.gamesToSendPersister.Rollback()
+		if err != nil {
+			return nil, nil, nil, 0, fmt.Errorf("failed to rollback games to send persister: %v", err)
+		}
 		gamesToSendMap, gamesToSendMapSyncNumber = r.LoadGamesToSend(true)
 	}
 	if messageTrackerSyncNumber > minSyncNumber {
+		r.logger.Infof("Loading message tracker from backup because min sync number is %d", minSyncNumber)
+		err := r.messageTrackerPersister.Rollback()
+		if err != nil {
+			return nil, nil, nil, 0, fmt.Errorf("failed to rollback message tracker persister: %v", err)
+		}
 		messageTracker, messageTrackerSyncNumber = r.LoadMessageTracker(expectedEOFs, true)
 	}
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/op/go-logging"
+	"io"
 	"os"
 	"sync"
 )
@@ -147,4 +148,41 @@ func (p *Persister[T]) loadFile(fileName string) (T, uint64, error) {
 	}
 
 	return deserializedStruct, syncNumber, nil
+}
+
+func (p *Persister[T]) Rollback() error {
+	p.logger.Infof("Rolling back %s", p.fileName)
+
+	srcFile, err := os.Open(p.fileName + CopySuffix)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			p.logger.Warningf("Backup file %s does not exist", p.fileName+CopySuffix)
+			return nil
+		}
+		return err
+	}
+	defer func() {
+		err := srcFile.Close()
+		if err != nil {
+			p.logger.Errorf("Error closing src file: %v", err)
+		}
+	}()
+
+	destFile, err := os.Create(p.fileName)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := destFile.Close()
+		if err != nil {
+			p.logger.Errorf("Error closing dest file: %v", err)
+		}
+	}()
+
+	_, err = io.Copy(destFile, srcFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

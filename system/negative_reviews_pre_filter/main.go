@@ -67,7 +67,7 @@ func main() {
 	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		negativeReviewsPreFilter.Run(repository, englishFiltersAmount, accumulatorsAmount)
+		negativeReviewsPreFilter.Run(id, repository, englishFiltersAmount, accumulatorsAmount)
 		doneChannel <- true
 	}()
 
