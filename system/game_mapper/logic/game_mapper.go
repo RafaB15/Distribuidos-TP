@@ -4,6 +4,7 @@ import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	g "distribuidos-tp/internal/system_protocol/games"
+	n "distribuidos-tp/internal/system_protocol/node"
 	u "distribuidos-tp/internal/utils"
 	"encoding/csv"
 	"strconv"
@@ -13,34 +14,36 @@ import (
 )
 
 const (
-	APP_ID_INDEX       = 0
-	APP_NAME_INDEX     = 1
-	WINDOWS_INDEX      = 2
-	MAC_INDEX          = 3
-	LINUX_INDEX        = 4
-	GENRES_INDEX       = 5
-	DATE_INDEX         = 6
-	AVG_PLAYTIME_INDEX = 7
+	AppIdIndex       = 0
+	AppNameIndex     = 1
+	WindowsIndex     = 2
+	MacIndex         = 3
+	LinuxIndex       = 4
+	GenresIndex      = 5
+	DateIndex        = 6
+	AvgPlaytimeIndex = 7
 
 	IndieGenre  = "indie"
 	ActionGenre = "action"
+
+	EntrypointAmount = 1
 )
 
 var log = logging.MustGetLogger("log")
 
-type ReceiveGameBatchFunc func() (int, []string, bool, error)
-type SendGamesOSFunc func(int, int, []*oa.GameOS) error
-type SendGameYearAndAvgPtfFunc func(int, []*df.GameYearAndAvgPtf) error
-type SendIndieGamesNamesFunc func(int, map[int][]*g.GameName) error
-type SendActionGamesNamesFunc func(int, map[int][]*g.GameName) error
-type SendEndOfFileFunc func(int, int, int, int, int) error
+type ReceiveGameBatchFunc func(messageTracker *n.MessageTracker) (clientID int, gameLines []string, eof bool, newMessage bool, e error)
+type SendGamesOSFunc func(clientID int, osAccumulatorsAmount int, gamesOS []*oa.GameOS, messageTracker *n.MessageTracker) error
+type SendGameYearAndAvgPtfFunc func(clientID int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error
+type SendIndieGamesNamesFunc func(clientID int, indieGamesNames map[int][]*g.GameName, messageTracker *n.MessageTracker) error
+type SendActionGamesFunc func(clientID int, actionGames []*g.Game, actionReviewJoinerAmount int, messageTracker *n.MessageTracker) error
+type SendEndOfFileFunc func(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int, messageTracker *n.MessageTracker) error
 
 type GameMapper struct {
 	ReceiveGameBatch      ReceiveGameBatchFunc
 	SendGamesOS           SendGamesOSFunc
 	SendGameYearAndAvgPtf SendGameYearAndAvgPtfFunc
 	SendIndieGamesNames   SendIndieGamesNamesFunc
-	SendActionGamesNames  SendActionGamesNamesFunc
+	SendActionGames       SendActionGamesFunc
 	SendEndOfFile         SendEndOfFileFunc
 }
 
@@ -49,7 +52,7 @@ func NewGameMapper(
 	sendGamesOS SendGamesOSFunc,
 	sendGameYearAndAvgPtf SendGameYearAndAvgPtfFunc,
 	sendIndieGamesNames SendIndieGamesNamesFunc,
-	sendActionGamesNames SendActionGamesNamesFunc,
+	sendActionGames SendActionGamesFunc,
 	sendEndOfFile SendEndOfFileFunc,
 ) *GameMapper {
 	return &GameMapper{
@@ -57,82 +60,97 @@ func NewGameMapper(
 		SendGamesOS:           sendGamesOS,
 		SendGameYearAndAvgPtf: sendGameYearAndAvgPtf,
 		SendIndieGamesNames:   sendIndieGamesNames,
-		SendActionGamesNames:  sendActionGamesNames,
+		SendActionGames:       sendActionGames,
 		SendEndOfFile:         sendEndOfFile,
 	}
 }
 
 func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int) {
+	messageTracker := n.NewMessageTracker(EntrypointAmount)
 
 	for {
 		var gamesOS []*oa.GameOS
 		var gamesYearAndAvgPtf []*df.GameYearAndAvgPtf
 
 		indieGamesNames := make(map[int][]*g.GameName)
-		actionGamesNames := make(map[int][]*g.GameName)
+		actionGames := make([]*g.Game, 0)
 
-		clientID, games, eof, err := gm.ReceiveGameBatch()
+		clientID, games, eof, newMessage, err := gm.ReceiveGameBatch(messageTracker)
 		if err != nil {
 			log.Errorf("Failed to receive game batch: %v", err)
 			return
 		}
 
-		if eof {
-			log.Info("End of file received")
-			gm.SendEndOfFile(clientID, osAccumulatorsAmount, decadeFilterAmount, indieReviewJoinersAmount, actionReviewJoinersAmount)
-			continue
-		}
+		if newMessage && !eof {
 
-		for _, game := range games {
-			records, err := getRecords(game)
-			if err != nil {
-				log.Errorf("Failed to read game: %v", err)
-				continue
-			}
-
-			gamesOS, err = createAndAppendGameOS(records, gamesOS)
-			if err != nil {
-				log.Errorf("Failed to create game os struct: %v", err)
-				continue
-			}
-
-			if belongsToGenre(IndieGenre, records) {
-				gamesYearAndAvgPtf, err = createAndAppendGameYearAndAvgPtf(records, gamesYearAndAvgPtf)
+			for _, game := range games {
+				records, err := getRecords(game)
 				if err != nil {
-					log.Errorf("Failed to create game year and avg ptf struct: %v", err)
+					log.Errorf("Failed to read game: %v", err)
 					continue
 				}
+
+				gamesOS, err = createAndAppendGameOS(records, gamesOS)
+				if err != nil {
+					log.Errorf("Failed to create game os struct: %v", err)
+					continue
+				}
+
+				if belongsToGenre(IndieGenre, records) {
+					gamesYearAndAvgPtf, err = createAndAppendGameYearAndAvgPtf(records, gamesYearAndAvgPtf)
+					if err != nil {
+						log.Errorf("Failed to create game year and avg ptf struct: %v", err)
+						continue
+					}
+				}
+
+				err = updateGameNameMaps(records, indieGamesNames, &actionGames, indieReviewJoinersAmount)
+				if err != nil {
+					log.Errorf("Failed to update game name maps: %v", err)
+					continue
+				}
+				log.Infof("Action games in: %d", len(actionGames))
+
 			}
 
-			err = updateGameNameMaps(records, indieGamesNames, actionGamesNames, indieReviewJoinersAmount, actionReviewJoinersAmount)
+			log.Infof("Action games out: %d", len(actionGames))
+
+			err = gm.SendGamesOS(clientID, osAccumulatorsAmount, gamesOS, messageTracker)
 			if err != nil {
-				log.Errorf("Failed to update game name maps: %v", err)
-				continue
+				log.Errorf("Failed to send game os: %v", err)
+				return
+			}
+
+			err = gm.SendGameYearAndAvgPtf(clientID, gamesYearAndAvgPtf, messageTracker)
+			if err != nil {
+				log.Errorf("Failed to send game year and avg ptf: %v", err)
+				return
+			}
+
+			err = gm.SendIndieGamesNames(clientID, indieGamesNames, messageTracker)
+			if err != nil {
+				log.Errorf("Failed to send indie games names: %v", err)
+				return
+			}
+
+			err = gm.SendActionGames(clientID, actionGames, actionReviewJoinersAmount, messageTracker)
+			if err != nil {
+				log.Errorf("Failed to send action games names: %v", err)
+				return
 			}
 		}
 
-		err = gm.SendGamesOS(clientID, osAccumulatorsAmount, gamesOS)
-		if err != nil {
-			log.Errorf("Failed to send game os: %v", err)
-			return
-		}
+		if messageTracker.ClientFinished(clientID, log) {
+			log.Infof("Client %d finished", clientID)
 
-		err = gm.SendGameYearAndAvgPtf(clientID, gamesYearAndAvgPtf)
-		if err != nil {
-			log.Errorf("Failed to send game year and avg ptf: %v", err)
-			return
-		}
+			log.Info("Sending EOFs")
+			err = gm.SendEndOfFile(clientID, osAccumulatorsAmount, decadeFilterAmount, indieReviewJoinersAmount, actionReviewJoinersAmount, messageTracker)
+			if err != nil {
+				log.Errorf("Failed to send EOF: %v", err)
+				return
+			}
 
-		err = gm.SendIndieGamesNames(clientID, indieGamesNames)
-		if err != nil {
-			log.Errorf("Failed to send indie games names: %v", err)
-			return
-		}
-
-		err = gm.SendActionGamesNames(clientID, actionGamesNames)
-		if err != nil {
-			log.Errorf("Failed to send action games names: %v", err)
-			return
+			messageTracker.DeleteClientInfo(clientID)
 		}
 	}
 }
@@ -150,7 +168,7 @@ func getRecords(game string) ([]string, error) {
 }
 
 func createAndAppendGameOS(records []string, gameOsSlice []*oa.GameOS) ([]*oa.GameOS, error) {
-	gameOs, err := oa.NewGameOS(records[WINDOWS_INDEX], records[MAC_INDEX], records[LINUX_INDEX])
+	gameOs, err := oa.NewGameOS(records[WindowsIndex], records[MacIndex], records[LinuxIndex])
 	if err != nil {
 		log.Error("error creating game os struct")
 		return gameOsSlice, err
@@ -161,7 +179,7 @@ func createAndAppendGameOS(records []string, gameOsSlice []*oa.GameOS) ([]*oa.Ga
 }
 
 func createAndAppendGameYearAndAvgPtf(records []string, gameYearAndAvgPtfSlice []*df.GameYearAndAvgPtf) ([]*df.GameYearAndAvgPtf, error) {
-	gameYearAndAvgPtf, err := df.NewGameYearAndAvgPtf(records[APP_ID_INDEX], records[DATE_INDEX], records[AVG_PLAYTIME_INDEX])
+	gameYearAndAvgPtf, err := df.NewGameYearAndAvgPtf(records[AppIdIndex], records[DateIndex], records[AvgPlaytimeIndex])
 	if err != nil {
 		log.Error("error creating game year and avg ptf struct")
 		return gameYearAndAvgPtfSlice, err
@@ -172,10 +190,10 @@ func createAndAppendGameYearAndAvgPtf(records []string, gameYearAndAvgPtfSlice [
 }
 
 func belongsToGenre(genre string, record []string) bool {
-	genres := strings.Split(record[GENRES_INDEX], ",")
+	genres := strings.Split(record[GenresIndex], ",")
 
-	for _, g := range genres {
-		if g == genre {
+	for _, currentGenre := range genres {
+		if currentGenre == genre {
 			return true
 		}
 	}
@@ -183,27 +201,36 @@ func belongsToGenre(genre string, record []string) bool {
 
 }
 
-func updateGameNameMaps(records []string, indieGamesNames map[int][]*g.GameName, actionGamesNames map[int][]*g.GameName, indieReviewJoinersAmount int, actionReviewJoinersAmount int) error {
-	appId, err := strconv.Atoi(records[APP_ID_INDEX])
+func updateGameNameMaps(records []string, indieGamesNames map[int][]*g.GameName, actionGames *[]*g.Game, indieReviewJoinersAmount int) error {
+	indie := false
+	action := false
+
+	appId, err := strconv.Atoi(records[AppIdIndex])
 	if err != nil {
 		log.Error("error converting appId")
 		return err
 	}
 
-	gameName := g.NewGameName(uint32(appId), records[APP_NAME_INDEX])
-	genres := strings.Split(records[GENRES_INDEX], ",")
+	gameName := g.NewGameName(uint32(appId), records[AppNameIndex])
+
+	genres := strings.Split(records[GenresIndex], ",")
 
 	for _, genre := range genres {
 		genre = strings.TrimSpace(genre)
 		switch genre {
 		case IndieGenre:
-			indieShardingKey := u.CalculateShardingKey(records[APP_ID_INDEX], indieReviewJoinersAmount)
-			indieGamesNames[indieShardingKey] = append(indieGamesNames[indieShardingKey], gameName)
+			indie = true
 		case ActionGenre:
-			actionShardingKey := u.CalculateShardingKey(records[APP_ID_INDEX], actionReviewJoinersAmount)
-			actionGamesNames[actionShardingKey] = append(actionGamesNames[actionShardingKey], gameName)
+			action = true
 		}
 	}
+
+	if indie {
+		indieShardingKey := u.CalculateShardingKey(records[AppIdIndex], indieReviewJoinersAmount)
+		indieGamesNames[indieShardingKey] = append(indieGamesNames[indieShardingKey], gameName)
+	}
+
+	*actionGames = append(*actionGames, g.NewGame(uint32(appId), records[AppNameIndex], action, indie))
 
 	return nil
 }

@@ -2,7 +2,7 @@ package middleware
 
 import (
 	sp "distribuidos-tp/internal/system_protocol"
-	"distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	g "distribuidos-tp/internal/system_protocol/games"
 	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	u "distribuidos-tp/internal/utils"
@@ -59,56 +59,65 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID int, rawReviews []*r.RawReview, reviewMetrics []*reviews_accumulator.GameReviewsMetrics, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID int, reviews []*r.RawReview, games []*g.Game, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.ActionReviewJoinerQueue.Consume()
 	if err != nil {
-		return 0, nil, nil, false, false, fmt.Errorf("failed to consume message: %v", err)
+		e = fmt.Errorf("failed to consume message: %v", err)
+		return
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, nil, false, false, fmt.Errorf("failed to deserialize message: %v", err)
+		e = fmt.Errorf("failed to deserialize message: %v", err)
+		return
 	}
 
 	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
 	if err != nil {
-		return 0, nil, nil, false, false, fmt.Errorf("failed to process message: %v", err)
+		e = fmt.Errorf("failed to process message: %v", err)
+		return
 	}
 
 	if !newMessage {
-		return message.ClientID, nil, nil, false, false, nil
+		clientID = message.ClientID
+		return
 	}
+
+	clientID = message.ClientID
+	newMessage = true
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
 		m.logger.Infof("Received EOF from client %d", message.ClientID)
 		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, nil, false, false, err
+			e = err
+			return
 		}
 
 		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
 		if err != nil {
-			return message.ClientID, nil, nil, false, false, err
+			e = err
+			return
 		}
-
-		return message.ClientID, nil, nil, true, true, nil
+		eof = true
 	case sp.MsgRawReviewInformationBatch:
-		rawReviews, err := sp.DeserializeMsgRawReviewInformationBatch(message.Body)
+		reviews, err = sp.DeserializeMsgRawReviewInformationBatch(message.Body)
 		if err != nil {
-			return message.ClientID, nil, nil, false, false, err
+			e = err
+			return
 		}
-		return message.ClientID, rawReviews, nil, false, true, nil
-
-	case sp.MsgGameReviewsMetrics:
-		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(message.Body)
+	case sp.MsgGames:
+		games, err = sp.DeserializeMsgGames(message.Body)
 		if err != nil {
-			return message.ClientID, nil, nil, false, false, err
+			e = err
+			return
 		}
-		return message.ClientID, nil, gameReviewsMetrics, false, true, nil
 	default:
-		return message.ClientID, nil, nil, false, false, fmt.Errorf("received unexpected message type: %v", message.Type)
+		e = fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
+
+	return
 }
 
 func (m *Middleware) SendRawReview(clientID int, englishFiltersAmount int, rawReview *r.RawReview, messageTracker *n.MessageTracker) error {

@@ -1,6 +1,7 @@
 package entrypoint
 
 import (
+	n "distribuidos-tp/internal/system_protocol/node"
 	"net"
 
 	"github.com/op/go-logging"
@@ -10,10 +11,10 @@ import (
 
 var log = logging.MustGetLogger("log")
 
-type SendGamesBatchFunc func(clientID int, data []byte) error
-type SendReviewsBatchFunc func(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, messagesSent map[int]int) (sentReviewsAmount int, e error)
-type SendGamesEndOfFileFunc func(clientID int) error
-type SendReviewsEndOfFileFunc func(clientID int, negativeReviewsPreFiltersAmount int, reviewMappersAmount int, sentMessages map[int]int) error
+type SendGamesBatchFunc func(clientID int, data []byte, messageTracker *n.MessageTracker) error
+type SendReviewsBatchFunc func(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, messageTracker *n.MessageTracker) (sentReviewsAmount int, e error)
+type SendGamesEndOfFileFunc func(clientID int, messageTracker *n.MessageTracker) error
+type SendReviewsEndOfFileFunc func(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, messageTracker *n.MessageTracker) error
 type ReceiveQueryResultFunc func() (rawMessage []byte, e error)
 
 type EntryPoint struct {
@@ -44,7 +45,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount 
 	eofGames := false
 	eofReviews := false
 
-	messagesSent := make(map[int]int)
+	messageTracker := n.NewMessageTracker(0)
 	currentReviewId := 0
 
 	for !eofGames || !eofReviews {
@@ -55,13 +56,13 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount 
 		}
 
 		if fileOrigin == cp.GameFile {
-			err = e.SendGamesBatch(clientID, data)
+			err = e.SendGamesBatch(clientID, data, messageTracker)
 			if err != nil {
 				log.Errorf("Error sending batch for client %d: %v", clientID, err)
 				return
 			}
 		} else {
-			reviewsSent, err := e.SendReviewsBatch(clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount, data, currentReviewId, messagesSent)
+			reviewsSent, err := e.SendReviewsBatch(clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount, data, currentReviewId, messageTracker)
 			if err != nil {
 				log.Errorf("Error sending batch for client %d: %v", clientID, err)
 				return
@@ -71,11 +72,11 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount 
 
 		if eofFlag {
 			if fileOrigin == cp.GameFile {
-				err = e.SendGamesEndOfFile(clientID)
+				err = e.SendGamesEndOfFile(clientID, messageTracker)
 				log.Infof("End of file message published for games with clientID %d", clientID)
 				eofGames = true
 			} else {
-				err = e.SendReviewsEndOfFile(clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount, messagesSent)
+				err = e.SendReviewsEndOfFile(clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount, messageTracker)
 				log.Infof("End of file message published for reviews with clientID %d", clientID)
 				eofReviews = true
 			}

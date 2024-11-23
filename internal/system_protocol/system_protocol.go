@@ -24,6 +24,7 @@ const (
 	MsgQueryResolved
 	MsgGameReviewsMetrics
 	MsgGameNames
+	MsgGames
 	MsgJoinedPositiveGameReviews
 	MsgJoinedNegativeGameReviews
 	MsgRawReviewInformation
@@ -288,6 +289,22 @@ func DeserializeMsgGameReviewsMetricsBatch(message []byte) ([]*m.GameReviewsMetr
 	}
 
 	return metrics, nil
+}
+
+// --------------------------------------------------------
+// Message Games
+
+func SerializeMsgGames(clientID int, games []*g.Game) ([]byte, error) {
+	serializedGames, err := g.SerializeGameBatch(games)
+	if err != nil {
+		return nil, err
+	}
+
+	return SerializeMessage(MsgGames, clientID, serializedGames), nil
+}
+
+func DeserializeMsgGames(message []byte) ([]*g.Game, error) {
+	return g.DeserializeGameBatch(message)
 }
 
 // --------------------------------------------------------

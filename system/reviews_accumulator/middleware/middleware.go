@@ -7,7 +7,6 @@ import (
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
-	"strconv"
 )
 
 const (
@@ -22,11 +21,6 @@ const (
 	AccumulatedReviewsExchangeType = "direct"
 	AccumulatedReviewsRoutingKey   = "accumulated_reviews_key"
 
-	ActionReviewJoinerExchangeName     = "action_review_joiner_exchange"
-	ActionReviewJoinerExchangeType     = "direct"
-	ActionReviewJoinerRoutingKeyPrefix = "action_review_joiner_key_"
-	ActionReviewJoinerExchangePriority = 1
-
 	IndieReviewJoinExchangeName             = "indie_review_join_exchange"
 	IndieReviewJoinExchangeType             = "direct"
 	IndieReviewJoinExchangeRoutingKeyPrefix = "accumulated_reviews_key_"
@@ -36,7 +30,6 @@ type Middleware struct {
 	Manager                    *mom.MiddlewareManager
 	ReviewsQueue               *mom.Queue
 	AccumulatedReviewsExchange *mom.Exchange
-	NegativeReviewsPreFilter   *mom.Exchange
 	IndieReviewJoinExchange    *mom.Exchange
 }
 
@@ -63,21 +56,15 @@ func NewMiddleware(id int) (*Middleware, error) {
 		return nil, err
 	}
 
-	negativeReviewsPreFilterExchange, err := manager.CreateExchange(ActionReviewJoinerExchangeName, ActionReviewJoinerExchangeType)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Middleware{
 		Manager:                    manager,
 		ReviewsQueue:               reviewsQueue,
 		AccumulatedReviewsExchange: accumulatedReviewsExchange,
-		NegativeReviewsPreFilter:   negativeReviewsPreFilterExchange,
 		IndieReviewJoinExchange:    indieReviewJoinExchange,
 	}, nil
 }
 
-func (m *Middleware) ReceiveReviews() (int, []*reviews.RawReview, bool, error) {
+func (m *Middleware) ReceiveReviews() (clientID int, rawReviews []*reviews.RawReview, eof bool, e error) {
 	rawMsg, err := m.ReviewsQueue.Consume()
 	if err != nil {
 		return 0, nil, false, err
@@ -104,7 +91,7 @@ func (m *Middleware) ReceiveReviews() (int, []*reviews.RawReview, bool, error) {
 	}
 }
 
-func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics, indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int, sentMessages map[int]int) error {
+func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics, indieReviewJoinersAmount int) error {
 	keyMap := idMapToKeyMap(accumulatedReviews, indieReviewJoinersAmount, IndieReviewJoinExchangeRoutingKeyPrefix)
 
 	for routingKey, metrics := range keyMap {
@@ -121,27 +108,10 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map
 		}
 	}
 
-	preFilterKeyMap := idMapToKeyMap(accumulatedReviews, negativeReviewPreFiltersAmount, ActionReviewJoinerRoutingKeyPrefix)
-	for routingKey, metrics := range preFilterKeyMap {
-		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
-
-		err := m.NegativeReviewsPreFilter.PublishWithPriority(routingKey, serializedMetricsBatch, ActionReviewJoinerExchangePriority)
-		if err != nil {
-			return err
-		}
-
-		lastChar := string(routingKey[len(routingKey)-1])
-		key, err := strconv.Atoi(lastChar)
-		if err != nil {
-			return fmt.Errorf("failed to convert routing key to int: %v", err)
-		}
-		sentMessages[key]++
-	}
-
 	return nil
 }
 
-func (m *Middleware) SendEof(clientID int, senderID int, indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int, sentMessages map[int]int) error {
+func (m *Middleware) SendEof(clientID int, senderID int, indieReviewJoinersAmount int) error {
 	err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
 		return err
@@ -149,14 +119,6 @@ func (m *Middleware) SendEof(clientID int, senderID int, indieReviewJoinersAmoun
 
 	for nodeId := 1; nodeId <= indieReviewJoinersAmount; nodeId++ {
 		err = m.IndieReviewJoinExchange.Publish(fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFile(clientID))
-		if err != nil {
-			return err
-		}
-	}
-
-	for nodeId := 1; nodeId <= negativeReviewPreFiltersAmount; nodeId++ {
-		err = m.NegativeReviewsPreFilter.Publish(fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFileV2(clientID, senderID, sentMessages[nodeId]))
-		fmt.Printf("Sending EOF to negative pre filter %d\n", nodeId)
 		if err != nil {
 			return err
 		}

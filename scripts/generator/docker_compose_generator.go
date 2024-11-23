@@ -107,7 +107,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.OSAccumulator, config.DecadeFilter, config.IndieReviewJoiner, config.ActionEnglishReviewJoiner)
+`, serviceName, serviceName, config.OSAccumulator, config.DecadeFilter, config.IndieReviewJoiner, config.ActionReviewJoiner)
 
 	// OSAccumulator service
 	for i := 1; i <= config.OSAccumulator; i++ {
@@ -212,7 +212,6 @@ func main() {
     environment:
       - ID=%d
       - INDIE_REVIEW_JOINERS_AMOUNT=%d
-      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -221,7 +220,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.IndieReviewJoiner, config.ActionReviewJoiner)
+`, serviceName, serviceName, i, config.IndieReviewJoiner)
 	}
 
 	// DecadeFilter service
@@ -252,7 +251,6 @@ func main() {
     environment:
       - ID=%d
       - ENGLISH_FILTERS_AMOUNT=%d
-      - ACCUMULATORS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -261,7 +259,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.EnglishFilter, config.ReviewsAccumulator)
+`, serviceName, serviceName, i, config.EnglishFilter)
 	}
 
 	// EnglishFilter service

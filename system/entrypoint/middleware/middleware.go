@@ -5,11 +5,11 @@ import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	j "distribuidos-tp/internal/system_protocol/joiner"
+	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
-	"strconv"
 )
 
 const (
@@ -82,23 +82,23 @@ func NewMiddleware(clientID int) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) SendGamesBatch(clientID int, data []byte) error {
+func (m *Middleware) SendGamesBatch(clientID int, data []byte, messageTracker *n.MessageTracker) error {
 	batch := sp.SerializeMsgBatch(clientID, data)
 	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, batch)
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %v", err)
 	}
-
+	messageTracker.RegisterSentMessage(clientID, RawGamesRoutingKey)
 	return nil
 }
 
-func (m *Middleware) SendReviewsBatch(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, sentMessages map[int]int) (sentReviewsAmount int, e error) {
+func (m *Middleware) SendReviewsBatch(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, messageTracker *n.MessageTracker) (sentReviewsAmount int, e error) {
 	rawReviews, err := getDeserializedRawReviews(data, currentReviewId)
 	if err != nil {
 		return 0, fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}
 
-	err = sendToReviewNodeV2(clientID, actionReviewJoinersAmount, m.ActionReviewJoinerExchange, ActionReviewJoinerRoutingKeyPrefix, rawReviews, sentMessages)
+	err = sendToReviewNodeV2(clientID, actionReviewJoinersAmount, m.ActionReviewJoinerExchange, ActionReviewJoinerRoutingKeyPrefix, rawReviews, messageTracker)
 	if err != nil {
 		return 0, fmt.Errorf("failed to publish message to negative pre filter: %v", err)
 	}
@@ -129,7 +129,7 @@ func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, rou
 	return nil
 }
 
-func sendToReviewNodeV2(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview, messagesSent map[int]int) error {
+func sendToReviewNodeV2(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview, messageTracker *n.MessageTracker) error {
 	routingKeyMap := make(map[string][]*r.RawReview)
 	for _, rawReview := range rawReviews {
 		routingKey := u.GetPartitioningKeyFromInt(int(rawReview.AppId), nodesAmount, routingKeyPrefix)
@@ -142,12 +142,7 @@ func sendToReviewNodeV2(clientID int, nodesAmount int, exchange *mom.Exchange, r
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}
-		lastChar := string(routingKey[len(routingKey)-1])
-		key, err := strconv.Atoi(lastChar)
-		if err != nil {
-			return fmt.Errorf("failed to convert routing key to int: %v", err)
-		}
-		messagesSent[key]++
+		messageTracker.RegisterSentMessage(clientID, routingKey)
 	}
 
 	return nil
@@ -167,8 +162,12 @@ func getDeserializedRawReviews(data []byte, currentReviewId int) ([]*r.RawReview
 	return rawReviews, nil
 }
 
-func (m *Middleware) SendGamesEndOfFile(clientID int) error {
-	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, sp.SerializeMsgEndOfFile(clientID))
+func (m *Middleware) SendGamesEndOfFile(clientID int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+	messagesSentToGameMapper := messagesSent[RawGamesRoutingKey]
+	serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 0, messagesSentToGameMapper)
+
+	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, serializedMessage)
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %v", err)
 	}
@@ -176,17 +175,20 @@ func (m *Middleware) SendGamesEndOfFile(clientID int) error {
 	return nil
 }
 
-func (m *Middleware) SendReviewsEndOfFile(clientID int, negativeReviewsPreFiltersAmount int, reviewMappersAmount int, sentMessages map[int]int) error {
-	for i := 1; i <= negativeReviewsPreFiltersAmount; i++ {
-		negativePreFilterRoutingKey := fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, i)
-		err := m.ActionReviewJoinerExchange.Publish(negativePreFilterRoutingKey, sp.SerializeMsgEndOfFileV2(clientID, 0, sentMessages[i]))
+func (m *Middleware) SendReviewsEndOfFile(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+
+	for i := 1; i <= actionReviewJoinersAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, i)
+		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 0, messagesSent[routingKey])
+		err := m.ActionReviewJoinerExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}
 		fmt.Printf("Sent EOF to negative pre filter %d\n", i)
 	}
 
-	for i := 1; i <= reviewMappersAmount; i++ {
+	for i := 1; i <= reviewAccumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", ReviewsRoutingKeyPrefix, i)
 		err := m.ReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {

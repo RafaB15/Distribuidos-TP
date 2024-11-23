@@ -16,7 +16,6 @@ import (
 
 const (
 	EnglishFiltersAmountEnvironmentVariableName = "ENGLISH_FILTERS_AMOUNT"
-	AccumulatorsAmountEnvironmentVariableName   = "ACCUMULATORS_AMOUNT"
 	IdEnvironmentVariableName                   = "ID"
 )
 
@@ -40,19 +39,13 @@ func main() {
 		return
 	}
 
-	accumulatorsAmount, err := u.GetEnvInt(AccumulatorsAmountEnvironmentVariableName)
-	if err != nil {
-		log.Errorf("Failed to get environment variable: %v", err)
-		return
-	}
-
 	middleware, err := m.NewMiddleware(id, log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
 	}
 
-	negativeReviewsPreFilter := l.NewNegativeReviewsPreFilter(
+	negativeReviewsPreFilter := l.NewActionReviewJoiner(
 		middleware.ReceiveMessage,
 		middleware.SendRawReview,
 		middleware.AckLastMessage,
@@ -67,7 +60,7 @@ func main() {
 	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		negativeReviewsPreFilter.Run(id, repository, englishFiltersAmount, accumulatorsAmount)
+		negativeReviewsPreFilter.Run(id, repository, englishFiltersAmount)
 		doneChannel <- true
 	}()
 
