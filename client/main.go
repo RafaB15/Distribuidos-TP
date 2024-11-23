@@ -3,10 +3,13 @@ package main
 import (
 	"bufio"
 	cp "distribuidos-tp/internal/client_protocol"
+
+	cr "distribuidos-tp/internal/compare_results"
 	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/op/go-logging"
 )
@@ -113,23 +116,38 @@ func main() {
 		log.Debug("Sent reviews batch")
 	}
 
+	firstResult := true
+	clientNumber := byte(0)
 	for i := 0; i < 5; i++ {
-		var clientNumber byte
 		err := binary.Read(conn, binary.BigEndian, &clientNumber)
 		if err != nil {
 			log.Errorf("Error reading client number from connection: %v", err)
 			return
 		}
+
 		log.Infof("Results for client %d:", clientNumber)
 
 		fileName := fmt.Sprintf("/client_data/client_%d_results.txt", clientNumber)
-		file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Errorf("Error opening file: %v", err)
-			return
-		}
-		defer file.Close()
 
+		file := new(os.File)
+		if firstResult {
+			file, err = os.OpenFile(fileName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+			if err != nil {
+				log.Errorf("Error opening file: %v", err)
+				return
+			}
+			// defer file.Close()
+			firstResult = false
+		} else {
+			file, err = os.OpenFile(fileName, os.O_APPEND|os.O_WRONLY, 0644)
+			if err != nil {
+				log.Errorf("Error opening file: %v", err)
+				return
+			}
+			// defer file.Close()
+		}
+
+		defer file.Close()
 		var queryNumber byte
 		err = binary.Read(conn, binary.BigEndian, &queryNumber)
 		if err != nil {
@@ -163,5 +181,17 @@ func main() {
 			log.Errorf("Error writing to file: %v", err)
 			return
 		}
+	}
+
+	// Get the filesize as an Enviroment Variable
+	fileSize := os.Getenv("FILE_SIZE")
+	// Compare the results with the reference file
+	clientResultsPath := filepath.Join("/client_data", fmt.Sprintf("client_%d_results.txt", clientNumber))
+	// Generate filsize concataniting results + 500k.txt
+	resultsPath := filepath.Join("/client_data", fmt.Sprintf("results%s.txt", fileSize))
+
+	err = cr.CompareResults(clientResultsPath, resultsPath)
+	if err != nil {
+		log.Errorf("Error comparing results: %v", err)
 	}
 }
