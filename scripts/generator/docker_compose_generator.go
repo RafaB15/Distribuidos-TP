@@ -18,7 +18,7 @@ type Config struct {
 	PercentileAccumulator        int `json:"percentile_accumulator"`
 	ReviewsAccumulator           int `json:"reviews_accumulator"`
 	DecadeFilter                 int `json:"decade_filter"`
-	NegativeReviewsPreFilter     int `json:"negative_reviews_pre_filter"`
+	ActionReviewJoiner           int `json:"action_review_joiner"`
 	EnglishFilter                int `json:"english_filter"`
 	EnglishReviewsAccumulator    int `json:"english_reviews_accumulator"`
 	NegativeReviewsFilter        int `json:"negative_reviews_filter"`
@@ -78,7 +78,7 @@ func main() {
     image: entrypoint:latest
     entrypoint: /entrypoint
     environment:
-      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=%d
+      - ACTION_REVIEW_JOINERS_AMOUNT=%d
       - REVIEW_ACCUMULATORS_AMOUNT=%d
     depends_on:
       rabbitmq:
@@ -86,7 +86,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.NegativeReviewsPreFilter, config.ReviewsAccumulator)
+`, serviceName, serviceName, config.ActionReviewJoiner, config.ReviewsAccumulator)
 
 	// GameMapper service
 	serviceName = "game_mapper"
@@ -221,7 +221,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.IndieReviewJoiner, config.NegativeReviewsPreFilter)
+`, serviceName, serviceName, i, config.IndieReviewJoiner, config.ActionReviewJoiner)
 	}
 
 	// DecadeFilter service
@@ -243,12 +243,12 @@ func main() {
 	}
 
 	//Negative Reviews Pre Filter service
-	for i := 1; i <= config.NegativeReviewsPreFilter; i++ {
-		serviceName := fmt.Sprintf("negative_reviews_pre_filter_%d", i)
+	for i := 1; i <= config.ActionReviewJoiner; i++ {
+		serviceName := fmt.Sprintf("action_review_joiner_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: negative_reviews_pre_filter:latest
-    entrypoint: /negative_reviews_pre_filter
+    image: action_review_joiner:latest
+    entrypoint: /action_review_joiner
     environment:
       - ID=%d
       - ENGLISH_FILTERS_AMOUNT=%d
@@ -283,7 +283,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.EnglishReviewsAccumulator, config.NegativeReviewsPreFilter)
+`, serviceName, serviceName, i, config.EnglishReviewsAccumulator, config.ActionReviewJoiner)
 	}
 
 	// EnglishReviewsAccumulator service

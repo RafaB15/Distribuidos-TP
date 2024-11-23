@@ -22,10 +22,10 @@ const (
 	AccumulatedReviewsExchangeType = "direct"
 	AccumulatedReviewsRoutingKey   = "accumulated_reviews_key"
 
-	NegativePreFilterExchangeName     = "negative_pre_filter_exchange"
-	NegativePreFilterExchangeType     = "direct"
-	NegativePreFilterRoutingKeyPrefix = "negative_pre_filter_key_"
-	NegativePreFilterExchangePriority = 1
+	ActionReviewJoinerExchangeName     = "action_review_joiner_exchange"
+	ActionReviewJoinerExchangeType     = "direct"
+	ActionReviewJoinerRoutingKeyPrefix = "action_review_joiner_key_"
+	ActionReviewJoinerExchangePriority = 1
 
 	IndieReviewJoinExchangeName             = "indie_review_join_exchange"
 	IndieReviewJoinExchangeType             = "direct"
@@ -63,7 +63,7 @@ func NewMiddleware(id int) (*Middleware, error) {
 		return nil, err
 	}
 
-	negativeReviewsPreFilterExchange, err := manager.CreateExchange(NegativePreFilterExchangeName, NegativePreFilterExchangeType)
+	negativeReviewsPreFilterExchange, err := manager.CreateExchange(ActionReviewJoinerExchangeName, ActionReviewJoinerExchangeType)
 	if err != nil {
 		return nil, err
 	}
@@ -121,11 +121,11 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map
 		}
 	}
 
-	preFilterKeyMap := idMapToKeyMap(accumulatedReviews, negativeReviewPreFiltersAmount, NegativePreFilterRoutingKeyPrefix)
+	preFilterKeyMap := idMapToKeyMap(accumulatedReviews, negativeReviewPreFiltersAmount, ActionReviewJoinerRoutingKeyPrefix)
 	for routingKey, metrics := range preFilterKeyMap {
 		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
 
-		err := m.NegativeReviewsPreFilter.PublishWithPriority(routingKey, serializedMetricsBatch, NegativePreFilterExchangePriority)
+		err := m.NegativeReviewsPreFilter.PublishWithPriority(routingKey, serializedMetricsBatch, ActionReviewJoinerExchangePriority)
 		if err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ func (m *Middleware) SendEof(clientID int, senderID int, indieReviewJoinersAmoun
 	}
 
 	for nodeId := 1; nodeId <= negativeReviewPreFiltersAmount; nodeId++ {
-		err = m.NegativeReviewsPreFilter.Publish(fmt.Sprintf("%s%d", NegativePreFilterRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFileV2(clientID, senderID, sentMessages[nodeId]))
+		err = m.NegativeReviewsPreFilter.Publish(fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFileV2(clientID, senderID, sentMessages[nodeId]))
 		fmt.Printf("Sending EOF to negative pre filter %d\n", nodeId)
 		if err != nil {
 			return err

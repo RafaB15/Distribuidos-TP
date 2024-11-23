@@ -10,20 +10,26 @@ import (
 
 var log = logging.MustGetLogger("log")
 
+type SendGamesBatchFunc func(clientID int, data []byte) error
+type SendReviewsBatchFunc func(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, messagesSent map[int]int) (sentReviewsAmount int, e error)
+type SendGamesEndOfFileFunc func(clientID int) error
+type SendReviewsEndOfFileFunc func(clientID int, negativeReviewsPreFiltersAmount int, reviewMappersAmount int, sentMessages map[int]int) error
+type ReceiveQueryResultFunc func() (rawMessage []byte, e error)
+
 type EntryPoint struct {
-	SendGamesBatch       func(int, []byte) error
-	SendReviewsBatch     func(int, int, int, []byte, int, map[int]int) (int, error)
-	SendGamesEndOfFile   func(int) error
-	SendReviewsEndOfFile func(int, int, int, map[int]int) error
-	ReceiveQueryResult   func() ([]byte, error)
+	SendGamesBatch       SendGamesBatchFunc
+	SendReviewsBatch     SendReviewsBatchFunc
+	SendGamesEndOfFile   SendGamesEndOfFileFunc
+	SendReviewsEndOfFile SendReviewsEndOfFileFunc
+	ReceiveQueryResult   ReceiveQueryResultFunc
 }
 
 func NewEntryPoint(
-	sendGamesBatch func(int, []byte) error,
-	sendReviewsBatch func(int, int, int, []byte, int, map[int]int) (int, error),
-	sendGamesEndOfFile func(int) error,
-	sendReviewsEndOfFile func(int, int, int, map[int]int) error,
-	receiveQueryResponse func() ([]byte, error),
+	sendGamesBatch SendGamesBatchFunc,
+	sendReviewsBatch SendReviewsBatchFunc,
+	sendGamesEndOfFile SendGamesEndOfFileFunc,
+	sendReviewsEndOfFile SendReviewsEndOfFileFunc,
+	receiveQueryResponse ReceiveQueryResultFunc,
 ) *EntryPoint {
 	return &EntryPoint{
 		SendGamesBatch:       sendGamesBatch,
@@ -34,7 +40,7 @@ func NewEntryPoint(
 	}
 }
 
-func (e *EntryPoint) Run(conn net.Conn, clientID int, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int) {
+func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int) {
 	eofGames := false
 	eofReviews := false
 
@@ -55,7 +61,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, negativeReviewsPreFiltersA
 				return
 			}
 		} else {
-			reviewsSent, err := e.SendReviewsBatch(clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount, data, currentReviewId, messagesSent)
+			reviewsSent, err := e.SendReviewsBatch(clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount, data, currentReviewId, messagesSent)
 			if err != nil {
 				log.Errorf("Error sending batch for client %d: %v", clientID, err)
 				return
@@ -69,7 +75,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, negativeReviewsPreFiltersA
 				log.Infof("End of file message published for games with clientID %d", clientID)
 				eofGames = true
 			} else {
-				err = e.SendReviewsEndOfFile(clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount, messagesSent)
+				err = e.SendReviewsEndOfFile(clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount, messagesSent)
 				log.Infof("End of file message published for reviews with clientID %d", clientID)
 				eofReviews = true
 			}

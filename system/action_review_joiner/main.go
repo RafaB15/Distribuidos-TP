@@ -7,9 +7,9 @@ import (
 	"sync"
 	"syscall"
 
-	l "distribuidos-tp/system/negative_reviews_pre_filter/logic"
-	m "distribuidos-tp/system/negative_reviews_pre_filter/middleware"
-	p "distribuidos-tp/system/negative_reviews_pre_filter/persistence"
+	l "distribuidos-tp/system/action_review_joiner/logic"
+	m "distribuidos-tp/system/action_review_joiner/middleware"
+	p "distribuidos-tp/system/action_review_joiner/persistence"
 
 	"github.com/op/go-logging"
 )

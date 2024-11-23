@@ -14,11 +14,11 @@ import (
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
-	NegativePreFilterExchangeName     = "negative_pre_filter_exchange"
-	NegativePreFilterExchangeType     = "direct"
-	NegativePreFilterRoutingKeyPrefix = "negative_pre_filter_key_"
-	NegativePreFilterQueueNamePrefix  = "negative_pre_filter_queue_"
-	NegativePreFilterQueueMaxPriority = 1
+	ActionReviewJoinerExchangeName     = "action_review_joiner_exchange"
+	ActionReviewJoinerExchangeType     = "direct"
+	ActionReviewJoinerRoutingKeyPrefix = "action_review_joiner_key_"
+	ActionReviewJoinerQueueNamePrefix  = "action_review_joiner_queue_"
+	ActionReviewJoinerQueueMaxPriority = 1
 
 	RawEnglishReviewsExchangeName     = "raw_english_reviews_exchange"
 	RawEnglishReviewsExchangeType     = "direct"
@@ -27,7 +27,7 @@ const (
 
 type Middleware struct {
 	Manager                   *mom.MiddlewareManager
-	NegativePreFilterQueue    *mom.Queue
+	ActionReviewJoinerQueue   *mom.Queue
 	RawEnglishReviewsExchange *mom.Exchange
 	logger                    *logging.Logger
 }
@@ -38,10 +38,10 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 		return nil, err
 	}
 
-	negativePreFilterQueueName := fmt.Sprintf("%s%d", NegativePreFilterQueueNamePrefix, id)
-	negativePreFilterRoutingKey := fmt.Sprintf("%s%d", NegativePreFilterRoutingKeyPrefix, id)
+	actionReviewJoinerQueueName := fmt.Sprintf("%s%d", ActionReviewJoinerQueueNamePrefix, id)
+	actionReviewJoinerRoutingKey := fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, id)
 
-	negativePreFilterQueue, err := manager.CreateBoundQueueWithPriority(negativePreFilterQueueName, NegativePreFilterExchangeName, NegativePreFilterExchangeType, negativePreFilterRoutingKey, false, NegativePreFilterQueueMaxPriority)
+	actionReviewJoinerQueue, err := manager.CreateBoundQueueWithPriority(actionReviewJoinerQueueName, ActionReviewJoinerExchangeName, ActionReviewJoinerExchangeType, actionReviewJoinerRoutingKey, false, ActionReviewJoinerQueueMaxPriority)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
@@ -53,14 +53,14 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 
 	return &Middleware{
 		Manager:                   manager,
-		NegativePreFilterQueue:    negativePreFilterQueue,
+		ActionReviewJoinerQueue:   actionReviewJoinerQueue,
 		RawEnglishReviewsExchange: rawEnglishReviewsExchange,
 		logger:                    logger,
 	}, nil
 }
 
 func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID int, rawReviews []*r.RawReview, reviewMetrics []*reviews_accumulator.GameReviewsMetrics, eof bool, newMessage bool, e error) {
-	rawMsg, err := m.NegativePreFilterQueue.Consume()
+	rawMsg, err := m.ActionReviewJoinerQueue.Consume()
 	if err != nil {
 		return 0, nil, nil, false, false, fmt.Errorf("failed to consume message: %v", err)
 	}
@@ -141,7 +141,7 @@ func (m *Middleware) SendEndOfFile(clientID int, senderID int, englishFiltersAmo
 }
 
 func (m *Middleware) AckLastMessage() error {
-	err := m.NegativePreFilterQueue.AckLastMessages()
+	err := m.ActionReviewJoinerQueue.AckLastMessages()
 	if err != nil {
 		return fmt.Errorf("failed to ack last message: %v", err)
 	}

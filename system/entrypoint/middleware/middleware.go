@@ -23,9 +23,9 @@ const (
 	ReviewsExchangeType     = "direct"
 	ReviewsRoutingKeyPrefix = "reviews_key_"
 
-	NegativePreFilterExchangeName     = "negative_pre_filter_exchange"
-	NegativePreFilterExchangeType     = "direct"
-	NegativePreFilterRoutingKeyPrefix = "negative_pre_filter_key_"
+	ActionReviewJoinerExchangeName     = "action_review_joiner_exchange"
+	ActionReviewJoinerExchangeType     = "direct"
+	ActionReviewJoinerRoutingKeyPrefix = "action_review_joiner_key_"
 
 	QueryResultsQueueNamePrefix = "query_results_queue_"
 	QueryResultsExchangeName    = "query_results_exchange"
@@ -38,11 +38,11 @@ const (
 )
 
 type Middleware struct {
-	Manager                   *mom.MiddlewareManager
-	RawGamesExchange          *mom.Exchange
-	ReviewsExchange           *mom.Exchange
-	NegativePreFilterExchange *mom.Exchange
-	QueryResultsQueue         *mom.Queue
+	Manager                    *mom.MiddlewareManager
+	RawGamesExchange           *mom.Exchange
+	ReviewsExchange            *mom.Exchange
+	ActionReviewJoinerExchange *mom.Exchange
+	QueryResultsQueue          *mom.Queue
 }
 
 func NewMiddleware(clientID int) (*Middleware, error) {
@@ -61,7 +61,7 @@ func NewMiddleware(clientID int) (*Middleware, error) {
 		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
 
-	negativePreFilterExchange, err := manager.CreateExchange(NegativePreFilterExchangeName, NegativePreFilterExchangeType)
+	actionReviewJoinerExchange, err := manager.CreateExchange(ActionReviewJoinerExchangeName, ActionReviewJoinerExchangeType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
@@ -74,11 +74,11 @@ func NewMiddleware(clientID int) (*Middleware, error) {
 	}
 
 	return &Middleware{
-		Manager:                   manager,
-		RawGamesExchange:          rawGamesExchange,
-		ReviewsExchange:           reviewsExchange,
-		NegativePreFilterExchange: negativePreFilterExchange,
-		QueryResultsQueue:         queryResultsQueue,
+		Manager:                    manager,
+		RawGamesExchange:           rawGamesExchange,
+		ReviewsExchange:            reviewsExchange,
+		ActionReviewJoinerExchange: actionReviewJoinerExchange,
+		QueryResultsQueue:          queryResultsQueue,
 	}, nil
 }
 
@@ -92,13 +92,13 @@ func (m *Middleware) SendGamesBatch(clientID int, data []byte) error {
 	return nil
 }
 
-func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, sentMessages map[int]int) (int, error) {
+func (m *Middleware) SendReviewsBatch(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, sentMessages map[int]int) (sentReviewsAmount int, e error) {
 	rawReviews, err := getDeserializedRawReviews(data, currentReviewId)
 	if err != nil {
 		return 0, fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}
 
-	err = sendToReviewNodeV2(clientID, negativeReviewsPreFiltersAmount, m.NegativePreFilterExchange, NegativePreFilterRoutingKeyPrefix, rawReviews, sentMessages)
+	err = sendToReviewNodeV2(clientID, actionReviewJoinersAmount, m.ActionReviewJoinerExchange, ActionReviewJoinerRoutingKeyPrefix, rawReviews, sentMessages)
 	if err != nil {
 		return 0, fmt.Errorf("failed to publish message to negative pre filter: %v", err)
 	}
@@ -178,8 +178,8 @@ func (m *Middleware) SendGamesEndOfFile(clientID int) error {
 
 func (m *Middleware) SendReviewsEndOfFile(clientID int, negativeReviewsPreFiltersAmount int, reviewMappersAmount int, sentMessages map[int]int) error {
 	for i := 1; i <= negativeReviewsPreFiltersAmount; i++ {
-		negativePreFilterRoutingKey := fmt.Sprintf("%s%d", NegativePreFilterRoutingKeyPrefix, i)
-		err := m.NegativePreFilterExchange.Publish(negativePreFilterRoutingKey, sp.SerializeMsgEndOfFileV2(clientID, 0, sentMessages[i]))
+		negativePreFilterRoutingKey := fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, i)
+		err := m.ActionReviewJoinerExchange.Publish(negativePreFilterRoutingKey, sp.SerializeMsgEndOfFileV2(clientID, 0, sentMessages[i]))
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}

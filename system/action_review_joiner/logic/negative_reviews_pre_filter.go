@@ -2,7 +2,7 @@ package negative_reviews_pre_filter
 
 import (
 	n "distribuidos-tp/internal/system_protocol/node"
-	p "distribuidos-tp/system/negative_reviews_pre_filter/persistence"
+	p "distribuidos-tp/system/action_review_joiner/persistence"
 
 	"distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	r "distribuidos-tp/internal/system_protocol/reviews"
