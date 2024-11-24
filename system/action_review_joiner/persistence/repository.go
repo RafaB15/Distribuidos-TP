@@ -1,9 +1,9 @@
 package persistence
 
 import (
+	j "distribuidos-tp/internal/system_protocol/joiner"
 	n "distribuidos-tp/internal/system_protocol/node"
 	rv "distribuidos-tp/internal/system_protocol/reviews"
-	u "distribuidos-tp/internal/utils"
 	p "distribuidos-tp/persistence"
 	"fmt"
 	"github.com/op/go-logging"
@@ -17,7 +17,7 @@ const (
 
 type Repository struct {
 	accumulatedRawReviewsPersister *p.Persister[*n.IntMap[*n.IntMap[[]*rv.RawReview]]]
-	gamesToSendPersister           *p.Persister[*n.IntMap[*n.IntMap[bool]]]
+	gamesToSendPersister           *p.Persister[*n.IntMap[*n.IntMap[*j.GameToSend]]]
 	messageTrackerPersister        *p.Persister[*n.MessageTracker]
 	logger                         *logging.Logger
 }
@@ -27,7 +27,7 @@ func NewRepository(wg *sync.WaitGroup, logger *logging.Logger) *Repository {
 	accumulatedRawReviewsMap := n.NewIntMap(rawReviewsMap.Serialize, rawReviewsMap.Deserialize)
 	accumulatedRawReviewsPersister := p.NewPersister(AccumulatedRawReviewsFileName, accumulatedRawReviewsMap.Serialize, accumulatedRawReviewsMap.Deserialize, wg, logger)
 
-	gamesToSendMap := n.NewIntMap(u.SerializeBool, u.DeserializeBool)
+	gamesToSendMap := n.NewIntMap(j.SerializeGameToSend, j.DeserializeGameToSend)
 	accumulatedGamesToSendMap := n.NewIntMap(gamesToSendMap.Serialize, gamesToSendMap.Deserialize)
 	gamesToSendPersister := p.NewPersister(GamesToSendFileName, accumulatedGamesToSendMap.Serialize, accumulatedGamesToSendMap.Deserialize, wg, logger)
 
@@ -63,12 +63,12 @@ func (r *Repository) LoadAccumulatedRawReviews(backup bool) (*n.IntMap[*n.IntMap
 	return accumulatedRawReviews, syncNumber
 }
 
-func (r *Repository) SaveGamesToSend(gamesToSendMap *n.IntMap[*n.IntMap[bool]], syncNumber uint64) error {
+func (r *Repository) SaveGamesToSend(gamesToSendMap *n.IntMap[*n.IntMap[*j.GameToSend]], syncNumber uint64) error {
 	return r.gamesToSendPersister.Save(gamesToSendMap, syncNumber)
 }
 
-func (r *Repository) LoadGamesToSend(backup bool) (*n.IntMap[*n.IntMap[bool]], uint64) {
-	var gamesToSend *n.IntMap[*n.IntMap[bool]]
+func (r *Repository) LoadGamesToSend(backup bool) (*n.IntMap[*n.IntMap[*j.GameToSend]], uint64) {
+	var gamesToSend *n.IntMap[*n.IntMap[*j.GameToSend]]
 	var syncNumber uint64
 	var err error
 
@@ -79,7 +79,7 @@ func (r *Repository) LoadGamesToSend(backup bool) (*n.IntMap[*n.IntMap[bool]], u
 	}
 	if err != nil {
 		r.logger.Errorf("Failed to load games to send from file: %v. Returning new one", err)
-		gamesToSendMap := n.NewIntMap(u.SerializeBool, u.DeserializeBool)
+		gamesToSendMap := n.NewIntMap(j.SerializeGameToSend, j.DeserializeGameToSend)
 		accumulatedGamesToSendMap := n.NewIntMap(gamesToSendMap.Serialize, gamesToSendMap.Deserialize)
 		return accumulatedGamesToSendMap, 0
 	}
@@ -111,11 +111,11 @@ func (r *Repository) InitializeRawReviewMap() *n.IntMap[[]*rv.RawReview] {
 	return n.NewIntMap(rv.SerializeRawReviewsBatch, rv.DeserializeRawReviewsBatch)
 }
 
-func (r *Repository) InitializeGamesToSendMap() *n.IntMap[bool] {
-	return n.NewIntMap(u.SerializeBool, u.DeserializeBool)
+func (r *Repository) InitializeGamesToSendMap() *n.IntMap[*j.GameToSend] {
+	return n.NewIntMap(j.SerializeGameToSend, j.DeserializeGameToSend)
 }
 
-func (r *Repository) SaveAll(accumulatedRawReviewsMap *n.IntMap[*n.IntMap[[]*rv.RawReview]], gamesToSendMap *n.IntMap[*n.IntMap[bool]], messageTracker *n.MessageTracker, syncNumber uint64) error {
+func (r *Repository) SaveAll(accumulatedRawReviewsMap *n.IntMap[*n.IntMap[[]*rv.RawReview]], gamesToSendMap *n.IntMap[*n.IntMap[*j.GameToSend]], messageTracker *n.MessageTracker, syncNumber uint64) error {
 	err := r.SaveAccumulatedRawReviews(accumulatedRawReviewsMap, syncNumber)
 	if err != nil {
 		return fmt.Errorf("failed to save accumulated raw reviews: %v", err)
@@ -138,7 +138,7 @@ func (r *Repository) SaveAll(accumulatedRawReviewsMap *n.IntMap[*n.IntMap[[]*rv.
 	return nil
 }
 
-func (r *Repository) LoadAll(expectedEOFs int) (*n.IntMap[*n.IntMap[[]*rv.RawReview]], *n.IntMap[*n.IntMap[bool]], *n.MessageTracker, uint64, error) {
+func (r *Repository) LoadAll(expectedEOFs int) (*n.IntMap[*n.IntMap[[]*rv.RawReview]], *n.IntMap[*n.IntMap[*j.GameToSend]], *n.MessageTracker, uint64, error) {
 	accumulatedRawReviewsMap, accumulatedRawReviewsMapSyncNumber := r.LoadAccumulatedRawReviews(false)
 	r.logger.Infof("Loaded accumulated raw reviews with sync number %d", accumulatedRawReviewsMapSyncNumber)
 

@@ -9,13 +9,21 @@ import (
 
 var log = logging.MustGetLogger("log")
 
+type ReceiveReviewFunc func() (clientID int, reducedReview *r.ReducedReview, eof bool, e error)
+type SendAccumulatedReviewsFunc func(clientID int, metrics []*ra.NamedGameReviewsMetrics) error
+type SendEndOfFilesFunc func(clientID int) error
+
 type EnglishReviewsAccumulator struct {
-	ReceiveReview          func() (int, *r.Review, bool, error)
-	SendAccumulatedReviews func(int, int, []*ra.GameReviewsMetrics) error
-	SendEndOfFiles         func(int, int) error
+	ReceiveReview          ReceiveReviewFunc
+	SendAccumulatedReviews SendAccumulatedReviewsFunc
+	SendEndOfFiles         SendEndOfFilesFunc
 }
 
-func NewEnglishReviewsAccumulator(receiveReview func() (int, *r.Review, bool, error), sendAccumulatedReviews func(int, int, []*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int) error) *EnglishReviewsAccumulator {
+func NewEnglishReviewsAccumulator(
+	receiveReview ReceiveReviewFunc,
+	sendAccumulatedReviews SendAccumulatedReviewsFunc,
+	sendEndOfFiles SendEndOfFilesFunc,
+) *EnglishReviewsAccumulator {
 	return &EnglishReviewsAccumulator{
 		ReceiveReview:          receiveReview,
 		SendAccumulatedReviews: sendAccumulatedReviews,
@@ -23,13 +31,13 @@ func NewEnglishReviewsAccumulator(receiveReview func() (int, *r.Review, bool, er
 	}
 }
 
-func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, negativeReviewsFiltersAmount int) {
+func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int) {
 	remainingEOFsMap := make(map[int]int)
 
-	accumulatedReviews := make(map[int]map[uint32]*ra.GameReviewsMetrics)
+	accumulatedReviews := make(map[int]map[uint32]*ra.NamedGameReviewsMetrics)
 
 	for {
-		clientID, review, eof, err := a.ReceiveReview()
+		clientID, reducedReview, eof, err := a.ReceiveReview()
 		if err != nil {
 			log.Errorf("Failed to receive reviews: %v", err)
 			return
@@ -37,7 +45,7 @@ func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, negativeReview
 
 		clientAccumulatedReviews, exists := accumulatedReviews[clientID]
 		if !exists {
-			clientAccumulatedReviews = make(map[uint32]*ra.GameReviewsMetrics)
+			clientAccumulatedReviews = make(map[uint32]*ra.NamedGameReviewsMetrics)
 			accumulatedReviews[clientID] = clientAccumulatedReviews
 		}
 
@@ -59,13 +67,13 @@ func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, negativeReview
 			log.Info("Received all EOFs")
 
 			metrics := idMapToList(clientAccumulatedReviews)
-			err = a.SendAccumulatedReviews(clientID, negativeReviewsFiltersAmount, metrics)
+			err = a.SendAccumulatedReviews(clientID, metrics)
 			if err != nil {
 				log.Errorf("Failed to send accumulated reviews: %v", err)
 				return
 			}
 
-			err = a.SendEndOfFiles(clientID, negativeReviewsFiltersAmount)
+			err = a.SendEndOfFiles(clientID)
 			if err != nil {
 				log.Errorf("Failed to send EOFs: %v", err)
 				return
@@ -75,22 +83,22 @@ func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int, negativeReview
 			continue
 		}
 
-		if metrics, exists := clientAccumulatedReviews[review.AppId]; exists {
-			log.Info("Updating metrics for appID: ", review.AppId)
+		if metrics, exists := clientAccumulatedReviews[reducedReview.AppId]; exists {
+			log.Info("Updating metrics for appID: ", reducedReview.AppId)
 			// Update existing metrics
-			metrics.UpdateWithReview(review)
+			metrics.UpdateWithReview(reducedReview)
 		} else {
 			// Create new metrics
-			log.Info("Creating new metrics for appID: ", review.AppId)
-			newMetrics := ra.NewReviewsMetrics(review.AppId)
-			newMetrics.UpdateWithReview(review)
-			clientAccumulatedReviews[review.AppId] = newMetrics
+			log.Info("Creating new metrics for appID: ", reducedReview.AppId)
+			newMetrics := ra.NewNamedGameReviewsMetrics(reducedReview.AppId, reducedReview.Name)
+			newMetrics.UpdateWithReview(reducedReview)
+			clientAccumulatedReviews[reducedReview.AppId] = newMetrics
 		}
 	}
 }
 
-func idMapToList(idMap map[uint32]*ra.GameReviewsMetrics) []*ra.GameReviewsMetrics {
-	var list []*ra.GameReviewsMetrics
+func idMapToList(idMap map[uint32]*ra.NamedGameReviewsMetrics) []*ra.NamedGameReviewsMetrics {
+	var list []*ra.NamedGameReviewsMetrics
 	for _, value := range idMap {
 		list = append(list, value)
 	}

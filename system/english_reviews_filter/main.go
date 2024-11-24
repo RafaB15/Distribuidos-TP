@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	AccumulatorsAmountEnvironmentVariableName              = "ACCUMULATORS_AMOUNT"
-	IdEnvironmentVariableName                              = "ID"
-	NegativeReviewsPreFiltersAmountEnvironmentVariableName = "NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT"
+	AccumulatorsAmountEnvironmentVariableName        = "ACCUMULATORS_AMOUNT"
+	IdEnvironmentVariableName                        = "ID"
+	ActionReviewJoinersAmountEnvironmentVariableName = "ACTION_REVIEW_JOINERS_AMOUNT"
 )
 
 func main() {
@@ -38,7 +38,7 @@ func main() {
 		return
 	}
 
-	negativeReviewsPreFiltersAmount, err := u.GetEnvInt(NegativeReviewsPreFiltersAmountEnvironmentVariableName)
+	actionReviewJoinersAmount, err := u.GetEnvInt(ActionReviewJoinersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -61,7 +61,7 @@ func main() {
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		englishReviewsFilter.Run(accumulatorsAmount, negativeReviewsPreFiltersAmount)
+		englishReviewsFilter.Run(accumulatorsAmount, actionReviewJoinersAmount)
 		doneChannel <- true
 	}()
 

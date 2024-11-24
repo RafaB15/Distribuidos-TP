@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	IdEnvironmentVariableName      = "ID"
-	IndieReviewJoinersAmountName   = "INDIE_REVIEW_JOINERS_AMOUNT"
-	NegativeReviewPreFiltersAmount = "NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT"
+	IdEnvironmentVariableName    = "ID"
+	IndieReviewJoinersAmountName = "INDIE_REVIEW_JOINERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -37,12 +36,6 @@ func main() {
 		return
 	}
 
-	negativeReviewPreFiltersAmount, err := u.GetEnvInt(NegativeReviewPreFiltersAmount)
-	if err != nil {
-		log.Errorf("Failed to get environment variable: %v", err)
-		return
-	}
-
 	middleware, err := m.NewMiddleware(id)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
@@ -54,7 +47,7 @@ func main() {
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		reviewsAccumulator.Run(id, indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
+		reviewsAccumulator.Run(id, indieReviewJoinersAmount)
 		doneChannel <- true
 	}()
 

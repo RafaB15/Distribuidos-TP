@@ -14,39 +14,42 @@ const (
 	AccumulatedReviewsRoutingKey   = "accumulated_reviews_key"
 	AccumulatedReviewsQueueName    = "accumulated_reviews_queue"
 
-	AccumulatedPercentileReviewsExchangeName = "action_review_join_exchange"
-	AccumulatedPercentileReviewsExchangeType = "direct"
+	QueryResultsExchangeName = "query_results_exchange"
+	QueryRoutingKeyPrefix    = "query_results_key_" // con el id del cliente
+	QueryExchangeType        = "direct"
 )
 
 type Middleware struct {
-	Manager                       *mom.MiddlewareManager
-	AccumulatedReviewsQueue       *mom.Queue
-	AccumulatedPercentileExchange *mom.Exchange
+	Manager                 *mom.MiddlewareManager
+	AccumulatedReviewsQueue *mom.Queue
+	QueryResultsExchange    *mom.Exchange
 }
 
 func NewMiddleware() (*Middleware, error) {
-
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, err
 	}
+
 	accumulatedReviewsQueue, err := manager.CreateBoundQueue(AccumulatedReviewsQueueName, AccumulatedReviewsExchangeName, AccumulatedReviewsExchangeType, AccumulatedReviewsRoutingKey, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
-	accumulatedPercentileExchange, err := manager.CreateExchange(AccumulatedPercentileReviewsExchangeName, AccumulatedPercentileReviewsExchangeType)
+
+	queryResultsExchange, err := manager.CreateExchange(QueryResultsExchangeName, QueryExchangeType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to declare exchange: %v", err)
+		return nil, err
 	}
+
 	return &Middleware{
-		Manager:                       manager,
-		AccumulatedReviewsQueue:       accumulatedReviewsQueue,
-		AccumulatedPercentileExchange: accumulatedPercentileExchange,
+		Manager:                 manager,
+		AccumulatedReviewsQueue: accumulatedReviewsQueue,
+		QueryResultsExchange:    queryResultsExchange,
 	}, nil
 
 }
 
-func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics, bool, error) {
+func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.NamedGameReviewsMetrics, bool, error) {
 	rawMsg, err := m.AccumulatedReviewsQueue.Consume()
 	if err != nil {
 		return 0, nil, false, err
@@ -59,41 +62,27 @@ func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics,
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
+		fmt.Printf("Message body: %v\n", message.Body)
 		return message.ClientID, nil, true, nil
-	case sp.MsgGameReviewsMetrics:
+	case sp.MsgNamedGameReviewsMetrics:
 		fmt.Print("Received game reviews metrics\n")
-		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(message.Body)
+		gameReviewsMetrics, err := sp.DeserializeMsgNamedGameReviewsMetricsBatch(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, err
 		}
+		fmt.Printf("Message: %v\n", message.Body)
 		return message.ClientID, gameReviewsMetrics, false, nil
 	default:
 		fmt.Printf("Received unexpected message type: %v\n", message.Type)
+		fmt.Printf("Message body: %v\n", rawMsg)
 		return message.ClientID, nil, false, fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
 }
 
-func (m *Middleware) SendGameReviewsMetrics(clientID int, accumulatedPercentileKeyMap map[string][]*ra.GameReviewsMetrics) error {
-	for routingKey, metrics := range accumulatedPercentileKeyMap {
-		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
-
-		err := m.AccumulatedPercentileExchange.Publish(routingKey, serializedMetricsBatch)
-		if err != nil {
-			return fmt.Errorf("failed to publish metrics: %v", err)
-		}
-	}
-	return nil
-}
-
-func (m *Middleware) SendEndOfFiles(clientID int, actionNegativeReviewsJoinersAmount int, accumulatedPercentileReviewsRoutingKeyPrefix string) error {
-	for i := 1; i <= actionNegativeReviewsJoinersAmount; i++ {
-		routingKey := fmt.Sprintf("%v%d", accumulatedPercentileReviewsRoutingKeyPrefix, i)
-		err := m.AccumulatedPercentileExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (m *Middleware) SendQueryResults(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) error {
+	queryMessage := sp.SerializeMsgActionNegativeReviewsQuery(clientID, namedGameReviewsMetricsBatch)
+	routingKey := fmt.Sprintf("%s%d", QueryRoutingKeyPrefix, clientID)
+	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
 }
 
 func (m *Middleware) Close() error {

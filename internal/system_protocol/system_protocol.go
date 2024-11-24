@@ -21,9 +21,11 @@ const (
 	MsgGameYearAndAvgPtfInformation
 	MsgBatch
 	MsgReviewInformation
-	MsgQueryResolved
+	MsgReducedReviewInformation
 	MsgGameReviewsMetrics
+	MsgNamedGameReviewsMetrics
 	MsgGameNames
+	MsgGames
 	MsgJoinedPositiveGameReviews
 	MsgJoinedNegativeGameReviews
 	MsgRawReviewInformation
@@ -169,6 +171,31 @@ func DeserializeMsgRawReviewInformation(message []byte) (*r.RawReview, error) {
 }
 
 // --------------------------------------------------------
+// Message ReviewInformation
+
+func SerializeMsgReviewInformation(clientID int, review *r.Review) []byte {
+	serializedReview := review.Serialize()
+	return SerializeMessage(MsgReviewInformation, clientID, serializedReview)
+}
+
+func DeserializeMsgReviewInformation(message []byte) (*r.Review, error) {
+	deserializedReview, _, err := r.DeserializeReview(message)
+	return deserializedReview, err
+}
+
+// --------------------------------------------------------
+// SerializeMsgReviewInformation Message ReducedReview Information
+
+func SerializeMsgReducedReviewInformation(clientID int, review *r.ReducedReview) []byte {
+	serializedReview := review.Serialize()
+	return SerializeMessage(MsgReducedReviewInformation, clientID, serializedReview)
+}
+
+func DeserializeMsgReducedReviewInformation(message []byte) (*r.ReducedReview, error) {
+	return r.DeserializeReducedReview(message)
+}
+
+// --------------------------------------------------------
 // Message RawReviewInformationBatch
 
 func SerializeMsgRawReviewInformationBatch(clientID int, reviews []*r.RawReview) []byte {
@@ -231,19 +258,6 @@ func DeserializeMsgGameYearAndAvgPtf(message []byte) ([]*df.GameYearAndAvgPtf, e
 }
 
 // --------------------------------------------------------
-
-// SerializeMsgReviewInformation Message Review Information
-func SerializeMsgReviewInformation(clientID int, review *r.Review) []byte {
-	serializedReview := review.Serialize()
-	return SerializeMessage(MsgReviewInformation, clientID, serializedReview)
-}
-
-func DeserializeMsgReviewInformation(message []byte) (*r.Review, error) {
-	return r.DeserializeReview(message)
-}
-
-// --------------------------------------------------------
-
 // Message Game Reviews Metrics Batch
 
 func SerializeMsgGameReviewsMetricsBatch(clientID int, metrics []*m.GameReviewsMetrics) []byte {
@@ -288,6 +302,34 @@ func DeserializeMsgGameReviewsMetricsBatch(message []byte) ([]*m.GameReviewsMetr
 	}
 
 	return metrics, nil
+}
+
+// --------------------------------------------------------
+// Message Game Reviews Metrics Batch
+
+func SerializeMsgNamedGameReviewsMetricsBatch(clientID int, metrics []*m.NamedGameReviewsMetrics) []byte {
+	serializedMessage := m.SerializeNamedGameReviewsMetricsBatch(metrics)
+	return SerializeMessage(MsgNamedGameReviewsMetrics, clientID, serializedMessage)
+}
+
+func DeserializeMsgNamedGameReviewsMetricsBatch(message []byte) ([]*m.NamedGameReviewsMetrics, error) {
+	return m.DeserializeNamedGameReviewsMetricsBatch(message)
+}
+
+// --------------------------------------------------------
+// Message Games
+
+func SerializeMsgGames(clientID int, games []*g.Game) ([]byte, error) {
+	serializedGames, err := g.SerializeGameBatch(games)
+	if err != nil {
+		return nil, err
+	}
+
+	return SerializeMessage(MsgGames, clientID, serializedGames), nil
+}
+
+func DeserializeMsgGames(message []byte) ([]*g.Game, error) {
+	return g.DeserializeGameBatch(message)
 }
 
 // --------------------------------------------------------
@@ -363,34 +405,6 @@ func DeserializeMsgJoinedPositiveGameReviews(data []byte) (*j.JoinedPositiveGame
 }
 
 // --------------------------------------------------------
-
-// Message Joined Negative Action Game Reviews
-
-func SerializeMsgJoinedNegativeGameReviews(clientID int, joinedActionNegativeGameReview *j.JoinedNegativeGameReview) ([]byte, error) {
-	messageLen := 4 + 4 + len(joinedActionNegativeGameReview.GameName) + 4
-	message := make([]byte, messageLen) //chequear cuando haga el mensaje de ActionGame
-
-	serializedJoinedNegativeGameReview, err := j.SerializeJoinedActionNegativeGameReview(joinedActionNegativeGameReview)
-	if err != nil {
-		return nil, err
-	}
-	copy(message, serializedJoinedNegativeGameReview)
-
-	return SerializeMessage(MsgJoinedNegativeGameReviews, clientID, message), nil
-}
-
-func DeserializeMsgJoinedNegativeGameReviews(data []byte) (*j.JoinedNegativeGameReview, error) {
-
-	metrics, err := j.DeserializeJoinedActionNegativeGameReview(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return metrics, nil
-}
-
-// --------------------------------------------------------
-
 // Message Game Os Metrics
 
 func SerializeGameOSMetrics(clientID int, gameMetrics *oa.GameOSMetrics) []byte {

@@ -2,8 +2,8 @@ package main
 
 import (
 	u "distribuidos-tp/internal/utils"
-	l "distribuidos-tp/system/action_english_review_joiner/logic"
-	m "distribuidos-tp/system/action_english_review_joiner/middleware"
+	l "distribuidos-tp/system/action_reviews_accumulator/logic"
+	m "distribuidos-tp/system/action_reviews_accumulator/middleware"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	IdEnvironmentVariableName                           = "ID"                              //al middleware
-	NegativeReviewsFiltersAmountEnvironmentVariableName = "NEGATIVE_REVIEWS_FILTERS_AMOUNT" //al run
-
+	IdEnvironmentVariableName                        = "ID"
+	ActionReviewJoinersAmountEnvironmentVariableName = "ACTION_REVIEW_JOINERS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -25,30 +24,36 @@ func main() {
 
 	doneChannel := make(chan bool)
 
-	negativeReviewsFiltersAmount, err := u.GetEnvInt(NegativeReviewsFiltersAmountEnvironmentVariableName)
+	id, err := u.GetEnvInt(IdEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
 	}
 
-	id, err := u.GetEnv(IdEnvironmentVariableName)
+	actionReviewJoinersAmount, err := u.GetEnvInt(ActionReviewJoinersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
 	}
 
-	middleware, err := m.NewMiddleware(id)
+	middleware, err := m.NewMiddleware(id, log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
 	}
 
-	actionEnglishReviewJoiner := l.NewActionEnglishReviewJoiner(middleware.ReceiveMsg, middleware.SendMetrics, middleware.SendEof)
+	actionReviewsAccumulator := l.NewActionReviewsAccumulator(
+		middleware.ReceiveReview,
+		middleware.SendAccumulatedReviews,
+		middleware.SendEndOfFiles,
+		middleware.AckLastMessages,
+		log,
+	)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		actionEnglishReviewJoiner.Run(negativeReviewsFiltersAmount)
+		actionReviewsAccumulator.Run(actionReviewJoinersAmount)
 		doneChannel <- true
 	}()
 

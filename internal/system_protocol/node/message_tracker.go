@@ -4,7 +4,6 @@ import (
 	u "distribuidos-tp/internal/utils"
 	"fmt"
 	"github.com/op/go-logging"
-	"hash/fnv"
 )
 
 type MessageTracker struct {
@@ -33,20 +32,18 @@ func (m *MessageTracker) ProcessMessage(clientID int, messageBody []byte) (newMe
 		m.processedMessages.Set(clientID, clientMessages)
 	}
 
-	messageHash := fnv.New64a()
-	_, err := messageHash.Write(messageBody)
+	messageHash, err := u.Hash(messageBody)
 	if err != nil {
 		return false, err
 	}
 
-	messageHashValue := int(messageHash.Sum64())
-	_, exists = clientMessages.Get(messageHashValue)
+	_, exists = clientMessages.Get(messageHash)
 
 	if exists {
 		return false, nil
 	}
 
-	clientMessages.Set(messageHashValue, true)
+	clientMessages.Set(messageHash, true)
 	return true, nil
 }
 

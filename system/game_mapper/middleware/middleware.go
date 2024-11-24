@@ -5,9 +5,11 @@ import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	g "distribuidos-tp/internal/system_protocol/games"
+	n "distribuidos-tp/internal/system_protocol/node"
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
+	"github.com/op/go-logging"
 )
 
 const (
@@ -30,12 +32,10 @@ const (
 	IndieReviewJoinExchangeType     = "direct"
 	IndieReviewJoinRoutingKeyPrefix = "indie_key_"
 
-	ActionReviewJoinExchangeName     = "action_review_join_exchange"
-	ActionReviewJoinExchangeType     = "direct"
-	ActionReviewJoinRoutingKeyPrefix = "action_key_"
-
-	IndieGenre  = "indie"
-	ActionGenre = "action"
+	ActionReviewJoinerExchangeName     = "action_review_joiner_exchange"
+	ActionReviewJoinerExchangeType     = "direct"
+	ActionReviewJoinerRoutingKeyPrefix = "action_review_joiner_key_"
+	ActionReviewJoinerExchangePriority = 1
 )
 
 type Middleware struct {
@@ -45,9 +45,10 @@ type Middleware struct {
 	YearAndAvgPtfExchange    *mom.Exchange
 	IndieReviewJoinExchange  *mom.Exchange
 	ActionReviewJoinExchange *mom.Exchange
+	logger                   *logging.Logger
 }
 
-func NewMiddleware() (*Middleware, error) {
+func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(MiddlewareURI)
 	if err != nil {
 		return nil, err
@@ -73,7 +74,7 @@ func NewMiddleware() (*Middleware, error) {
 		return nil, err
 	}
 
-	actionReviewJoinExchange, err := manager.CreateExchange(ActionReviewJoinExchangeName, ActionReviewJoinExchangeType)
+	actionReviewJoinExchange, err := manager.CreateExchange(ActionReviewJoinerExchangeName, ActionReviewJoinerExchangeType)
 	if err != nil {
 		return nil, err
 	}
@@ -85,72 +86,117 @@ func NewMiddleware() (*Middleware, error) {
 		YearAndAvgPtfExchange:    yearAndAvgPtfExchange,
 		IndieReviewJoinExchange:  indieReviewJoinExchange,
 		ActionReviewJoinExchange: actionReviewJoinExchange,
+		logger:                   logger,
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameBatch() (int, []string, bool, error) {
+func (m *Middleware) ReceiveGameBatch(messageTracker *n.MessageTracker) (clientID int, gameLines []string, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.RawGamesQueue.Consume()
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, false, false, err
 	}
 
-	var lines []string
+	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
+	if err != nil {
+		return 0, nil, false, false, fmt.Errorf("failed to process message: %v", err)
+	}
+
+	if !newMessage {
+		return message.ClientID, nil, false, false, nil
+	}
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return message.ClientID, nil, true, nil
-	case sp.MsgBatch:
-		lines, err = sp.DeserializeMsgBatch(message.Body)
+		m.logger.Infof("Received EOF from client %d", message.ClientID)
+		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, err
+			return message.ClientID, nil, false, false, err
 		}
-	default:
-		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %d", message.Type)
-	}
 
-	return message.ClientID, lines, false, nil
+		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
+		if err != nil {
+			return message.ClientID, nil, false, false, err
+		}
+
+		return message.ClientID, nil, true, true, nil
+	case sp.MsgBatch:
+		lines, err := sp.DeserializeMsgBatch(message.Body)
+		if err != nil {
+			return message.ClientID, nil, false, false, err
+		}
+		return message.ClientID, lines, false, true, nil
+	default:
+		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %d", message.Type)
+	}
 }
 
-func (m *Middleware) SendGamesOS(clientID int, osAccumulatorsAmount int, gamesOS []*oa.GameOS) error {
+func (m *Middleware) SendGamesOS(clientID int, osAccumulatorsAmount int, gamesOS []*oa.GameOS, messageTracker *n.MessageTracker) error {
 	serializedGameOS := sp.SerializeMsgGameOSInformation(clientID, gamesOS)
 
-	randomNode := u.GetRandomNumber(osAccumulatorsAmount)
+	hashedSerializedGameOS, err := u.Hash(serializedGameOS)
+	if err != nil {
+		return fmt.Errorf("failed to hash serialized game OS: %v", err)
+	}
 
-	routingKey := fmt.Sprintf("%s%d", OSGamesRoutingKeyPrefix, randomNode)
+	routingKey := u.GetPartitioningKeyFromInt(hashedSerializedGameOS, osAccumulatorsAmount, OSGamesRoutingKeyPrefix)
 
 	fmt.Printf("Publishing games OS to routingKey: %s for clientID: %d\n", routingKey, clientID)
-	err := m.OSGamesExchange.Publish(routingKey, serializedGameOS)
+	err = m.OSGamesExchange.Publish(routingKey, serializedGameOS)
 	if err != nil {
 		return fmt.Errorf("failed to publish games OS: %v", err)
 	}
+	messageTracker.RegisterSentMessage(clientID, routingKey)
 
 	return nil
 }
 
-func (m *Middleware) SendGameYearAndAvgPtf(clientID int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf) error {
+func (m *Middleware) SendGameYearAndAvgPtf(clientID int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error {
 	serializedGameYearAndAvgPtf := sp.SerializeMsgGameYearAndAvgPtf(clientID, gameYearAndAvgPtf)
+	// Esto hay que cambiarlo, se manda todo a la misma cola, no se hará conteo único.
 	err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, serializedGameYearAndAvgPtf)
 	if err != nil {
 		return fmt.Errorf("failed to publish game year and avg ptf: %v", err)
 	}
+	messageTracker.RegisterSentMessage(clientID, YearAndAvgPtfRoutingKey)
+	return nil
+}
+
+func (m *Middleware) SendIndieGamesNames(clientID int, indieGamesNames map[int][]*g.GameName, messageTracker *n.MessageTracker) error {
+	return sendGamesNamesToReviewJoin(clientID, indieGamesNames, m.IndieReviewJoinExchange, IndieReviewJoinRoutingKeyPrefix, messageTracker)
+}
+
+func (m *Middleware) SendActionGames(clientID int, actionGames []*g.Game, actionReviewJoinerAmount int, messageTracker *n.MessageTracker) error {
+	routingKeyMap := make(map[string][]*g.Game)
+
+	for _, game := range actionGames {
+		routingKey := u.GetPartitioningKeyFromInt(int(game.AppId), actionReviewJoinerAmount, ActionReviewJoinerRoutingKeyPrefix)
+		routingKeyMap[routingKey] = append(routingKeyMap[routingKey], game)
+	}
+
+	for routingKey, games := range routingKeyMap {
+		serializedGames, err := sp.SerializeMsgGames(clientID, games)
+		if err != nil {
+			return fmt.Errorf("failed to serialize games: %v", err)
+		}
+
+		err = m.ActionReviewJoinExchange.PublishWithPriority(routingKey, serializedGames, ActionReviewJoinerExchangePriority)
+		if err != nil {
+			return fmt.Errorf("failed to publish games: %v", err)
+		}
+
+		messageTracker.RegisterSentMessage(clientID, routingKey)
+		m.logger.Infof("Published games to action review joiner with routing key: %s", routingKey)
+	}
 
 	return nil
 }
 
-func (m *Middleware) SendIndieGamesNames(clientID int, indieGamesNames map[int][]*g.GameName) error {
-	return sendGamesNamesToReviewJoin(clientID, indieGamesNames, m.IndieReviewJoinExchange, IndieReviewJoinRoutingKeyPrefix)
-}
-
-func (m *Middleware) SendActionGamesNames(clientID int, actionGamesNames map[int][]*g.GameName) error {
-	return sendGamesNamesToReviewJoin(clientID, actionGamesNames, m.ActionReviewJoinExchange, ActionReviewJoinRoutingKeyPrefix)
-}
-
-func sendGamesNamesToReviewJoin(clientID int, gamesNamesMap map[int][]*g.GameName, reviewJoinExchange *mom.Exchange, keyPrefix string) error {
+func sendGamesNamesToReviewJoin(clientID int, gamesNamesMap map[int][]*g.GameName, reviewJoinExchange *mom.Exchange, keyPrefix string, messageTracker *n.MessageTracker) error {
 	for shardingKey, gameName := range gamesNamesMap {
 		routingKey := fmt.Sprintf("%s%d", keyPrefix, shardingKey)
 
@@ -163,12 +209,16 @@ func sendGamesNamesToReviewJoin(clientID int, gamesNamesMap map[int][]*g.GameNam
 		if err != nil {
 			return fmt.Errorf("failed to publish game names: %v", err)
 		}
+
+		messageTracker.RegisterSentMessage(clientID, routingKey)
 	}
 
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int) error {
+func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+
 	for i := 0; i < osAccumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", OSGamesRoutingKeyPrefix, i+1)
 		fmt.Printf("Publishing EndOfFile to routingKey: %s for clientID: %d\n", routingKey, clientID)
@@ -194,11 +244,14 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 	}
 
 	for i := 1; i <= actionReviewJoinersAmount; i++ {
-		routingKey := u.GetPartitioningKeyFromInt(i, actionReviewJoinersAmount, ActionReviewJoinRoutingKeyPrefix)
-		err := m.ActionReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
+		routingKey := fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, i)
+		messagesSentToReviewJoin := messagesSent[routingKey]
+		serializedMsg := sp.SerializeMsgEndOfFileV2(clientID, 1, messagesSentToReviewJoin)
+		err := m.ActionReviewJoinExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return err
 		}
+		m.logger.Infof("Published EOF to action review joiner %d with sent messages %d and routing key %s", i, messagesSentToReviewJoin, routingKey)
 	}
 
 	return nil

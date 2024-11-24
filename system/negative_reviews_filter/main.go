@@ -12,10 +12,8 @@ import (
 )
 
 const (
-	ActionEnglishReviewsJoinersAmountEnvironmentVariableName = "ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT"
-	EnglishReviewAccumulatorsAmountEnvironmentVariableName   = "ENGLISH_REVIEW_ACCUMULATORS_AMOUNT"
-	IdEnvironmentVariableName                                = "ID"
-	MinPositiveReviews                                       = 5000
+	EnglishReviewAccumulatorsAmountEnvironmentVariableName = "ENGLISH_REVIEW_ACCUMULATORS_AMOUNT"
+	MinPositiveReviews                                     = 5000
 )
 
 var log = logging.MustGetLogger("log")
@@ -26,25 +24,13 @@ func main() {
 
 	doneChannel := make(chan bool)
 
-	id, err := u.GetEnvInt(IdEnvironmentVariableName)
-	if err != nil {
-		log.Errorf("Failed to get environment variable: %v", err)
-		return
-	}
-
-	actionReviewsJoinersAmount, err := u.GetEnvInt(ActionEnglishReviewsJoinersAmountEnvironmentVariableName)
-	if err != nil {
-		log.Errorf("Failed to get environment variable: %v", err)
-		return
-	}
-
 	englishReviewAccumulatorsAmount, err := u.GetEnvInt(EnglishReviewAccumulatorsAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
 	}
 
-	middleware, err := m.NewMiddleware(id)
+	middleware, err := m.NewMiddleware()
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
@@ -52,14 +38,13 @@ func main() {
 
 	negativeReviewsFilter := l.NewNegativeReviewsFilter(
 		middleware.ReceiveGameReviewsMetrics,
-		middleware.SendGameReviewsMetrics,
-		middleware.SendEndOfFiles,
+		middleware.SendQueryResults,
 	)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		negativeReviewsFilter.Run(actionReviewsJoinersAmount, englishReviewAccumulatorsAmount, MinPositiveReviews)
+		negativeReviewsFilter.Run(englishReviewAccumulatorsAmount, MinPositiveReviews)
 		doneChannel <- true
 	}()
 

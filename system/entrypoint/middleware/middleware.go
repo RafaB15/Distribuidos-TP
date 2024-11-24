@@ -3,13 +3,14 @@ package middleware
 import (
 	sp "distribuidos-tp/internal/system_protocol"
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	j "distribuidos-tp/internal/system_protocol/joiner"
+	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
-	"strconv"
 )
 
 const (
@@ -23,9 +24,9 @@ const (
 	ReviewsExchangeType     = "direct"
 	ReviewsRoutingKeyPrefix = "reviews_key_"
 
-	NegativePreFilterExchangeName     = "negative_pre_filter_exchange"
-	NegativePreFilterExchangeType     = "direct"
-	NegativePreFilterRoutingKeyPrefix = "negative_pre_filter_key_"
+	ActionReviewJoinerExchangeName     = "action_review_joiner_exchange"
+	ActionReviewJoinerExchangeType     = "direct"
+	ActionReviewJoinerRoutingKeyPrefix = "action_review_joiner_key_"
 
 	QueryResultsQueueNamePrefix = "query_results_queue_"
 	QueryResultsExchangeName    = "query_results_exchange"
@@ -38,11 +39,11 @@ const (
 )
 
 type Middleware struct {
-	Manager                   *mom.MiddlewareManager
-	RawGamesExchange          *mom.Exchange
-	ReviewsExchange           *mom.Exchange
-	NegativePreFilterExchange *mom.Exchange
-	QueryResultsQueue         *mom.Queue
+	Manager                    *mom.MiddlewareManager
+	RawGamesExchange           *mom.Exchange
+	ReviewsExchange            *mom.Exchange
+	ActionReviewJoinerExchange *mom.Exchange
+	QueryResultsQueue          *mom.Queue
 }
 
 func NewMiddleware(clientID int) (*Middleware, error) {
@@ -61,7 +62,7 @@ func NewMiddleware(clientID int) (*Middleware, error) {
 		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
 
-	negativePreFilterExchange, err := manager.CreateExchange(NegativePreFilterExchangeName, NegativePreFilterExchangeType)
+	actionReviewJoinerExchange, err := manager.CreateExchange(ActionReviewJoinerExchangeName, ActionReviewJoinerExchangeType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
@@ -74,31 +75,31 @@ func NewMiddleware(clientID int) (*Middleware, error) {
 	}
 
 	return &Middleware{
-		Manager:                   manager,
-		RawGamesExchange:          rawGamesExchange,
-		ReviewsExchange:           reviewsExchange,
-		NegativePreFilterExchange: negativePreFilterExchange,
-		QueryResultsQueue:         queryResultsQueue,
+		Manager:                    manager,
+		RawGamesExchange:           rawGamesExchange,
+		ReviewsExchange:            reviewsExchange,
+		ActionReviewJoinerExchange: actionReviewJoinerExchange,
+		QueryResultsQueue:          queryResultsQueue,
 	}, nil
 }
 
-func (m *Middleware) SendGamesBatch(clientID int, data []byte) error {
+func (m *Middleware) SendGamesBatch(clientID int, data []byte, messageTracker *n.MessageTracker) error {
 	batch := sp.SerializeMsgBatch(clientID, data)
 	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, batch)
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %v", err)
 	}
-
+	messageTracker.RegisterSentMessage(clientID, RawGamesRoutingKey)
 	return nil
 }
 
-func (m *Middleware) SendReviewsBatch(clientID int, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, sentMessages map[int]int) (int, error) {
+func (m *Middleware) SendReviewsBatch(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, messageTracker *n.MessageTracker) (sentReviewsAmount int, e error) {
 	rawReviews, err := getDeserializedRawReviews(data, currentReviewId)
 	if err != nil {
 		return 0, fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}
 
-	err = sendToReviewNodeV2(clientID, negativeReviewsPreFiltersAmount, m.NegativePreFilterExchange, NegativePreFilterRoutingKeyPrefix, rawReviews, sentMessages)
+	err = sendToReviewNodeV2(clientID, actionReviewJoinersAmount, m.ActionReviewJoinerExchange, ActionReviewJoinerRoutingKeyPrefix, rawReviews, messageTracker)
 	if err != nil {
 		return 0, fmt.Errorf("failed to publish message to negative pre filter: %v", err)
 	}
@@ -129,7 +130,7 @@ func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, rou
 	return nil
 }
 
-func sendToReviewNodeV2(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview, messagesSent map[int]int) error {
+func sendToReviewNodeV2(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview, messageTracker *n.MessageTracker) error {
 	routingKeyMap := make(map[string][]*r.RawReview)
 	for _, rawReview := range rawReviews {
 		routingKey := u.GetPartitioningKeyFromInt(int(rawReview.AppId), nodesAmount, routingKeyPrefix)
@@ -142,12 +143,7 @@ func sendToReviewNodeV2(clientID int, nodesAmount int, exchange *mom.Exchange, r
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}
-		lastChar := string(routingKey[len(routingKey)-1])
-		key, err := strconv.Atoi(lastChar)
-		if err != nil {
-			return fmt.Errorf("failed to convert routing key to int: %v", err)
-		}
-		messagesSent[key]++
+		messageTracker.RegisterSentMessage(clientID, routingKey)
 	}
 
 	return nil
@@ -167,8 +163,12 @@ func getDeserializedRawReviews(data []byte, currentReviewId int) ([]*r.RawReview
 	return rawReviews, nil
 }
 
-func (m *Middleware) SendGamesEndOfFile(clientID int) error {
-	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, sp.SerializeMsgEndOfFile(clientID))
+func (m *Middleware) SendGamesEndOfFile(clientID int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+	messagesSentToGameMapper := messagesSent[RawGamesRoutingKey]
+	serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 0, messagesSentToGameMapper)
+
+	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, serializedMessage)
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %v", err)
 	}
@@ -176,17 +176,20 @@ func (m *Middleware) SendGamesEndOfFile(clientID int) error {
 	return nil
 }
 
-func (m *Middleware) SendReviewsEndOfFile(clientID int, negativeReviewsPreFiltersAmount int, reviewMappersAmount int, sentMessages map[int]int) error {
-	for i := 1; i <= negativeReviewsPreFiltersAmount; i++ {
-		negativePreFilterRoutingKey := fmt.Sprintf("%s%d", NegativePreFilterRoutingKeyPrefix, i)
-		err := m.NegativePreFilterExchange.Publish(negativePreFilterRoutingKey, sp.SerializeMsgEndOfFileV2(clientID, 0, sentMessages[i]))
+func (m *Middleware) SendReviewsEndOfFile(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+
+	for i := 1; i <= actionReviewJoinersAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, i)
+		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 0, messagesSent[routingKey])
+		err := m.ActionReviewJoinerExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}
 		fmt.Printf("Sent EOF to negative pre filter %d\n", i)
 	}
 
-	for i := 1; i <= reviewMappersAmount; i++ {
+	for i := 1; i <= reviewAccumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", ReviewsRoutingKeyPrefix, i)
 		err := m.ReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
@@ -222,9 +225,9 @@ func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
 		fmt.Printf("Received positive indie reviews query\n")
 		return handleMsgIndiePositiveResolvedQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
 
-	case sp.MsgActionPositiveReviewsQuery:
+	case sp.MsgActionNegativeEnglishReviewsQuery:
 		fmt.Printf("Received positive reviews query\n")
-		return handleMsgActionPositiveReviewsQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
+		return handleMsgActionNegativeEnglishReviewsQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
 
 	case sp.MsgActionNegativeReviewsQuery:
 		fmt.Printf("Received negative reviews query\n")
@@ -260,33 +263,32 @@ func handleMsgIndiePositiveResolvedQuery(clientID int, message []byte) ([]byte, 
 	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgIndiePositiveJoinedReviewsQuery), stringRepresentation), nil
 }
 
-func handleMsgActionPositiveReviewsQuery(clientID int, message []byte) ([]byte, error) {
-	joinedReviews, err := sp.DeserializeMsgActionNegativeReviewsQuery(message)
+func handleMsgActionNegativeEnglishReviewsQuery(clientID int, message []byte) ([]byte, error) {
+	namedGamesReviewsMetrics, err := sp.DeserializeMsgActionNegativeEnglishReviewsQuery(message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
 	var stringRepresentation []byte
-	for _, review := range joinedReviews {
-		stringRep := j.GetStrRepresentationNegativeGameReviewOnlyName(review)
+	for _, reviewMetrics := range namedGamesReviewsMetrics {
+		stringRep := ra.GetStrRepresentationGameReviewsMetricsOnlyName(reviewMetrics)
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
-	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgActionPositiveReviewsQuery), stringRepresentation), nil
+	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgActionNegativeEnglishReviewsQuery), stringRepresentation), nil
 }
 
 func handleMsgActionNegativeReviewsQuery(clientID int, message []byte) ([]byte, error) {
-	joinedReviews, err := sp.DeserializeMsgActionNegativeReviewsQuery(message)
+	gameMetricsAbovePercentile, err := sp.DeserializeMsgActionNegativeReviewsQuery(message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
 	var stringRepresentation []byte
-	for _, review := range joinedReviews {
-		stringRep := j.GetStrRepresentationNegativeGameReview(review)
+	for _, review := range gameMetricsAbovePercentile {
+		stringRep := ra.GetStrRepresentationGameReviewsMetrics(review)
 		stringRepresentation = append(stringRepresentation, []byte(stringRep)...)
 	}
 	return sp.AssembleFinalQueryMsg(byte(clientID), byte(sp.MsgActionNegativeReviewsQuery), stringRepresentation), nil
-
 }
 
 func handleMsgTopTenResolvedQuery(clientID int, message []byte) ([]byte, error) {

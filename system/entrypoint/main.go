@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	port                                                   = ":3000"
-	NegativeReviewsPreFiltersAmountEnvironmentVariableName = "NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT"
-	ReviewAccumulatorsAmountEnvironmentVariableName        = "REVIEW_ACCUMULATORS_AMOUNT"
+	port                                             = ":3000"
+	ActionReviewJoinersAmountEnvironmentVariableName = "ACTION_REVIEW_JOINERS_AMOUNT"
+	ReviewAccumulatorsAmountEnvironmentVariableName  = "REVIEW_ACCUMULATORS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -29,7 +29,7 @@ func main() {
 
 	var mainWG sync.WaitGroup
 
-	negativeReviewsPreFiltersAmount, err := u.GetEnvInt(NegativeReviewsPreFiltersAmountEnvironmentVariableName)
+	actionReviewJoinerAmount, err := u.GetEnvInt(ActionReviewJoinersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -59,14 +59,14 @@ func main() {
 		}
 
 		mainWG.Add(1)
-		go handleConnection(conn, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount, clientID, &mainWG)
+		go handleConnection(conn, actionReviewJoinerAmount, reviewAccumulatorsAmount, clientID, &mainWG)
 		clientID++
 	}
 
 	mainWG.Wait()
 }
 
-func handleConnection(conn net.Conn, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int, clientID int, mainWG *sync.WaitGroup) {
+func handleConnection(conn net.Conn, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, clientID int, mainWG *sync.WaitGroup) {
 	defer mainWG.Done()
 	defer conn.Close()
 
@@ -93,7 +93,7 @@ func handleConnection(conn net.Conn, negativeReviewsPreFiltersAmount int, review
 	go handleClientGracefulShutdown(clientID, conn, &clientWG, middleware, signalChannel, doneChannel)
 
 	go func() {
-		entryPoint.Run(conn, clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount)
+		entryPoint.Run(conn, clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount)
 		doneChannel <- true
 	}()
 

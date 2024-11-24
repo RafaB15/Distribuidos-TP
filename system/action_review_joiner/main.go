@@ -7,17 +7,17 @@ import (
 	"sync"
 	"syscall"
 
-	l "distribuidos-tp/system/negative_reviews_pre_filter/logic"
-	m "distribuidos-tp/system/negative_reviews_pre_filter/middleware"
-	p "distribuidos-tp/system/negative_reviews_pre_filter/persistence"
+	l "distribuidos-tp/system/action_review_joiner/logic"
+	m "distribuidos-tp/system/action_review_joiner/middleware"
+	p "distribuidos-tp/system/action_review_joiner/persistence"
 
 	"github.com/op/go-logging"
 )
 
 const (
-	EnglishFiltersAmountEnvironmentVariableName = "ENGLISH_FILTERS_AMOUNT"
-	AccumulatorsAmountEnvironmentVariableName   = "ACCUMULATORS_AMOUNT"
-	IdEnvironmentVariableName                   = "ID"
+	EnglishFiltersAmountEnvironmentVariableName            = "ENGLISH_FILTERS_AMOUNT"
+	IdEnvironmentVariableName                              = "ID"
+	ActionReviewsAccumulatorsAmountEnvironmentVariableName = "ACTION_REVIEWS_ACCUMULATORS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -40,7 +40,7 @@ func main() {
 		return
 	}
 
-	accumulatorsAmount, err := u.GetEnvInt(AccumulatorsAmountEnvironmentVariableName)
+	actionReviewsAccumulatorsAmount, err := u.GetEnvInt(ActionReviewsAccumulatorsAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -52,9 +52,9 @@ func main() {
 		return
 	}
 
-	negativeReviewsPreFilter := l.NewNegativeReviewsPreFilter(
+	negativeReviewsPreFilter := l.NewActionReviewJoiner(
 		middleware.ReceiveMessage,
-		middleware.SendRawReview,
+		middleware.SendReview,
 		middleware.AckLastMessage,
 		middleware.SendEndOfFile,
 		log,
@@ -67,7 +67,7 @@ func main() {
 	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		negativeReviewsPreFilter.Run(id, repository, englishFiltersAmount, accumulatorsAmount)
+		negativeReviewsPreFilter.Run(id, repository, englishFiltersAmount, actionReviewsAccumulatorsAmount)
 		doneChannel <- true
 	}()
 

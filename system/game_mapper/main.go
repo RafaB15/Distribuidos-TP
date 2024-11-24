@@ -50,7 +50,7 @@ func main() {
 		return
 	}
 
-	middleware, err := m.NewMiddleware()
+	middleware, err := m.NewMiddleware(log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
@@ -61,7 +61,7 @@ func main() {
 		middleware.SendGamesOS,
 		middleware.SendGameYearAndAvgPtf,
 		middleware.SendIndieGamesNames,
-		middleware.SendActionGamesNames,
+		middleware.SendActionGames,
 		middleware.SendEndOfFiles,
 	)
 

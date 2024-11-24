@@ -10,8 +10,8 @@ const (
 	AckBatchSize = 100
 )
 
-type ReceiveGameReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, rawReview *r.RawReview, eof bool, newMessage bool, e error)
-type SendEnglishReviewFunc func(clientID int, review *r.Review, englishAccumulatorsAmount int) error
+type ReceiveGameReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, review *r.Review, eof bool, newMessage bool, e error)
+type SendEnglishReviewFunc func(clientID int, reducedReview *r.ReducedReview, englishAccumulatorsAmount int) error
 type SendEndOfFilesFunc func(clientID int, accumulatorsAmount int) error
 type AckLastMessageFunc func() error
 
@@ -47,23 +47,23 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int, negativeReviewsPreFil
 	languageIdentifier := r.NewLanguageIdentifier()
 
 	for {
-		clientID, rawReview, eof, newMessage, err := f.ReceiveGameReviews(messageTracker)
+		clientID, review, eof, newMessage, err := f.ReceiveGameReviews(messageTracker)
 		if err != nil {
 			f.logger.Errorf("Failed to receive game review: %v", err)
 			return
 		}
 
 		if newMessage && !eof {
-			if languageIdentifier.IsEnglish(rawReview.ReviewText) {
-				review := r.NewReview(rawReview.AppId, rawReview.Positive)
+			if languageIdentifier.IsEnglish(review.ReviewText) {
+				review := r.NewReducedReview(review.ReviewId, review.AppId, review.Name, review.Positive)
 				err := f.SendEnglishReview(clientID, review, accumulatorsAmount)
 				if err != nil {
 					f.logger.Errorf("Failed to send english review: %v", err)
 					return
 				}
-				f.logger.Infof("Sent english review for app %d", rawReview.AppId)
+				f.logger.Infof("Sent english review for app %d", review.AppId)
 			} else {
-				f.logger.Infof("Review for app %d is not in english", rawReview.AppId)
+				f.logger.Infof("ReducedReview for app %d is not in english", review.AppId)
 			}
 		}
 

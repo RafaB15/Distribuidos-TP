@@ -10,94 +10,74 @@ import (
 const (
 	middlewareURI = "amqp://guest:guest@rabbitmq:5672/"
 
-	AccumulatedEnglishReviewsExchangeName     = "accumulated_english_reviews_exchange"
-	AccumulatedEnglishReviewsExchangeType     = "direct"
-	AccumulatedEnglishReviewsRoutingKeyPrefix = "accumulated_english_reviews_key_"
-	AccumulatedEnglishReviewQueueNamePrefix   = "accumulated_english_reviews_queue_"
+	AccumulatedEnglishReviewsExchangeName = "accumulated_english_reviews_exchange"
+	AccumulatedEnglishReviewsExchangeType = "direct"
+	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews_key"
+	AccumulatedEnglishReviewQueueName     = "accumulated_english_reviews_queue"
 
-	PositiveJoinReviewsExchangeName     = "action_review_join_exchange"
-	PositiveJoinReviewsExchangeType     = "direct"
-	PositiveJoinReviewsRoutingKeyPrefix = "positive_reviews_key_"
+	QueryResultsExchangeName = "query_results_exchange"
+	QueryRoutingKeyPrefix    = "query_results_key_" // con el id del cliente
+	QueryExchangeType        = "direct"
 )
 
 type Middleware struct {
 	Manager                        *mom.MiddlewareManager
 	AccumulatedEnglishReviewsQueue *mom.Queue
-	PositiveJoinedReviewsExchange  *mom.Exchange
+	QueryResultsExchange           *mom.Exchange
 }
 
-func NewMiddleware(id int) (*Middleware, error) {
+func NewMiddleware() (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, err
 	}
 
-	accumulatedEnglishReviewRoutingKey := fmt.Sprintf("%s%d", AccumulatedEnglishReviewsRoutingKeyPrefix, id)
-	accumulatedEnglishReviewQueueName := fmt.Sprintf("%s%d", AccumulatedEnglishReviewQueueNamePrefix, id)
-	accumulatedEnglishReviewsQueue, err := manager.CreateBoundQueue(accumulatedEnglishReviewQueueName, AccumulatedEnglishReviewsExchangeName, AccumulatedEnglishReviewsExchangeType, accumulatedEnglishReviewRoutingKey, true)
+	accumulatedEnglishReviewsQueue, err := manager.CreateBoundQueue(AccumulatedEnglishReviewQueueName, AccumulatedEnglishReviewsExchangeName, AccumulatedEnglishReviewsExchangeType, AccumulatedEnglishReviewsRoutingKey, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
 
-	positiveJoinedEnglishReviewsExchange, err := manager.CreateExchange(PositiveJoinReviewsExchangeName, PositiveJoinReviewsExchangeType)
+	queryResultsExchange, err := manager.CreateExchange(QueryResultsExchangeName, QueryExchangeType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to declare exchange: %v", err)
+		return nil, err
 	}
 
 	return &Middleware{
 		Manager:                        manager,
 		AccumulatedEnglishReviewsQueue: accumulatedEnglishReviewsQueue,
-		PositiveJoinedReviewsExchange:  positiveJoinedEnglishReviewsExchange,
+		QueryResultsExchange:           queryResultsExchange,
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics, bool, error) {
+func (m *Middleware) ReceiveGameReviewsMetrics() (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, err error) {
 	rawMsg, err := m.AccumulatedEnglishReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, err
+		return
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
+		err = fmt.Errorf("failed to deserialize message: %v", err)
+		return
 	}
+
+	clientID = message.ClientID
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return message.ClientID, nil, true, nil
-	case sp.MsgGameReviewsMetrics:
-		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(message.Body)
-		if err != nil {
-			return message.ClientID, nil, false, err
-		}
-		return message.ClientID, gameReviewsMetrics, false, nil
+		eof = true
+	case sp.MsgNamedGameReviewsMetrics:
+		namedGameReviewsMetricsBatch, err = sp.DeserializeMsgNamedGameReviewsMetricsBatch(message.Body)
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("received unexpected message type: %v", message.Type)
+		err = fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
+	return
 }
 
-func (m *Middleware) SendGameReviewsMetrics(clientID int, positiveReviewsMap map[int][]*ra.GameReviewsMetrics) error {
-	for shardingKey, gameReviewsMetrics := range positiveReviewsMap {
-		routingKey := fmt.Sprintf("%s%d", PositiveJoinReviewsRoutingKeyPrefix, shardingKey)
-		serializedGameReviewsMetrics := sp.SerializeMsgGameReviewsMetricsBatch(clientID, gameReviewsMetrics)
-		err := m.PositiveJoinedReviewsExchange.Publish(routingKey, serializedGameReviewsMetrics)
-		if err != nil {
-			return fmt.Errorf("failed to publish game reviews metrics: %v", err)
-		}
-	}
-	return nil
-}
-
-func (m *Middleware) SendEndOfFiles(clientID int, actionReviewsJoinersAmount int) error {
-	for i := 1; i <= actionReviewsJoinersAmount; i++ {
-		serializedEOF := sp.SerializeMsgEndOfFile(clientID)
-		routingKey := fmt.Sprintf("%s%d", PositiveJoinReviewsRoutingKeyPrefix, i)
-		err := m.PositiveJoinedReviewsExchange.Publish(routingKey, serializedEOF)
-		if err != nil {
-			return fmt.Errorf("failed to publish end of file: %v", err)
-		}
-	}
-	return nil
+func (m *Middleware) SendQueryResults(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) error {
+	queryMessage := sp.SerializeMsgActionNegativeEnglishReviewsQuery(clientID, namedGameReviewsMetricsBatch)
+	routingKey := fmt.Sprintf("%s%d", QueryRoutingKeyPrefix, clientID)
+	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
 }
 
 func (m *Middleware) Close() error {

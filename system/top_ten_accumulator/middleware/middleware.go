@@ -22,8 +22,6 @@ const (
 	QueryResultsExchangeName = "query_results_exchange"
 	QueryRoutingKeyPrefix    = "query_results_key_" // con el id del cliente
 	QueryExchangeType        = "direct"
-
-	DecadeFiltersAmountEnvironmentVariableName = "DECADE_FILTERS_AMOUNT"
 )
 
 type Middleware struct {

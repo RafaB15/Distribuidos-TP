@@ -10,19 +10,24 @@ import (
 
 var log = logging.MustGetLogger("log")
 
+type ReceiveReviewsFunc func() (clientID int, rawReviews []*reviews.RawReview, eof bool, e error)
+type SendAccumulatedReviewsFunc func(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics, indieReviewJoinersAmount int) error
+type AckLastMessageFunc func() error
+type SendEofFunc func(clientID int, senderID int, indieReviewJoinersAmount int) error
+
 type ReviewsAccumulator struct {
-	ReceiveReviews         func() (int, []*reviews.RawReview, bool, error)
-	SendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics, int, int, map[int]int) error
-	AckLastMessage         func() error
-	SendEof                func(int, int, int, int, map[int]int) error
+	ReceiveReviews         ReceiveReviewsFunc
+	SendAccumulatedReviews SendAccumulatedReviewsFunc
+	AckLastMessage         AckLastMessageFunc
+	SendEof                SendEofFunc
 }
 
-func NewReviewsAccumulator(receiveReviews func() (
-	int,
-	[]*reviews.RawReview, bool, error),
-	sendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics, int, int, map[int]int) error,
-	ackLastMessage func() error,
-	sendEof func(int, int, int, int, map[int]int) error) *ReviewsAccumulator {
+func NewReviewsAccumulator(
+	receiveReviews ReceiveReviewsFunc,
+	sendAccumulatedReviews SendAccumulatedReviewsFunc,
+	ackLastMessage AckLastMessageFunc,
+	sendEof SendEofFunc,
+) *ReviewsAccumulator {
 	return &ReviewsAccumulator{
 		ReceiveReviews:         receiveReviews,
 		SendAccumulatedReviews: sendAccumulatedReviews,
@@ -31,9 +36,8 @@ func NewReviewsAccumulator(receiveReviews func() (
 	}
 }
 
-func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int) {
+func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int) {
 	accumulatedReviews := make(map[int]map[uint32]*r.GameReviewsMetrics)
-	messagesSentToPreReviewFilter := make(map[int]int)
 
 	messagesUntilAck := 100
 
@@ -52,14 +56,14 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, negative
 
 		if eof {
 			log.Info("Received EOF for client ", clientID)
-			err = ra.SendAccumulatedReviews(clientID, clientAccumulatedReviews, indieReviewJoinersAmount, negativeReviewPreFiltersAmount, messagesSentToPreReviewFilter)
+			err = ra.SendAccumulatedReviews(clientID, clientAccumulatedReviews, indieReviewJoinersAmount)
 			if err != nil {
 				log.Errorf("error sending accumulated reviews: %s", err)
 				return
 			}
 			log.Info("Sent accumulated reviews")
 
-			err = ra.SendEof(clientID, id, indieReviewJoinersAmount, negativeReviewPreFiltersAmount, messagesSentToPreReviewFilter)
+			err = ra.SendEof(clientID, id, indieReviewJoinersAmount)
 			if err != nil {
 				log.Errorf("error sending EOF: %s", err)
 				return

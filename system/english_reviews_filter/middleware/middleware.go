@@ -59,7 +59,7 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameReviews(messageTracker *n.MessageTracker) (clientID int, rawReview *r.RawReview, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveGameReviews(messageTracker *n.MessageTracker) (clientID int, review *r.Review, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.RawEnglishReviewsQueue.Consume()
 	if err != nil {
 		return 0, nil, false, false, fmt.Errorf("failed to consume message: %v", err)
@@ -93,20 +93,20 @@ func (m *Middleware) ReceiveGameReviews(messageTracker *n.MessageTracker) (clien
 		}
 
 		return message.ClientID, nil, true, true, nil
-	case sp.MsgRawReviewInformation:
-		rawReview, err := sp.DeserializeMsgRawReviewInformation(message.Body)
+	case sp.MsgReviewInformation:
+		review, err := sp.DeserializeMsgReviewInformation(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, true, err
 		}
-		return message.ClientID, rawReview, false, true, nil
+		return message.ClientID, review, false, true, nil
 	default:
 		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %d", message.Type)
 	}
 }
 
-func (m *Middleware) SendEnglishReview(clientID int, review *r.Review, englishAccumulatorsAmount int) error {
-	routingKey := u.GetPartitioningKeyFromInt(int(review.AppId), englishAccumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
-	serializedReview := sp.SerializeMsgReviewInformation(clientID, review)
+func (m *Middleware) SendEnglishReview(clientID int, reducedReview *r.ReducedReview, englishAccumulatorsAmount int) error {
+	routingKey := u.GetPartitioningKeyFromInt(int(reducedReview.AppId), englishAccumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
+	serializedReview := sp.SerializeMsgReducedReviewInformation(clientID, reducedReview)
 
 	err := m.EnglishReviewsExchange.Publish(routingKey, serializedReview)
 	if err != nil {
