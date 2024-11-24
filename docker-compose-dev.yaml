@@ -121,7 +121,7 @@ services:
     image: percentile_accumulator:latest
     entrypoint: /percentile_accumulator
     environment:
-      - NUM_PREVIOUS_ACCUMULATORS=4
+      - NUM_PREVIOUS_ACCUMULATORS=2
     depends_on:
       game_mapper:
         condition: service_started

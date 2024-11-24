@@ -200,7 +200,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.ReviewsAccumulator)
+`, serviceName, serviceName, config.ActionReviewAccumulator)
 
 	// ReviewsAccumulator service
 	for i := 1; i <= config.ReviewsAccumulator; i++ {
