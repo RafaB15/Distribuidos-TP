@@ -1,67 +1,124 @@
 package os_accumulator
 
 import (
-	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
-	rp "distribuidos-tp/system/os_accumulator/persistence"
-	"fmt"
+	p "distribuidos-tp/system/os_accumulator/persistence"
 
+	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	n "distribuidos-tp/internal/system_protocol/node"
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("log")
+const (
+	GameMapperAmount = 1
+	AckBatchSize     = 100
+)
+
+type ReceiveGamesOSFunc func(messageTracker *n.MessageTracker) (clientID int, gamesOS []*oa.GameOS, eof bool, newMessage bool, err error)
+type SendMetricsFunc func(clientID int, gameMetrics *oa.GameOSMetrics, messageTracker *n.MessageTracker) error
+type SendEofFunc func(clientID int, messageTracker *n.MessageTracker) error
+type AckLastMessageFunc func() error
 
 type OSAccumulator struct {
-	ReceiveGamesOS func() (int, []*oa.GameOS, bool, error)
-	SendMetrics    func(int, *oa.GameOSMetrics) error
-	SendEof        func(int) error
-	Repository     *rp.Repository
+	ReceiveGamesOS ReceiveGamesOSFunc
+	SendMetrics    SendMetricsFunc
+	SendEof        SendEofFunc
+	AckLastMessage AckLastMessageFunc
+	logger         *logging.Logger
 }
 
-func NewOSAccumulator(receiveGamesOS func() (int, []*oa.GameOS, bool, error), sendMetrics func(int, *oa.GameOSMetrics) error, sendEof func(int) error) *OSAccumulator {
-
+func NewOSAccumulator(
+	receiveGamesOS ReceiveGamesOSFunc,
+	sendMetrics SendMetricsFunc,
+	sendEof SendEofFunc,
+	ackLastMessage AckLastMessageFunc,
+	logger *logging.Logger,
+) *OSAccumulator {
 	return &OSAccumulator{
 		ReceiveGamesOS: receiveGamesOS,
 		SendMetrics:    sendMetrics,
 		SendEof:        sendEof,
-		Repository:     rp.NewRepository("os_accumulator"),
+		AckLastMessage: ackLastMessage,
+		logger:         logger,
 	}
 }
 
-func (o *OSAccumulator) Run() error {
+func (o *OSAccumulator) Run(_ int, repository *p.Repository) {
+	osMetricsMap, messageTracker, syncNumber, err := repository.LoadAll(GameMapperAmount)
+	if err != nil {
+		o.logger.Errorf("failed to load data: %v", err)
+		return
+	}
+
+	messageUntilAck := AckBatchSize
+
 	for {
 
-		clientID, gamesOS, eof, err := o.ReceiveGamesOS()
+		clientID, gamesOS, eof, newMessage, err := o.ReceiveGamesOS(messageTracker)
 		if err != nil {
-			log.Errorf("failed to receive game os: %v", err)
-			return fmt.Errorf("failed to receive game os: %v", err)
+			o.logger.Errorf("failed to receive game os: %v", err)
+			return
 		}
 
-		clientOSMetrics, err := o.Repository.Load(clientID)
-		if err != nil {
-			log.Errorf("failed to load client %d os metrics: %v", clientID, err)
-			continue
+		clientOSMetrics, exists := osMetricsMap.Get(clientID)
+		if !exists {
+			clientOSMetrics = oa.NewGameOSMetrics()
+			osMetricsMap.Set(clientID, clientOSMetrics)
 		}
 
-		if eof {
-			log.Infof("Received EOF. Sending metrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
-			err = o.SendMetrics(clientID, clientOSMetrics)
+		if newMessage && !eof {
+			for _, gameOS := range gamesOS {
+				clientOSMetrics.AddGameOS(gameOS)
+			}
+			o.logger.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
+		}
+
+		if messageTracker.ClientFinished(clientID, o.logger) {
+			o.logger.Infof("Received EOF. Sending metrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
+			err = o.SendMetrics(clientID, clientOSMetrics, messageTracker)
 			if err != nil {
-				log.Errorf("failed to send metrics: %v", err)
+				o.logger.Errorf("failed to send metrics: %v", err)
+				return
 			}
 
-			err = o.SendEof(clientID)
+			err = o.SendEof(clientID, messageTracker)
 			if err != nil {
-				log.Errorf("failed to send EOF: %v", err)
+				o.logger.Errorf("failed to send EOF: %v", err)
+				return
 			}
-			continue
+
+			messageTracker.DeleteClientInfo(clientID)
+
+			syncNumber++
+			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
+			if err != nil {
+				o.logger.Errorf("failed to save data: %v", err)
+				return
+			}
+
+			messageUntilAck = AckBatchSize
+			err = o.AckLastMessage()
+			if err != nil {
+				o.logger.Errorf("failed to ack last message: %v", err)
+				return
+			}
 		}
 
-		for _, gameOS := range gamesOS {
-			clientOSMetrics.AddGameOS(gameOS)
+		if messageUntilAck == 0 {
+			syncNumber++
+			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
+			if err != nil {
+				o.logger.Errorf("failed to save data: %v", err)
+				return
+			}
+
+			err = o.AckLastMessage()
+			if err != nil {
+				o.logger.Errorf("failed to ack last message: %v", err)
+				return
+			}
+			messageUntilAck = AckBatchSize
+		} else {
+			messageUntilAck--
 		}
-
-		o.Repository.Persist(clientID, *clientOSMetrics)
-		log.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
-
 	}
 }

@@ -508,6 +508,114 @@ services:
     networks:
       - distributed_network
 
+  watchdog3:
+    container_name: watchdog3
+    image: watchdog:latest
+    entrypoint: /watchdog
+    environment:
+      - WATCHDOG_HOST=3
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      english_filter_1:
+        condition: service_started
+      english_reviews_accumulator_2:
+        condition: service_started
+      os_accumulator_1:
+        condition: service_started
+      top_positive_reviews:
+        condition: service_started
+      percentile_accumulator:
+        condition: service_started
+      reviews_accumulator_4:
+        condition: service_started
+      top_ten_accumulator:
+        condition: service_started
+      english_reviews_accumulator_1:
+        condition: service_started
+      action_reviews_accumulator_2:
+        condition: service_started
+      indie_review_joiner_1:
+        condition: service_started
+      action_reviews_accumulator_1:
+        condition: service_started
+      os_final_accumulator:
+        condition: service_started
+      reviews_accumulator_3:
+        condition: service_started
+      action_review_joiner_1:
+        condition: service_started
+      action_review_joiner_4:
+        condition: service_started
+      action_reviews_accumulator_3:
+        condition: service_started
+      game_mapper:
+        condition: service_started
+      decade_filter_2:
+        condition: service_started
+      action_review_joiner_5:
+        condition: service_started
+      english_filter_5:
+        condition: service_started
+      action_reviews_accumulator_4:
+        condition: service_started
+      indie_review_joiner_2:
+        condition: service_started
+      decade_filter_1:
+        condition: service_started
+      action_review_joiner_2:
+        condition: service_started
+      english_filter_2:
+        condition: service_started
+      english_filter_3:
+        condition: service_started
+      reviews_accumulator_2:
+        condition: service_started
+      action_review_joiner_3:
+        condition: service_started
+      english_filter_4:
+        condition: service_started
+      negative_reviews_filter:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      entrypoint:
+        condition: service_started
+      os_accumulator_2:
+        condition: service_started
+      reviews_accumulator_1:
+        condition: service_started
+    networks:
+      - distributed_network
+
+  watchdog1:
+    container_name: watchdog1
+    image: watchdog:latest
+    entrypoint: /watchdog
+    environment:
+      - WATCHDOG_HOST=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      watchdog3:
+        condition: service_started
+    networks:
+      - distributed_network
+
+  watchdog2:
+    container_name: watchdog2
+    image: watchdog:latest
+    entrypoint: /watchdog
+    environment:
+      - WATCHDOG_HOST=2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      watchdog3:
+        condition: service_started
+    networks:
+      - distributed_network
+
 networks:
   distributed_network:
     name: distributed_network

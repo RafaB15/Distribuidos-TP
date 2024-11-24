@@ -13,6 +13,7 @@ import (
 const (
 	AccumulatedRawReviewsFileName = "accumulated_raw_reviews"
 	GamesToSendFileName           = "games_to_send"
+	MessageTrackerFileName        = "message_tracker"
 )
 
 type Repository struct {
@@ -31,7 +32,7 @@ func NewRepository(wg *sync.WaitGroup, logger *logging.Logger) *Repository {
 	accumulatedGamesToSendMap := n.NewIntMap(gamesToSendMap.Serialize, gamesToSendMap.Deserialize)
 	gamesToSendPersister := p.NewPersister(GamesToSendFileName, accumulatedGamesToSendMap.Serialize, accumulatedGamesToSendMap.Deserialize, wg, logger)
 
-	messageTrackerPersister := p.NewPersister("message_tracker", n.SerializeMessageTracker, n.DeserializeMessageTracker, wg, logger)
+	messageTrackerPersister := p.NewPersister(MessageTrackerFileName, n.SerializeMessageTracker, n.DeserializeMessageTracker, wg, logger)
 
 	return &Repository{
 		accumulatedRawReviewsPersister: accumulatedRawReviewsPersister,

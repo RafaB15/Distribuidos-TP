@@ -219,10 +219,12 @@ func sendGamesNamesToReviewJoin(clientID int, gamesNamesMap map[int][]*g.GameNam
 func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int, messageTracker *n.MessageTracker) error {
 	messagesSent := messageTracker.GetSentMessages(clientID)
 
-	for i := 0; i < osAccumulatorsAmount; i++ {
-		routingKey := fmt.Sprintf("%s%d", OSGamesRoutingKeyPrefix, i+1)
+	for i := 1; i <= osAccumulatorsAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", OSGamesRoutingKeyPrefix, i)
+		messageSentToRoutingKey := messagesSent[routingKey]
 		fmt.Printf("Publishing EndOfFile to routingKey: %s for clientID: %d\n", routingKey, clientID)
-		err := m.OSGamesExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
+		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 1, messageSentToRoutingKey)
+		err := m.OSGamesExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
 			return err
 		}
