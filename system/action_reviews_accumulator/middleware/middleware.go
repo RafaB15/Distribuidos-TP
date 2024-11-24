@@ -107,7 +107,6 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.NamedGam
 	if err != nil {
 		return fmt.Errorf("failed to publish accumulated reviews: %v", err)
 	}
-	m.logger.Infof("Sent message: %v", serializedMetricsBatch)
 	return nil
 }
 
@@ -117,7 +116,6 @@ func (m *Middleware) SendEndOfFiles(clientID int) error {
 	if err != nil {
 		return fmt.Errorf("failed to publish end of file: %v", err)
 	}
-	m.logger.Infof("Sent EOF: %v", serializedEOF)
 	return nil
 }
 

@@ -5,24 +5,6 @@ import (
 	"os"
 )
 
-func ReadExactFromFile(file *os.File, length int) ([]byte, error) {
-	data := make([]byte, length)
-	readBytes := 0
-
-	for readBytes < length {
-		n, err := file.Read(data[readBytes:])
-		if err != nil {
-			return nil, err
-		}
-		if n == 0 {
-			return nil, errors.New("file closed before reading expected amount of data")
-		}
-		readBytes += n
-	}
-
-	return data, nil
-}
-
 func TruncateAndWriteAllToFile(filename string, data []byte) error {
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {

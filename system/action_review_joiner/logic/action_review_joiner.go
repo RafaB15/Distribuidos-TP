@@ -154,7 +154,6 @@ func (f *ActionReviewJoiner) handleRawReviews(clientId int, englishFiltersAmount
 					f.logger.Errorf("Failed to send review: %v", err)
 					return err
 				}
-				f.logger.Infof("Sent review for client %d", clientId)
 			} else {
 				continue
 			}

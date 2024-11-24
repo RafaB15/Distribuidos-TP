@@ -62,12 +62,12 @@ func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int) {
 
 		if newMessage && !eof {
 			if metrics, exists := clientAccumulatedReviews[reducedReview.AppId]; exists {
-				a.logger.Info("Updating metrics for appID: ", reducedReview.AppId)
+				// a.logger.Info("Updating metrics for appID: ", reducedReview.AppId)
 				// Update existing metrics
 				metrics.UpdateWithReview(reducedReview)
 			} else {
 				// Create new metrics
-				a.logger.Info("Creating new metrics for appID: ", reducedReview.AppId)
+				//a.logger.Info("Creating new metrics for appID: ", reducedReview.AppId)
 				newMetrics := ra.NewNamedGameReviewsMetrics(reducedReview.AppId, reducedReview.Name)
 				newMetrics.UpdateWithReview(reducedReview)
 				clientAccumulatedReviews[reducedReview.AppId] = newMetrics

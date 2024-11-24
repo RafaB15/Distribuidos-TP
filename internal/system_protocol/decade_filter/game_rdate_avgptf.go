@@ -1,10 +1,7 @@
 package decade_filter
 
 import (
-	u "distribuidos-tp/internal/utils"
 	"encoding/binary"
-	"io"
-	"os"
 	"sort"
 	"strconv"
 	"time"
@@ -110,82 +107,6 @@ func TopTenAvgPlaytimeForever(games []*GameYearAndAvgPtf) []*GameYearAndAvgPtf {
 
 	// Otherwise, return only the top 10
 	return games[:10]
-}
-
-func SaveTopTenAvgPlaytimeForeverToFile(games []*GameYearAndAvgPtf, filePath string) error {
-	// Create the file
-	file, err := os.Create(filePath)
-	if err != nil {
-		log.Errorf("Error creating file: %v", err)
-		return err
-	}
-	defer file.Close()
-
-	amount := len(games)
-	result := make([]byte, 1+amount*10)
-
-	result[0] = byte(amount)
-
-	// Write the games to the slice without append
-	for i, game := range games {
-		gameBytes := SerializeGameYearAndAvgPtf(game)
-		copy(result[1+i*10:], gameBytes)
-	}
-
-	// Write the result to the file
-	_, err = file.Write(result)
-	if err != nil {
-		log.Errorf("Error writing game to file: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-func UploadTopTenAvgPlaytimeForeverFromFile(filePath string) ([]*GameYearAndAvgPtf, error) {
-
-	var games []*GameYearAndAvgPtf
-
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		file, err := os.Create(filePath)
-		if err != nil {
-			log.Errorf("Error creating file: %v", err)
-			return nil, err
-		}
-		file.Close()
-	}
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Errorf("Error opening file: %v", err)
-		return nil, err
-	}
-	defer file.Close()
-
-	bytesToRead, err := u.ReadExact(file, 1)
-	if err != nil {
-		if err == io.EOF {
-			return games, nil
-		}
-		log.Errorf("Error reading file: %v", err)
-		return nil, err
-	}
-
-	gamesBytes, err := u.ReadExact(file, int(bytesToRead[0])*10)
-	if err != nil {
-		log.Errorf("Error reading file: %v", err)
-		return nil, err
-	}
-
-	// Deserialize the games
-	for i := 0; i < int(bytesToRead[0]); i++ {
-		game, err := DeserializeGameYearAndAvgPtf(gamesBytes[i*10 : (i+1)*10])
-		if err != nil {
-			log.Errorf("Error deserializing game: %v", err)
-			return nil, err
-		}
-		games = append(games, game)
-	}
-	return games, nil
 }
 
 func SerializeTopTenAvgPlaytimeForever(games []*GameYearAndAvgPtf) []byte {

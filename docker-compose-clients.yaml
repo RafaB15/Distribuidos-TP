@@ -30,7 +30,7 @@ services:
       - distributed_network
     environment:
       - GAME_FILE_PATH=./client_data/games_90k.csv
-      - REVIEW_FILE_PATH=./client_data/steam_reviews_500k.csv
+      - REVIEW_FILE_PATH=./client_data/steam_reviews_1M.csv
 
 networks:
   distributed_network:
