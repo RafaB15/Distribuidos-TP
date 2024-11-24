@@ -2,10 +2,10 @@ package system_protocol
 
 import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
+	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	df "distribuidos-tp/internal/system_protocol/decade_filter"
 
 	j "distribuidos-tp/internal/system_protocol/joiner"
-
-	df "distribuidos-tp/internal/system_protocol/decade_filter"
 )
 
 type Query byte
@@ -14,7 +14,7 @@ const (
 	MsgOsResolvedQuery Query = iota
 	MsgTopTenDecadeAvgPtfQuery
 	MsgIndiePositiveJoinedReviewsQuery
-	MsgActionPositiveReviewsQuery
+	MsgActionNegativeEnglishReviewsQuery
 	MsgActionNegativeReviewsQuery
 )
 
@@ -27,6 +27,18 @@ func SerializeMsgOsResolvedQuery(clientID int, gameMetrics *oa.GameOSMetrics) []
 
 func DeserializeMsgOsResolvedQuery(message []byte) (*oa.GameOSMetrics, error) {
 	return oa.DeserializeGameOSMetrics(message)
+}
+
+// Message TopTenResolvedQuery
+
+func SerializeMsgTopTenResolvedQuery(clientID int, finalTopTenGames []*df.GameYearAndAvgPtf) []byte {
+	data := df.SerializeTopTenAvgPlaytimeForever(finalTopTenGames)
+	return SerializeQuery(MsgTopTenDecadeAvgPtfQuery, clientID, data)
+}
+
+func DeserializeMsgTopTenResolvedQuery(message []byte) ([]*df.GameYearAndAvgPtf, error) {
+	return df.DeserializeTopTenAvgPlaytimeForever(message)
+
 }
 
 // Message IndiePositiveJoinedReviewsQuery
@@ -43,42 +55,24 @@ func DeserializeMsgIndiePositiveJoinedReviewsQuery(message []byte) ([]*j.JoinedP
 	return j.DeserializeJoinedPositiveGameReviewsBatch(message)
 }
 
-// Message ActionPositiveReviewsQuery
+// Message MsgActionNegativeEnglishReviewsQuery
 
-func SerializeMsgActionEnglishReviewsQuery(clientID int, joinedReviews []*j.JoinedNegativeGameReview) ([]byte, error) {
-	data, err := j.SerializeJoinedActionNegativeGameReviewsBatch(joinedReviews)
-	if err != nil {
-		return nil, err
-	}
-	return SerializeQuery(MsgActionPositiveReviewsQuery, clientID, data), nil
+func SerializeMsgActionNegativeEnglishReviewsQuery(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) []byte {
+	data := ra.SerializeNamedGameReviewsMetricsBatch(namedGameReviewsMetricsBatch)
+	return SerializeQuery(MsgActionNegativeEnglishReviewsQuery, clientID, data)
 }
 
-func DeserializeMsgActionPositiveReviewsQuery(message []byte) ([]*j.JoinedNegativeGameReview, error) {
-	return j.DeserializeJoinedActionNegativeGameReviewsBatch(message)
+func DeserializeMsgActionNegativeEnglishReviewsQuery(message []byte) ([]*ra.NamedGameReviewsMetrics, error) {
+	return ra.DeserializeNamedGameReviewsMetricsBatch(message)
 }
 
 // Message ActionNegativeReviewsQuery
 
-func SerializeMsgActionNegativeReviewsQuery(clientID int, joinedReviews []*j.JoinedNegativeGameReview) ([]byte, error) {
-	data, err := j.SerializeJoinedActionNegativeGameReviewsBatch(joinedReviews)
-	if err != nil {
-		return nil, err
-	}
-	return SerializeQuery(MsgActionNegativeReviewsQuery, clientID, data), nil
+func SerializeMsgActionNegativeReviewsQuery(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) []byte {
+	data := ra.SerializeNamedGameReviewsMetricsBatch(namedGameReviewsMetricsBatch)
+	return SerializeQuery(MsgActionNegativeReviewsQuery, clientID, data)
 }
 
-func DeserializeMsgActionNegativeReviewsQuery(message []byte) ([]*j.JoinedNegativeGameReview, error) {
-	return j.DeserializeJoinedActionNegativeGameReviewsBatch(message)
-}
-
-// Message TopTenResolvedQuery
-
-func SerializeMsgTopTenResolvedQuery(clientID int, finalTopTenGames []*df.GameYearAndAvgPtf) []byte {
-	data := df.SerializeTopTenAvgPlaytimeForever(finalTopTenGames)
-	return SerializeQuery(MsgTopTenDecadeAvgPtfQuery, clientID, data)
-}
-
-func DeserializeMsgTopTenResolvedQuery(message []byte) ([]*df.GameYearAndAvgPtf, error) {
-	return df.DeserializeTopTenAvgPlaytimeForever(message)
-
+func DeserializeMsgActionNegativeReviewsQuery(message []byte) ([]*ra.NamedGameReviewsMetrics, error) {
+	return ra.DeserializeNamedGameReviewsMetricsBatch(message)
 }

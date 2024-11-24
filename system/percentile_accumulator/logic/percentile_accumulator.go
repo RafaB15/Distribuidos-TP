@@ -2,31 +2,33 @@ package percentile_accumulator
 
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
-	u "distribuidos-tp/internal/utils"
+	"errors"
+	"math"
+	"sort"
 
 	"github.com/op/go-logging"
 )
 
 var log = logging.MustGetLogger("log")
 
+type ReceiveGameReviewsMetricsFunc func() (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, err error)
+type SendQueryResultsFunc func(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) error
+
 type PercentileAccumulator struct {
-	ReceiveGameReviewsMetrics func() (int, []*ra.GameReviewsMetrics, bool, error)
-	SendGameReviewsMetrics    func(int, map[string][]*ra.GameReviewsMetrics) error
-	SendEndOfFiles            func(int, int, string) error
+	ReceiveGameReviewsMetrics ReceiveGameReviewsMetricsFunc
+	SendGameReviewsMetrics    SendQueryResultsFunc
 }
 
-func NewPercentileAccumulator(receiveGameReviewsMetrics func() (int, []*ra.GameReviewsMetrics, bool, error), sendGameReviewsMetrics func(int, map[string][]*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int, string) error) *PercentileAccumulator {
+func NewPercentileAccumulator(receiveGameReviewsMetrics ReceiveGameReviewsMetricsFunc, sendQueryResults SendQueryResultsFunc) *PercentileAccumulator {
 	return &PercentileAccumulator{
 		ReceiveGameReviewsMetrics: receiveGameReviewsMetrics,
-		SendGameReviewsMetrics:    sendGameReviewsMetrics,
-		SendEndOfFiles:            sendEndOfFiles,
+		SendGameReviewsMetrics:    sendQueryResults,
 	}
 }
 
-func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accumulatedPercentileReviewsRoutingKeyPrefix string, previousAccumulators int, fileNamePrefix string) {
+func (p *PercentileAccumulator) Run(previousAccumulators int) {
 	remainingEOFsMap := make(map[int]int)
-	accumulatedPercentileKeyMap := make(map[int]map[string][]*ra.GameReviewsMetrics)
-	percentileMap := make(map[int][]*ra.GameReviewsMetrics)
+	percentileMap := make(map[int][]*ra.NamedGameReviewsMetrics)
 
 	for {
 		clientID, gameReviewsMetrics, eof, err := p.ReceiveGameReviewsMetrics()
@@ -35,15 +37,9 @@ func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accu
 			return
 		}
 
-		clientAccumulatedPercentileKeyMap, exists := accumulatedPercentileKeyMap[clientID]
-		if !exists {
-			clientAccumulatedPercentileKeyMap = make(map[string][]*ra.GameReviewsMetrics)
-			accumulatedPercentileKeyMap[clientID] = clientAccumulatedPercentileKeyMap
-		}
-
 		percentileReviews, exists := percentileMap[clientID]
 		if !exists {
-			percentileReviews = []*ra.GameReviewsMetrics{}
+			percentileReviews = []*ra.NamedGameReviewsMetrics{}
 			percentileMap[clientID] = percentileReviews
 		}
 
@@ -61,30 +57,76 @@ func (p *PercentileAccumulator) Run(actionNegativeReviewsJoinersAmount int, accu
 			}
 			log.Info("Received all EOFs")
 
-			abovePercentile, err := ra.GetTop10PercentByNegativeReviewsV2(percentileReviews)
+			abovePercentile, err := getTop10PercentByNegativeReviews(percentileReviews, log)
 			if err != nil {
 				log.Errorf("Failed to get top 10 percent by negative reviews: %v", err)
 				return
 			}
 			for _, review := range abovePercentile {
-				key := u.GetPartitioningKeyFromInt(int(review.AppID), actionNegativeReviewsJoinersAmount, accumulatedPercentileReviewsRoutingKeyPrefix)
-				clientAccumulatedPercentileKeyMap[key] = append(clientAccumulatedPercentileKeyMap[key], review)
 				log.Infof("Metrics above p90: id:%v #:%v", review.AppID, review.NegativeReviews)
 			}
 
-			p.SendGameReviewsMetrics(clientID, clientAccumulatedPercentileKeyMap)
-			p.SendEndOfFiles(clientID, actionNegativeReviewsJoinersAmount, accumulatedPercentileReviewsRoutingKeyPrefix)
+			err = p.SendGameReviewsMetrics(clientID, abovePercentile)
+			if err != nil {
+				log.Errorf("Failed to send game reviews metrics: %v", err)
+				return
+			}
 
-			delete(accumulatedPercentileKeyMap, clientID)
 			delete(remainingEOFsMap, clientID)
 
 			continue
 		}
 
-		allReviews := ra.AddGamesAndMaintainOrderV2(percentileMap[clientID], gameReviewsMetrics)
+		allReviews := addGamesAndMaintainOrder(percentileMap[clientID], gameReviewsMetrics)
 		percentileMap[clientID] = allReviews
 		log.Infof("Received game reviews metrics for client %d", clientID)
 		log.Infof("Quantity of games: %d", len(allReviews))
 
 	}
+}
+
+func getTop10PercentByNegativeReviews(games []*ra.NamedGameReviewsMetrics, logger *logging.Logger) ([]*ra.NamedGameReviewsMetrics, error) {
+	// Log the length of the games slice
+	logger.Infof("Total number of games: %d\n", len(games))
+
+	// Si no hay juegos, devolver error
+	if len(games) == 0 {
+		return nil, errors.New("no games found in file")
+	}
+
+	// Calcular la posición del percentil 90
+	percentileIndex := int(math.Floor(0.9 * float64(len(games))))
+
+	logger.Infof("Reviews must have more than %d negative reviews to be considered\n", games[percentileIndex].NegativeReviews)
+
+	// Retornar solo los juegos que están por encima del percentil 90
+
+	// Poner en una lista los juegos que están por encima del percentil 90
+	// y retornarla
+	overPercentile := make([]*ra.NamedGameReviewsMetrics, 0)
+	for _, game := range games {
+		if game.NegativeReviews >= games[percentileIndex].NegativeReviews {
+			overPercentile = append(overPercentile, game)
+		}
+	}
+
+	return overPercentile, nil
+}
+
+func addGamesAndMaintainOrder(existingGames []*ra.NamedGameReviewsMetrics, newGames []*ra.NamedGameReviewsMetrics) []*ra.NamedGameReviewsMetrics {
+	// Filter out games with zero negative reviews
+	filteredNewGames := make([]*ra.NamedGameReviewsMetrics, 0)
+	for _, game := range newGames {
+		if game.NegativeReviews > 0 {
+			filteredNewGames = append(filteredNewGames, game)
+		}
+	}
+
+	allGames := append(existingGames, filteredNewGames...)
+
+	sort.Slice(allGames, func(i, j int) bool {
+		return allGames[i].NegativeReviews < allGames[j].NegativeReviews
+	})
+
+	return allGames
 }

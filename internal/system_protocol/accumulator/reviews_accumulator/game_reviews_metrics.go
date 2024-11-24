@@ -25,7 +25,7 @@ func NewReviewsMetrics(appId uint32) *GameReviewsMetrics {
 	}
 }
 
-func (m *GameReviewsMetrics) UpdateWithReview(review *r.Review) {
+func (m *GameReviewsMetrics) UpdateWithReview(review *r.ReducedReview) {
 	if review.Positive {
 		m.PositiveReviews += 1
 	} else {

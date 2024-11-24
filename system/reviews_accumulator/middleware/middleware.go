@@ -17,20 +17,15 @@ const (
 	ReviewsRoutingKeyPrefix = "reviews_key_"
 	ReviewQueueNamePrefix   = "reviews_queue_"
 
-	AccumulatedReviewsExchangeName = "accumulated_reviews_exchange"
-	AccumulatedReviewsExchangeType = "direct"
-	AccumulatedReviewsRoutingKey   = "accumulated_reviews_key"
-
 	IndieReviewJoinExchangeName             = "indie_review_join_exchange"
 	IndieReviewJoinExchangeType             = "direct"
 	IndieReviewJoinExchangeRoutingKeyPrefix = "accumulated_reviews_key_"
 )
 
 type Middleware struct {
-	Manager                    *mom.MiddlewareManager
-	ReviewsQueue               *mom.Queue
-	AccumulatedReviewsExchange *mom.Exchange
-	IndieReviewJoinExchange    *mom.Exchange
+	Manager                 *mom.MiddlewareManager
+	ReviewsQueue            *mom.Queue
+	IndieReviewJoinExchange *mom.Exchange
 }
 
 func NewMiddleware(id int) (*Middleware, error) {
@@ -46,21 +41,15 @@ func NewMiddleware(id int) (*Middleware, error) {
 		return nil, err
 	}
 
-	accumulatedReviewsExchange, err := manager.CreateExchange(AccumulatedReviewsExchangeName, AccumulatedReviewsExchangeType)
-	if err != nil {
-		return nil, err
-	}
-
 	indieReviewJoinExchange, err := manager.CreateExchange(IndieReviewJoinExchangeName, IndieReviewJoinExchangeType)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Middleware{
-		Manager:                    manager,
-		ReviewsQueue:               reviewsQueue,
-		AccumulatedReviewsExchange: accumulatedReviewsExchange,
-		IndieReviewJoinExchange:    indieReviewJoinExchange,
+		Manager:                 manager,
+		ReviewsQueue:            reviewsQueue,
+		IndieReviewJoinExchange: indieReviewJoinExchange,
 	}, nil
 }
 
@@ -97,12 +86,7 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map
 	for routingKey, metrics := range keyMap {
 		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
 
-		err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, serializedMetricsBatch)
-		if err != nil {
-			return err
-		}
-
-		err = m.IndieReviewJoinExchange.Publish(routingKey, serializedMetricsBatch)
+		err := m.IndieReviewJoinExchange.Publish(routingKey, serializedMetricsBatch)
 		if err != nil {
 			return err
 		}
@@ -111,14 +95,9 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map
 	return nil
 }
 
-func (m *Middleware) SendEof(clientID int, senderID int, indieReviewJoinersAmount int) error {
-	err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFile(clientID))
-	if err != nil {
-		return err
-	}
-
+func (m *Middleware) SendEof(clientID int, _ int, indieReviewJoinersAmount int) error {
 	for nodeId := 1; nodeId <= indieReviewJoinersAmount; nodeId++ {
-		err = m.IndieReviewJoinExchange.Publish(fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFile(clientID))
+		err := m.IndieReviewJoinExchange.Publish(fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return err
 		}

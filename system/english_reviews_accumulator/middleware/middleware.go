@@ -4,7 +4,6 @@ import (
 	sp "distribuidos-tp/internal/system_protocol"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	r "distribuidos-tp/internal/system_protocol/reviews"
-	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
 )
@@ -17,9 +16,9 @@ const (
 	EnglishReviewsRoutingKeyPrefix = "english_reviews_key_"
 	EnglishReviewQueueNamePrefix   = "english_reviews_queue_"
 
-	AccumulatedEnglishReviewsExchangeName     = "accumulated_english_reviews_exchange"
-	AccumulatedEnglishReviewsExchangeType     = "direct"
-	AccumulatedEnglishReviewsRoutingKeyPrefix = "accumulated_english_reviews_key_"
+	AccumulatedEnglishReviewsExchangeName = "accumulated_english_reviews_exchange"
+	AccumulatedEnglishReviewsExchangeType = "direct"
+	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews"
 )
 
 type Middleware struct {
@@ -53,7 +52,7 @@ func NewMiddleware(id int) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveReview() (int, *r.Review, bool, error) {
+func (m *Middleware) ReceiveReview() (clientID int, reducedReview *r.ReducedReview, eof bool, e error) {
 	rawMsg, err := m.EnglishReviewsQueue.Consume()
 	if err != nil {
 		return 0, nil, false, err
@@ -69,8 +68,8 @@ func (m *Middleware) ReceiveReview() (int, *r.Review, bool, error) {
 	switch message.Type {
 	case sp.MsgEndOfFile:
 		return message.ClientID, nil, true, nil
-	case sp.MsgReviewInformation:
-		review, err := sp.DeserializeMsgReviewInformation(message.Body)
+	case sp.MsgReducedReviewInformation:
+		review, err := sp.DeserializeMsgReducedReviewInformation(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, fmt.Errorf("failed to deserialize review: %v", err)
 		}
@@ -80,26 +79,20 @@ func (m *Middleware) ReceiveReview() (int, *r.Review, bool, error) {
 	}
 }
 
-func (m *Middleware) SendAccumulatedReviews(clientID int, negativeReviewsFiltersAmount int, metrics []*ra.GameReviewsMetrics) error {
-	nodeId := u.GetRandomNumber(negativeReviewsFiltersAmount)
-	routingKey := fmt.Sprintf("%s%d", AccumulatedEnglishReviewsRoutingKeyPrefix, nodeId)
-	serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
-	err := m.AccumulatedEnglishReviewsExchange.Publish(routingKey, serializedMetricsBatch)
+func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.NamedGameReviewsMetrics) error {
+	serializedMetricsBatch := sp.SerializeMsgNamedGameReviewsMetricsBatch(clientID, metrics)
+	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedMetricsBatch)
 	if err != nil {
 		return fmt.Errorf("failed to publish accumulated reviews: %v", err)
 	}
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(clientID int, negativeReviewsFilterAmount int) error {
-	for i := 1; i <= negativeReviewsFilterAmount; i++ {
-		serializedEOF := sp.SerializeMsgEndOfFile(clientID)
-		routingKey := fmt.Sprintf("%s%d", AccumulatedEnglishReviewsRoutingKeyPrefix, i)
-		fmt.Printf("Sending EOF to %s\n", routingKey)
-		err := m.AccumulatedEnglishReviewsExchange.Publish(routingKey, serializedEOF)
-		if err != nil {
-			return fmt.Errorf("failed to publish end of file: %v", err)
-		}
+func (m *Middleware) SendEndOfFiles(clientID int) error {
+	serializedEOF := sp.SerializeMsgEndOfFile(clientID)
+	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedEOF)
+	if err != nil {
+		return fmt.Errorf("failed to publish end of file: %v", err)
 	}
 	return nil
 }

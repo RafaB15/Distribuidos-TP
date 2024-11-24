@@ -23,13 +23,18 @@ const (
 	RawEnglishReviewsExchangeName     = "raw_english_reviews_exchange"
 	RawEnglishReviewsExchangeType     = "direct"
 	RawEnglishReviewsRoutingKeyPrefix = "raw_english_reviews_key_"
+
+	ActionReviewsAccumulatorExchangeName     = "action_reviews_accumulator_exchange"
+	ActionReviewsAccumulatorExchangeType     = "direct"
+	ActionReviewsAccumulatorRoutingKeyPrefix = "action_reviews_accumulator_key_"
 )
 
 type Middleware struct {
-	Manager                   *mom.MiddlewareManager
-	ActionReviewJoinerQueue   *mom.Queue
-	RawEnglishReviewsExchange *mom.Exchange
-	logger                    *logging.Logger
+	Manager                          *mom.MiddlewareManager
+	ActionReviewJoinerQueue          *mom.Queue
+	RawEnglishReviewsExchange        *mom.Exchange
+	ActionReviewsAccumulatorExchange *mom.Exchange
+	logger                           *logging.Logger
 }
 
 func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
@@ -51,11 +56,17 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
 
+	actionReviewsAccumulatorExchange, err := manager.CreateExchange(ActionReviewsAccumulatorExchangeName, ActionReviewsAccumulatorExchangeType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to declare exchange: %v", err)
+	}
+
 	return &Middleware{
-		Manager:                   manager,
-		ActionReviewJoinerQueue:   actionReviewJoinerQueue,
-		RawEnglishReviewsExchange: rawEnglishReviewsExchange,
-		logger:                    logger,
+		Manager:                          manager,
+		ActionReviewJoinerQueue:          actionReviewJoinerQueue,
+		RawEnglishReviewsExchange:        rawEnglishReviewsExchange,
+		ActionReviewsAccumulatorExchange: actionReviewsAccumulatorExchange,
+		logger:                           logger,
 	}, nil
 }
 
@@ -120,19 +131,28 @@ func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID 
 	return
 }
 
-func (m *Middleware) SendRawReview(clientID int, englishFiltersAmount int, rawReview *r.RawReview, messageTracker *n.MessageTracker) error {
-	routingKey := u.GetPartitioningKeyFromInt(int(rawReview.ReviewId), englishFiltersAmount, RawEnglishReviewsRoutingKeyPrefix)
-	serializedMsg := sp.SerializeMsgRawReviewInformation(clientID, rawReview)
-	err := m.RawEnglishReviewsExchange.Publish(routingKey, serializedMsg)
+func (m *Middleware) SendReview(clientID int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int, review *r.Review, messageTracker *n.MessageTracker) error {
+	englishRoutingKey := u.GetPartitioningKeyFromInt(int(review.ReviewId), englishFiltersAmount, RawEnglishReviewsRoutingKeyPrefix)
+	serializedMsg := sp.SerializeMsgReviewInformation(clientID, review)
+	err := m.RawEnglishReviewsExchange.Publish(englishRoutingKey, serializedMsg)
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %v", err)
 	}
-	messageTracker.RegisterSentMessage(clientID, routingKey)
+	messageTracker.RegisterSentMessage(clientID, englishRoutingKey)
+
+	actionAccumulatorRoutingKey := u.GetPartitioningKeyFromInt(int(review.AppId), actionReviewsAccumulatorsAmount, ActionReviewsAccumulatorRoutingKeyPrefix)
+	reducedReview := r.NewReducedReview(review.ReviewId, review.AppId, review.Name, review.Positive)
+	serializedMsg = sp.SerializeMsgReducedReviewInformation(clientID, reducedReview)
+	err = m.ActionReviewsAccumulatorExchange.Publish(actionAccumulatorRoutingKey, serializedMsg)
+	if err != nil {
+		return fmt.Errorf("failed to publish message: %v", err)
+	}
+	messageTracker.RegisterSentMessage(clientID, actionAccumulatorRoutingKey)
 
 	return nil
 }
 
-func (m *Middleware) SendEndOfFile(clientID int, senderID int, englishFiltersAmount int, messageTracker *n.MessageTracker) error {
+func (m *Middleware) SendEndOfFile(clientID int, senderID int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int, messageTracker *n.MessageTracker) error {
 	messagesSent := messageTracker.GetSentMessages(clientID)
 
 	for i := 1; i <= englishFiltersAmount; i++ {
@@ -144,6 +164,17 @@ func (m *Middleware) SendEndOfFile(clientID int, senderID int, englishFiltersAmo
 			return fmt.Errorf("failed to publish message: %v", err)
 		}
 		m.logger.Infof("Sent EOF to english filter %d with routing key %s", i, routingKey)
+	}
+
+	for i := 1; i <= actionReviewsAccumulatorsAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", ActionReviewsAccumulatorRoutingKeyPrefix, i)
+		messagesSentToNode := messagesSent[routingKey]
+		serializedMsg := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+		err := m.ActionReviewsAccumulatorExchange.Publish(routingKey, serializedMsg)
+		if err != nil {
+			return fmt.Errorf("failed to publish message: %v", err)
+		}
+		m.logger.Infof("Sent EOF to action reviews accumulator %d with routing key %s", i, routingKey)
 	}
 
 	return nil

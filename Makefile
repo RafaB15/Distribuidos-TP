@@ -16,16 +16,17 @@ docker-image-system:
 	docker build -f ./system/os_final_accumulator/Dockerfile -t "os_final_accumulator:latest" .
 	docker build -f ./system/reviews_accumulator/Dockerfile -t "reviews_accumulator:latest" .
 	docker build -f ./system/indie_review_joiner/Dockerfile -t "indie_review_joiner:latest" .
-	docker build -f ./system/action_english_review_joiner/Dockerfile -t "action_english_review_joiner:latest" .
+	# docker build -f ./system/action_english_review_joiner/Dockerfile -t "action_english_review_joiner:latest" .
 	docker build -f ./system/negative_reviews_filter/Dockerfile -t "negative_reviews_filter:latest" .
-	docker build -f ./system/action_percentile_review_joiner/Dockerfile -t "action_percentile_review_joiner:latest" .
+	# docker build -f ./system/action_percentile_review_joiner/Dockerfile -t "action_percentile_review_joiner:latest" .
 	docker build -f ./system/english_reviews_accumulator/Dockerfile -t "english_reviews_accumulator:latest" .
 	docker build -f ./system/english_reviews_filter/Dockerfile -t "english_reviews_filter:latest" .
 	docker build -f ./system/entrypoint/Dockerfile -t "entrypoint:latest" .
-	docker build -f ./system/final_english_joiner/Dockerfile -t "final_english_joiner:latest" .
-	docker build -f ./system/final_percentile_joiner/Dockerfile -t "final_percentile_joiner:latest" .
+	# docker build -f ./system/final_english_joiner/Dockerfile -t "final_english_joiner:latest" .
+	# docker build -f ./system/final_percentile_joiner/Dockerfile -t "final_percentile_joiner:latest" .
 	docker build -f ./system/action_review_joiner/Dockerfile -t "action_review_joiner:latest" .
-	docker build -f ./system/watchdog/Dockerfile -t "watchdog:latest" .	
+	docker build -f ./system/action_reviews_accumulator/Dockerfile -t "action_reviews_accumulator:latest" .
+	docker build -f ./system/watchdog/Dockerfile -t "watchdog:latest" .
 .PHONY: docker-image-system
 
 docker-compose-up: docker-image-system

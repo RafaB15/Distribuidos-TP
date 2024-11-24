@@ -36,22 +36,16 @@ const (
 	ActionReviewJoinerExchangeType     = "direct"
 	ActionReviewJoinerRoutingKeyPrefix = "action_review_joiner_key_"
 	ActionReviewJoinerExchangePriority = 1
-
-	// SOLO PARA TESTEAR
-	ActionReviewJoinExchangeName     = "action_review_join_exchange"
-	ActionReviewJoinExchangeType     = "direct"
-	ActionReviewJoinRoutingKeyPrefix = "action_key_"
 )
 
 type Middleware struct {
-	Manager                    *mom.MiddlewareManager
-	RawGamesQueue              *mom.Queue
-	OSGamesExchange            *mom.Exchange
-	YearAndAvgPtfExchange      *mom.Exchange
-	IndieReviewJoinExchange    *mom.Exchange
-	ActionReviewJoinExchange   *mom.Exchange
-	ActionReviewJoinExchangeEX *mom.Exchange
-	logger                     *logging.Logger
+	Manager                  *mom.MiddlewareManager
+	RawGamesQueue            *mom.Queue
+	OSGamesExchange          *mom.Exchange
+	YearAndAvgPtfExchange    *mom.Exchange
+	IndieReviewJoinExchange  *mom.Exchange
+	ActionReviewJoinExchange *mom.Exchange
+	logger                   *logging.Logger
 }
 
 func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
@@ -85,20 +79,14 @@ func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 		return nil, err
 	}
 
-	actionReviewJoinExchangeEX, err := manager.CreateExchange(ActionReviewJoinExchangeName, ActionReviewJoinExchangeType)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Middleware{
-		Manager:                    manager,
-		RawGamesQueue:              rawGamesQueue,
-		OSGamesExchange:            osGamesExchange,
-		YearAndAvgPtfExchange:      yearAndAvgPtfExchange,
-		IndieReviewJoinExchange:    indieReviewJoinExchange,
-		ActionReviewJoinExchange:   actionReviewJoinExchange,
-		ActionReviewJoinExchangeEX: actionReviewJoinExchangeEX,
-		logger:                     logger,
+		Manager:                  manager,
+		RawGamesQueue:            rawGamesQueue,
+		OSGamesExchange:          osGamesExchange,
+		YearAndAvgPtfExchange:    yearAndAvgPtfExchange,
+		IndieReviewJoinExchange:  indieReviewJoinExchange,
+		ActionReviewJoinExchange: actionReviewJoinExchange,
+		logger:                   logger,
 	}, nil
 }
 
@@ -205,29 +193,6 @@ func (m *Middleware) SendActionGames(clientID int, actionGames []*g.Game, action
 		m.logger.Infof("Published games to action review joiner with routing key: %s", routingKey)
 	}
 
-	// SOLO PARA TESTEAR
-	routingKeyMap2 := make(map[string][]*g.GameName)
-
-	for _, game := range actionGames {
-		routingKey := u.GetPartitioningKeyFromInt(int(game.AppId), 2, ActionReviewJoinRoutingKeyPrefix)
-		routingKeyMap2[routingKey] = append(routingKeyMap2[routingKey], &g.GameName{AppId: game.AppId, Name: game.Name})
-	}
-
-	for routingKey, games := range routingKeyMap2 {
-		serializedGames, err := sp.SerializeMsgGameNames(clientID, games)
-		if err != nil {
-			return fmt.Errorf("failed to serialize games: %v", err)
-		}
-
-		err = m.ActionReviewJoinExchangeEX.Publish(routingKey, serializedGames)
-		if err != nil {
-			return fmt.Errorf("failed to publish games: %v", err)
-		}
-
-		m.logger.Infof("Published games to action review EX joiner with routing key: %s", routingKey)
-	}
-	// SOLO PARA TESTEAR
-
 	return nil
 }
 
@@ -273,13 +238,6 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 	for i := 1; i <= indieReviewJoinersAmount; i++ {
 		routingKey := u.GetPartitioningKeyFromInt(i, indieReviewJoinersAmount, IndieReviewJoinRoutingKeyPrefix)
 		err := m.IndieReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
-		if err != nil {
-			return err
-		}
-
-		// SOLO PARA TESTEAR
-		routingKey2 := fmt.Sprintf("%s%d", ActionReviewJoinRoutingKeyPrefix, i)
-		err = m.ActionReviewJoinExchangeEX.Publish(routingKey2, sp.SerializeMsgEndOfFile(clientID))
 		if err != nil {
 			return err
 		}

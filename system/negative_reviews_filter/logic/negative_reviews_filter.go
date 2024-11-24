@@ -2,31 +2,32 @@ package negative_reviews_filter
 
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
-	u "distribuidos-tp/internal/utils"
-	"strconv"
-
 	"github.com/op/go-logging"
 )
 
 var log = logging.MustGetLogger("log")
 
+type ReceiveGameReviewsMetricsFunc func() (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, err error)
+type SendQueryResultsFunc func(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) error
+
 type NegativeReviewsFilter struct {
-	ReceiveGameReviewsMetrics func() (int, []*ra.GameReviewsMetrics, bool, error)
-	SendGameReviewsMetrics    func(int, map[int][]*ra.GameReviewsMetrics) error
-	SendEndOfFiles            func(int, int) error
+	ReceiveGameReviewsMetrics ReceiveGameReviewsMetricsFunc
+	SendQueryResults          SendQueryResultsFunc
 }
 
-func NewNegativeReviewsFilter(receiveGameReviewsMetrics func() (int, []*ra.GameReviewsMetrics, bool, error), sendGameReviewsMetrics func(int, map[int][]*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int) error) *NegativeReviewsFilter {
+func NewNegativeReviewsFilter(
+	receiveGameReviewsMetrics ReceiveGameReviewsMetricsFunc,
+	sendQueryResults SendQueryResultsFunc,
+) *NegativeReviewsFilter {
 	return &NegativeReviewsFilter{
 		ReceiveGameReviewsMetrics: receiveGameReviewsMetrics,
-		SendGameReviewsMetrics:    sendGameReviewsMetrics,
-		SendEndOfFiles:            sendEndOfFiles,
+		SendQueryResults:          sendQueryResults,
 	}
 }
 
-func (f *NegativeReviewsFilter) Run(actionReviewsJoinersAmount int, englishReviewAccumulatorsAmount int, minNegativeReviews int) {
+func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNegativeReviews int) {
 	remainingEOFsMap := make(map[int]int)
-	negativeReviewsMap := make(map[int]map[int][]*ra.GameReviewsMetrics)
+	negativeReviewsMap := make(map[int][]*ra.NamedGameReviewsMetrics)
 
 	for {
 
@@ -38,7 +39,7 @@ func (f *NegativeReviewsFilter) Run(actionReviewsJoinersAmount int, englishRevie
 
 		clientNegativeReviews, exists := negativeReviewsMap[clientID]
 		if !exists {
-			clientNegativeReviews = make(map[int][]*ra.GameReviewsMetrics)
+			clientNegativeReviews = make([]*ra.NamedGameReviewsMetrics, 0)
 			negativeReviewsMap[clientID] = clientNegativeReviews
 		}
 
@@ -54,13 +55,14 @@ func (f *NegativeReviewsFilter) Run(actionReviewsJoinersAmount int, englishRevie
 				continue
 			}
 			log.Infof("Received all EOFs for client %d", clientID)
-			err = f.SendEndOfFiles(clientID, actionReviewsJoinersAmount)
+
+			err = f.SendQueryResults(clientID, clientNegativeReviews)
 			if err != nil {
-				log.Errorf("Failed to send EOFs: %v", err)
+				log.Errorf("Failed to send game reviews metrics: %v", err)
 				return
 			}
 
-			log.Infof("Sent all EOFs to Joiners from client: %d", clientID)
+			log.Infof("Sent final result of client: %d", clientID)
 
 			delete(negativeReviewsMap, clientID)
 			delete(remainingEOFsMap, clientID)
@@ -68,23 +70,12 @@ func (f *NegativeReviewsFilter) Run(actionReviewsJoinersAmount int, englishRevie
 			continue
 		}
 
-		for _, gameReviewsMetrics := range gameReviewsMetrics {
-			if gameReviewsMetrics.NegativeReviews >= minNegativeReviews {
-				log.Infof("Game %v has %v negative reviews", gameReviewsMetrics.AppID, gameReviewsMetrics.NegativeReviews)
-				updateNegativeReviewsMap(clientNegativeReviews, gameReviewsMetrics, actionReviewsJoinersAmount)
+		for _, currentGameReviewsMetrics := range gameReviewsMetrics {
+			if currentGameReviewsMetrics.NegativeReviews >= minNegativeReviews {
+				clientNegativeReviews = append(clientNegativeReviews, currentGameReviewsMetrics)
 			}
 		}
 
-		err = f.SendGameReviewsMetrics(clientID, clientNegativeReviews)
-		if err != nil {
-			log.Errorf("Failed to send game reviews metrics: %v", err)
-			return
-		}
+		negativeReviewsMap[clientID] = clientNegativeReviews
 	}
-}
-
-func updateNegativeReviewsMap(negativeReviewsMap map[int][]*ra.GameReviewsMetrics, gameReviewsMetrics *ra.GameReviewsMetrics, actionReviewsJoinersAmount int) {
-	appIdString := strconv.Itoa(int(gameReviewsMetrics.AppID))
-	shardingKey := u.CalculateShardingKey(appIdString, actionReviewsJoinersAmount)
-	negativeReviewsMap[shardingKey] = append(negativeReviewsMap[shardingKey], gameReviewsMetrics)
 }

@@ -12,10 +12,7 @@ import (
 )
 
 const (
-	ActionNegativeReviewsJoinersAmountEnvironmentVariableName = "ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT"
-	NumPreviousAccumulators                                   = "NUM_PREVIOUS_ACCUMULATORS"
-	FileNamePrefix                                            = "stored_reviews_"
-	AccumulatedPercentileReviewsRoutingKeyPrefix              = "percentile_reviews_key_"
+	NumPreviousAccumulators = "NUM_PREVIOUS_ACCUMULATORS"
 )
 
 var log = logging.MustGetLogger("log")
@@ -25,12 +22,6 @@ func main() {
 	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
 
 	doneChannel := make(chan bool)
-
-	actionNegativeReviewsJoinersAmount, err := u.GetEnvInt(ActionNegativeReviewsJoinersAmountEnvironmentVariableName)
-	if err != nil {
-		log.Errorf("Failed to get environment variable: %v", err)
-		return
-	}
 
 	previousAccumulators, err := u.GetEnvInt(NumPreviousAccumulators)
 	if err != nil {
@@ -47,14 +38,13 @@ func main() {
 
 	positiveReviewsFilter := l.NewPercentileAccumulator(
 		middleware.ReceiveGameReviewsMetrics,
-		middleware.SendGameReviewsMetrics,
-		middleware.SendEndOfFiles,
+		middleware.SendQueryResults,
 	)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		positiveReviewsFilter.Run(actionNegativeReviewsJoinersAmount, AccumulatedPercentileReviewsRoutingKeyPrefix, previousAccumulators, FileNamePrefix)
+		positiveReviewsFilter.Run(previousAccumulators)
 		doneChannel <- true
 	}()
 

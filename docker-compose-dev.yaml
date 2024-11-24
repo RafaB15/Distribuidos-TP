@@ -121,7 +121,6 @@ services:
     image: percentile_accumulator:latest
     entrypoint: /percentile_accumulator
     environment:
-      - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=2
       - NUM_PREVIOUS_ACCUMULATORS=4
     depends_on:
       game_mapper:
@@ -222,6 +221,7 @@ services:
     environment:
       - ID=1
       - ENGLISH_FILTERS_AMOUNT=4
+      - ACTION_REVIEWS_ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -237,6 +237,7 @@ services:
     environment:
       - ID=2
       - ENGLISH_FILTERS_AMOUNT=4
+      - ACTION_REVIEWS_ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -252,6 +253,7 @@ services:
     environment:
       - ID=3
       - ENGLISH_FILTERS_AMOUNT=4
+      - ACTION_REVIEWS_ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -267,6 +269,7 @@ services:
     environment:
       - ID=4
       - ENGLISH_FILTERS_AMOUNT=4
+      - ACTION_REVIEWS_ACCUMULATORS_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -282,7 +285,7 @@ services:
     environment:
       - ID=1
       - ACCUMULATORS_AMOUNT=2
-      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -298,7 +301,7 @@ services:
     environment:
       - ID=2
       - ACCUMULATORS_AMOUNT=2
-      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -314,7 +317,7 @@ services:
     environment:
       - ID=3
       - ACCUMULATORS_AMOUNT=2
-      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -330,7 +333,7 @@ services:
     environment:
       - ID=4
       - ACCUMULATORS_AMOUNT=2
-      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=4
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -346,7 +349,6 @@ services:
     environment:
       - ID=1
       - FILTERS_AMOUNT=4
-      - NEGATIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -362,7 +364,6 @@ services:
     environment:
       - ID=2
       - FILTERS_AMOUNT=4
-      - NEGATIVE_REVIEWS_FILTER_AMOUNT=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -376,9 +377,7 @@ services:
     image: negative_reviews_filter:latest
     entrypoint: /negative_reviews_filter
     environment:
-      - ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT=2
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
-      - ID=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -392,9 +391,7 @@ services:
     image: negative_reviews_filter:latest
     entrypoint: /negative_reviews_filter
     environment:
-      - ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT=2
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=2
-      - ID=2
     depends_on:
       game_mapper:
         condition: service_started
@@ -403,13 +400,13 @@ services:
     networks:
       - distributed_network
 
-  action_english_review_joiner_1:
-    container_name: action_english_review_joiner_1
-    image: action_english_review_joiner:latest
-    entrypoint: /action_english_review_joiner
+  action_reviews_accumulator_1:
+    container_name: action_reviews_accumulator_1
+    image: action_reviews_accumulator:latest
+    entrypoint: /action_reviews_accumulator
     environment:
       - ID=1
-      - NEGATIVE_REVIEWS_FILTERS_AMOUNT=2
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -418,69 +415,13 @@ services:
     networks:
       - distributed_network
 
-  action_english_review_joiner_2:
-    container_name: action_english_review_joiner_2
-    image: action_english_review_joiner:latest
-    entrypoint: /action_english_review_joiner
+  action_reviews_accumulator_2:
+    container_name: action_reviews_accumulator_2
+    image: action_reviews_accumulator:latest
+    entrypoint: /action_reviews_accumulator
     environment:
       - ID=2
-      - NEGATIVE_REVIEWS_FILTERS_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  final_english_joiner:
-    container_name: final_english_joiner
-    image: final_english_joiner:latest
-    entrypoint: /final_english_joiner
-    environment:
-      - ACTION_ENGLISH_JOINERS_AMOUNT=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  action_percentile_review_joiner_1:
-    container_name: action_percentile_review_joiner_1
-    image: action_percentile_review_joiner:latest
-    entrypoint: /action_percentile_review_joiner
-    environment:
-      - ID=1
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  action_percentile_review_joiner_2:
-    container_name: action_percentile_review_joiner_2
-    image: action_percentile_review_joiner:latest
-    entrypoint: /action_percentile_review_joiner
-    environment:
-      - ID=2
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  final_percentile_joiner:
-    container_name: final_percentile_joiner
-    image: final_percentile_joiner:latest
-    entrypoint: /final_percentile_joiner
-    environment:
-      - ACTION_PERCENTILE_JOINERS_AMOUNT=2
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -519,113 +460,6 @@ services:
     networks:
       - distributed_network
 
-  watchdog1:
-    container_name: watchdog_1
-    image: watchdog:latest
-    entrypoint: /watchdog
-    environment:
-      - WATCHDOG_HOST=1
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      watchdog3:
-        condition: service_started
-    networks:
-      - distributed_network
-
-  watchdog2:
-    container_name: watchdog_2
-    image: watchdog:latest
-    entrypoint: /watchdog
-    environment:
-      - WATCHDOG_HOST=2
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      watchdog3:
-        condition: service_started
-    networks:
-      - distributed_network
-
-  watchdog3:
-    container_name: watchdog_3
-    image: watchdog:latest
-    entrypoint: /watchdog
-    environment:
-      - WATCHDOG_HOST=3
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      entrypoint:
-        condition: service_started
-      game_mapper:
-        condition: service_started
-      os_accumulator_1:
-        condition: service_started
-      os_accumulator_2:
-        condition: service_started
-      os_final_accumulator:
-        condition: service_started
-      top_ten_accumulator:
-        condition: service_started
-      top_positive_reviews:
-        condition: service_started
-      percentile_accumulator:
-        condition: service_started
-      reviews_accumulator_1:
-        condition: service_started
-      reviews_accumulator_2:
-        condition: service_started
-      reviews_accumulator_3:
-        condition: service_started
-      reviews_accumulator_4:
-        condition: service_started
-      decade_filter_1:
-        condition: service_started
-      decade_filter_2:
-        condition: service_started
-      negative_reviews_pre_filter_1:
-        condition: service_started
-      negative_reviews_pre_filter_2:
-        condition: service_started
-      negative_reviews_pre_filter_3:
-        condition: service_started
-      negative_reviews_pre_filter_4:
-        condition: service_started
-      english_filter_1:
-        condition: service_started
-      english_filter_2:
-        condition: service_started
-      english_filter_3:
-        condition: service_started
-      english_filter_4:
-        condition: service_started
-      english_reviews_accumulator_1:
-        condition: service_started
-      english_reviews_accumulator_2:
-        condition: service_started
-      negative_reviews_filter_1:
-        condition: service_started
-      negative_reviews_filter_2:
-        condition: service_started
-      action_english_review_joiner_1:
-        condition: service_started
-      action_english_review_joiner_2:
-        condition: service_started
-      final_english_joiner:
-        condition: service_started
-      action_percentile_review_joiner_1:
-        condition: service_started
-      action_percentile_review_joiner_2:
-        condition: service_started
-      final_percentile_joiner:
-        condition: service_started
-      indie_review_joiner_1:
-        condition: service_started
-      indie_review_joiner_2:
-        condition: service_started
-    networks:
-      - distributed_network
 networks:
   distributed_network:
     name: distributed_network
