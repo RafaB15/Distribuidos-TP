@@ -2,6 +2,7 @@ package negative_reviews_filter
 
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+
 	"github.com/op/go-logging"
 )
 
@@ -28,6 +29,7 @@ func NewNegativeReviewsFilter(
 func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNegativeReviews int) {
 	remainingEOFsMap := make(map[int]int)
 	negativeReviewsMap := make(map[int][]*ra.NamedGameReviewsMetrics)
+	log.Infof("Starting negative reviews filter node with min negative reviews: %d", minNegativeReviews)
 
 	for {
 
@@ -70,8 +72,12 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 			continue
 		}
 
+		log.Infof("Received game reviews metrics for client %d", clientID)
 		for _, currentGameReviewsMetrics := range gameReviewsMetrics {
+			log.Infof("Received review with negative reviews: %d", currentGameReviewsMetrics.NegativeReviews)
 			if currentGameReviewsMetrics.NegativeReviews >= minNegativeReviews {
+				log.Infof("Client %d has a game with negative reviews: %s", clientID, currentGameReviewsMetrics.Name)
+				log.Infof("Neagtive filtered: %d", len(clientNegativeReviews))
 				clientNegativeReviews = append(clientNegativeReviews, currentGameReviewsMetrics)
 			}
 		}

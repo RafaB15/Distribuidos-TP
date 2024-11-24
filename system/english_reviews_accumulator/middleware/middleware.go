@@ -18,7 +18,7 @@ const (
 
 	AccumulatedEnglishReviewsExchangeName = "accumulated_english_reviews_exchange"
 	AccumulatedEnglishReviewsExchangeType = "direct"
-	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews"
+	AccumulatedEnglishReviewsRoutingKey   = "accumulated_english_reviews_key"
 )
 
 type Middleware struct {

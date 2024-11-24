@@ -65,7 +65,7 @@ func SerializeNamedGameReviewsMetrics(metrics *NamedGameReviewsMetrics) []byte {
 }
 
 func DeserializeNamedGameReviewsMetrics(data []byte) (*NamedGameReviewsMetrics, int, error) {
-	if len(data) != 14 {
+	if len(data) < 14 {
 		return nil, 0, errors.New("data too short to deserialize into NamedGameReviewsMetrics")
 	}
 
