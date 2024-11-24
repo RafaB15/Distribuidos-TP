@@ -29,6 +29,7 @@ func NewNegativeReviewsFilter(
 func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNegativeReviews int) {
 	remainingEOFsMap := make(map[int]int)
 	negativeReviewsMap := make(map[int][]*ra.NamedGameReviewsMetrics)
+	log.Infof("expected EOFs: %d", englishReviewAccumulatorsAmount)
 	log.Infof("Starting negative reviews filter node with min negative reviews: %d", minNegativeReviews)
 
 	for {
@@ -77,8 +78,8 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 			log.Infof("Received review with negative reviews: %d", currentGameReviewsMetrics.NegativeReviews)
 			if currentGameReviewsMetrics.NegativeReviews >= minNegativeReviews {
 				log.Infof("Client %d has a game with negative reviews: %s", clientID, currentGameReviewsMetrics.Name)
-				log.Infof("Neagtive filtered: %d", len(clientNegativeReviews))
 				clientNegativeReviews = append(clientNegativeReviews, currentGameReviewsMetrics)
+				log.Infof("Neagtive filtered: %d", len(clientNegativeReviews))
 			}
 		}
 

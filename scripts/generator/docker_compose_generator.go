@@ -307,9 +307,9 @@ func main() {
 	}
 
 	// NegativeReviewsFilter service
-	for i := 1; i <= config.NegativeReviewsFilter; i++ {
-		serviceName := fmt.Sprintf("negative_reviews_filter_%d", i)
-		compose += fmt.Sprintf(`  %s:
+
+	serviceName = "negative_reviews_filter"
+	compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: negative_reviews_filter:latest
     entrypoint: /negative_reviews_filter
@@ -324,7 +324,6 @@ func main() {
       - distributed_network
 
 `, serviceName, serviceName, config.EnglishReviewsAccumulator)
-	}
 
 	/*
 			// ActionEnglishReviewJoiner service
