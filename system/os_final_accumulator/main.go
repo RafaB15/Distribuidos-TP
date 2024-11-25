@@ -27,18 +27,23 @@ func main() {
 		return
 	}
 
-	middleware, err := m.NewMiddleware()
+	middleware, err := m.NewMiddleware(log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
 	}
 
-	osAccumulator := l.NewOSFinalAccumulator(middleware.ReceiveGamesOSMetrics, middleware.SendFinalMetrics, osAccumulatorsAmount)
+	osAccumulator := l.NewOSFinalAccumulator(
+		middleware.ReceiveGamesOSMetrics,
+		middleware.SendFinalMetrics,
+		middleware.AckLastMessage,
+		log,
+	)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		osAccumulator.Run()
+		osAccumulator.Run(osAccumulatorsAmount)
 		doneChannel <- true
 	}()
 

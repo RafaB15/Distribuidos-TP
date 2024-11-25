@@ -116,12 +116,15 @@ func (m *Middleware) ReceiveGameOS(messageTracker *n.MessageTracker) (clientID i
 	}
 }
 
-func (m *Middleware) SendEof(clientID int, _ *n.MessageTracker) error {
-
-	err := m.OSAccumulatorExchange.Publish(OSAccumulatorRoutingKey, sp.SerializeMsgEndOfFile(clientID))
+func (m *Middleware) SendEof(clientID int, senderID int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+	messagesSentToNode := messagesSent[OSAccumulatorRoutingKey]
+	serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+	err := m.OSAccumulatorExchange.Publish(OSAccumulatorRoutingKey, serializedMessage)
 	if err != nil {
 		return err
 	}
+	m.logger.Infof("Sent EOF to client %d", clientID)
 
 	return nil
 }

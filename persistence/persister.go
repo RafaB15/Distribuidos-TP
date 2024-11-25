@@ -101,7 +101,7 @@ func (p *Persister[T]) Load() (T, uint64, error) {
 	}
 
 	// If there were problems with the primary, we try to load the backup file
-	persistedStructure, syncNumber, err = p.loadFile(p.fileName)
+	persistedStructure, syncNumber, err = p.loadFile(p.fileName + CopySuffix)
 	if err == nil {
 		p.logger.Infof("Loaded data from backup file: %s", p.fileName+CopySuffix)
 		return persistedStructure, syncNumber, nil
@@ -156,7 +156,11 @@ func (p *Persister[T]) Rollback() error {
 	srcFile, err := os.Open(p.fileName + CopySuffix)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			p.logger.Warningf("Backup file %s does not exist", p.fileName+CopySuffix)
+			p.logger.Warningf("Backup file %s does not exist. Deleting primary to finish rollback", p.fileName+CopySuffix)
+			err := os.Remove(p.fileName)
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 		return err

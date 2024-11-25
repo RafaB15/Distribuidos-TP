@@ -181,7 +181,7 @@ func startHeartbeat() {
 
 func performLeaderTask() {
 	for {
-		time.Sleep(5 * time.Second) // Adjust the interval as needed
+		time.Sleep(2 * time.Second) // Adjust the interval as needed
 		isLeaderMutex.Lock()
 		if isLeader {
 			fmt.Printf("Node %d is performing the leader task\n", nodeID)
@@ -204,7 +204,8 @@ func performLeaderTask() {
 
 func getServices() map[string]int {
 	return map[string]int{
-		"os_accumulator": 2,
+		"os_accumulator":       2,
+		"action_review_joiner": 5,
 	}
 }
 

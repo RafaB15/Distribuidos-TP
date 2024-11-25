@@ -127,10 +127,6 @@ func (r *Repository) SaveAll(accumulatedRawReviewsMap *n.IntMap[*n.IntMap[[]*rv.
 		return fmt.Errorf("failed to save games to send: %v", err)
 	}
 
-	//if rand.Float32() < 0.05 {
-	//	return fmt.Errorf("simulated random error")
-	//}
-
 	err = r.SaveMessageTracker(messageTracker, syncNumber)
 	if err != nil {
 		return fmt.Errorf("failed to save message tracker: %v", err)

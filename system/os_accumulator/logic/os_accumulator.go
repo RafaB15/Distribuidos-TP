@@ -2,6 +2,7 @@ package os_accumulator
 
 import (
 	p "distribuidos-tp/system/os_accumulator/persistence"
+	"math/rand"
 
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	n "distribuidos-tp/internal/system_protocol/node"
@@ -10,12 +11,12 @@ import (
 
 const (
 	GameMapperAmount = 1
-	AckBatchSize     = 100
+	AckBatchSize     = 20
 )
 
 type ReceiveGamesOSFunc func(messageTracker *n.MessageTracker) (clientID int, gamesOS []*oa.GameOS, eof bool, newMessage bool, err error)
 type SendMetricsFunc func(clientID int, gameMetrics *oa.GameOSMetrics, messageTracker *n.MessageTracker) error
-type SendEofFunc func(clientID int, messageTracker *n.MessageTracker) error
+type SendEofFunc func(clientID int, senderID int, messageTracker *n.MessageTracker) error
 type AckLastMessageFunc func() error
 
 type OSAccumulator struct {
@@ -42,7 +43,7 @@ func NewOSAccumulator(
 	}
 }
 
-func (o *OSAccumulator) Run(_ int, repository *p.Repository) {
+func (o *OSAccumulator) Run(id int, repository *p.Repository) {
 	osMetricsMap, messageTracker, syncNumber, err := repository.LoadAll(GameMapperAmount)
 	if err != nil {
 		o.logger.Errorf("failed to load data: %v", err)
@@ -56,6 +57,11 @@ func (o *OSAccumulator) Run(_ int, repository *p.Repository) {
 		clientID, gamesOS, eof, newMessage, err := o.ReceiveGamesOS(messageTracker)
 		if err != nil {
 			o.logger.Errorf("failed to receive game os: %v", err)
+			return
+		}
+
+		if rand.Float32() < 0.01 {
+			o.logger.Errorf("simulated random error in logic")
 			return
 		}
 
@@ -80,13 +86,14 @@ func (o *OSAccumulator) Run(_ int, repository *p.Repository) {
 				return
 			}
 
-			err = o.SendEof(clientID, messageTracker)
+			err = o.SendEof(clientID, id, messageTracker)
 			if err != nil {
 				o.logger.Errorf("failed to send EOF: %v", err)
 				return
 			}
 
 			messageTracker.DeleteClientInfo(clientID)
+			osMetricsMap.Delete(clientID)
 
 			syncNumber++
 			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
