@@ -9,6 +9,7 @@ import (
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
+
 	"github.com/op/go-logging"
 )
 
@@ -239,7 +240,10 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 
 	for i := 1; i <= indieReviewJoinersAmount; i++ {
 		routingKey := u.GetPartitioningKeyFromInt(i, indieReviewJoinersAmount, IndieReviewJoinRoutingKeyPrefix)
-		err := m.IndieReviewJoinExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
+		messageSentToRoutingKey := messagesSent[routingKey]
+		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 1, messageSentToRoutingKey)
+
+		err := m.IndieReviewJoinExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
 			return err
 		}

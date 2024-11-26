@@ -3,10 +3,14 @@ package middleware
 import (
 	sp "distribuidos-tp/internal/system_protocol"
 	r "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	n "distribuidos-tp/internal/system_protocol/node"
 	"distribuidos-tp/internal/system_protocol/reviews"
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
+
 	"fmt"
+
+	"github.com/op/go-logging"
 )
 
 const (
@@ -26,9 +30,10 @@ type Middleware struct {
 	Manager                 *mom.MiddlewareManager
 	ReviewsQueue            *mom.Queue
 	IndieReviewJoinExchange *mom.Exchange
+	logger                  *logging.Logger
 }
 
-func NewMiddleware(id int) (*Middleware, error) {
+func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, err
@@ -50,37 +55,55 @@ func NewMiddleware(id int) (*Middleware, error) {
 		Manager:                 manager,
 		ReviewsQueue:            reviewsQueue,
 		IndieReviewJoinExchange: indieReviewJoinExchange,
+		logger:                  logger,
 	}, nil
 }
 
-func (m *Middleware) ReceiveReviews() (clientID int, rawReviews []*reviews.RawReview, eof bool, e error) {
+func (m *Middleware) ReceiveReviews(messageTracker *n.MessageTracker) (clientID int, rawReviews []*reviews.RawReview, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.ReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
+		return 0, nil, false, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
-	fmt.Printf("Received message from client %d\n", message.ClientID)
+	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
+	if err != nil {
+		return 0, nil, false, false, fmt.Errorf("failed to process message: %v", err)
+	}
+
+	if !newMessage {
+		return message.ClientID, nil, false, false, nil
+	}
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return message.ClientID, nil, true, nil
+		m.logger.Infof("Received EOF from client %d", message.ClientID)
+		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
+		if err != nil {
+			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize endOfFile: %v", err)
+		}
+		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
+		if err != nil {
+			return message.ClientID, nil, false, false, fmt.Errorf("failed to register EOF: %v", err)
+		}
+		return message.ClientID, nil, true, true, nil
+
 	case sp.MsgRawReviewInformationBatch:
 		reviewsInformation, err := sp.DeserializeMsgRawReviewInformationBatch(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, fmt.Errorf("failed to deserialize reviewsInformation: %v", err)
+			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize reviewsInformation: %v", err)
 		}
-		return message.ClientID, reviewsInformation, false, nil
+		return message.ClientID, reviewsInformation, false, true, nil
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %v", message.Type)
 	}
 }
 
-func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics, indieReviewJoinersAmount int) error {
+func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics, indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error {
 	keyMap := idMapToKeyMap(accumulatedReviews, indieReviewJoinersAmount, IndieReviewJoinExchangeRoutingKeyPrefix)
 
 	for routingKey, metrics := range keyMap {
@@ -90,14 +113,20 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map
 		if err != nil {
 			return err
 		}
+		messageTracker.RegisterSentMessage(clientID, routingKey)
 	}
 
 	return nil
 }
 
-func (m *Middleware) SendEof(clientID int, _ int, indieReviewJoinersAmount int) error {
+func (m *Middleware) SendEof(clientID int, senderID int, indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+
 	for nodeId := 1; nodeId <= indieReviewJoinersAmount; nodeId++ {
-		err := m.IndieReviewJoinExchange.Publish(fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFile(clientID))
+		routingKey := fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId)
+		messagesSentToNode := messagesSent[routingKey]
+		serializedMsg := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+		err := m.IndieReviewJoinExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return err
 		}

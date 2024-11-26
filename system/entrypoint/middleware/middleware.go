@@ -104,7 +104,7 @@ func (m *Middleware) SendReviewsBatch(clientID int, actionReviewJoinersAmount in
 		return 0, fmt.Errorf("failed to publish message to negative pre filter: %v", err)
 	}
 
-	err = sendToReviewNode(clientID, reviewAccumulatorsAmount, m.ReviewsExchange, ReviewsRoutingKeyPrefix, rawReviews)
+	err = sendToReviewNodeV2(clientID, reviewAccumulatorsAmount, m.ReviewsExchange, ReviewsRoutingKeyPrefix, rawReviews, messageTracker)
 	if err != nil {
 		return 0, fmt.Errorf("failed to publish message to review mapper: %v", err)
 	}
@@ -191,7 +191,8 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, actionReviewJoinersAmoun
 
 	for i := 1; i <= reviewAccumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", ReviewsRoutingKeyPrefix, i)
-		err := m.ReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
+		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 0, messagesSent[routingKey])
+		err := m.ReviewsExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}

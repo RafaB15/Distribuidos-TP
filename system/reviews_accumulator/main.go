@@ -36,13 +36,13 @@ func main() {
 		return
 	}
 
-	middleware, err := m.NewMiddleware(id)
+	middleware, err := m.NewMiddleware(id, log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
 	}
 
-	reviewsAccumulator := l.NewReviewsAccumulator(middleware.ReceiveReviews, middleware.SendAccumulatedReviews, middleware.AckLastMessage, middleware.SendEof)
+	reviewsAccumulator := l.NewReviewsAccumulator(middleware.ReceiveReviews, middleware.SendAccumulatedReviews, middleware.AckLastMessage, middleware.SendEof, log)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
