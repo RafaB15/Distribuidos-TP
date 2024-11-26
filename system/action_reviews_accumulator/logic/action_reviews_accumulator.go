@@ -4,6 +4,7 @@ import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
+	p "distribuidos-tp/system/action_reviews_accumulator/persistence"
 
 	"github.com/op/go-logging"
 )
@@ -41,11 +42,14 @@ func NewActionReviewsAccumulator(
 	}
 }
 
-func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int) {
-	messageTracker := n.NewMessageTracker(actionReviewJoinersAmount)
-	messagesUntilAck := AckBatchSize
+func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int, repository *p.Repository) {
+	accumulatedReviews, messageTracker, syncNumber, err := repository.LoadAll(actionReviewJoinersAmount)
+	if err != nil {
+		a.logger.Errorf("Failed to load data: %v", err)
+		return
+	}
 
-	accumulatedReviews := make(map[int]map[uint32]*ra.NamedGameReviewsMetrics)
+	messagesUntilAck := AckBatchSize
 
 	for {
 		clientID, reducedReview, eof, newMessage, err := a.ReceiveReview(messageTracker)
@@ -54,14 +58,14 @@ func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int) {
 			return
 		}
 
-		clientAccumulatedReviews, exists := accumulatedReviews[clientID]
+		clientAccumulatedReviews, exists := accumulatedReviews.Get(clientID)
 		if !exists {
-			clientAccumulatedReviews = make(map[uint32]*ra.NamedGameReviewsMetrics)
-			accumulatedReviews[clientID] = clientAccumulatedReviews
+			clientAccumulatedReviews = repository.InitializeAccumulatedReviewsMap()
+			accumulatedReviews.Set(clientID, clientAccumulatedReviews)
 		}
 
 		if newMessage && !eof {
-			if metrics, exists := clientAccumulatedReviews[reducedReview.AppId]; exists {
+			if metrics, exists := clientAccumulatedReviews.Get(int(reducedReview.AppId)); exists {
 				// a.logger.Info("Updating metrics for appID: ", reducedReview.AppId)
 				// Update existing metrics
 				metrics.UpdateWithReview(reducedReview)
@@ -70,14 +74,14 @@ func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int) {
 				//a.logger.Info("Creating new metrics for appID: ", reducedReview.AppId)
 				newMetrics := ra.NewNamedGameReviewsMetrics(reducedReview.AppId, reducedReview.Name)
 				newMetrics.UpdateWithReview(reducedReview)
-				clientAccumulatedReviews[reducedReview.AppId] = newMetrics
+				clientAccumulatedReviews.Set(int(reducedReview.AppId), newMetrics)
 			}
 		}
 
 		if messageTracker.ClientFinished(clientID, a.logger) {
 			a.logger.Infof("Client %d finished", clientID)
 
-			metrics := idMapToList(clientAccumulatedReviews)
+			metrics := clientAccumulatedReviews.Values()
 			err = a.SendAccumulatedReviews(clientID, metrics)
 			if err != nil {
 				a.logger.Errorf("Failed to send accumulated reviews: %v", err)
@@ -93,6 +97,13 @@ func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int) {
 
 			messageTracker.DeleteClientInfo(clientID)
 
+			syncNumber++
+			err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
+			if err != nil {
+				a.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
 			messagesUntilAck = AckBatchSize
 			err = a.AckLastMessage()
 			if err != nil {
@@ -102,6 +113,13 @@ func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int) {
 		}
 
 		if messagesUntilAck == 0 {
+			syncNumber++
+			err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
+			if err != nil {
+				a.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
 			err = a.AckLastMessage()
 			if err != nil {
 				a.logger.Errorf("Failed to ack last message: %v", err)
@@ -112,12 +130,4 @@ func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int) {
 			messagesUntilAck--
 		}
 	}
-}
-
-func idMapToList(idMap map[uint32]*ra.NamedGameReviewsMetrics) []*ra.NamedGameReviewsMetrics {
-	var list []*ra.NamedGameReviewsMetrics
-	for _, value := range idMap {
-		list = append(list, value)
-	}
-	return list
 }

@@ -93,3 +93,11 @@ func (m *IntMap[T]) Deserialize(serializedMap []byte) (*IntMap[T], error) {
 func (m *IntMap[T]) Size() int {
 	return len(m.contents)
 }
+
+func (m *IntMap[T]) Values() []T {
+	values := make([]T, 0, len(m.contents))
+	for _, value := range m.contents {
+		values = append(values, value)
+	}
+	return values
+}

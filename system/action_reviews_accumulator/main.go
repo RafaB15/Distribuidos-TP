@@ -4,8 +4,10 @@ import (
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/action_reviews_accumulator/logic"
 	m "distribuidos-tp/system/action_reviews_accumulator/middleware"
+	p "distribuidos-tp/system/action_reviews_accumulator/persistence"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -50,10 +52,14 @@ func main() {
 		log,
 	)
 
-	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
+
+	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		actionReviewsAccumulator.Run(actionReviewJoinersAmount)
+		actionReviewsAccumulator.Run(actionReviewJoinersAmount, repository)
 		doneChannel <- true
 	}()
 

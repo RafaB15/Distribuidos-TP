@@ -64,7 +64,12 @@ func SerializeNamedGameReviewsMetrics(metrics *NamedGameReviewsMetrics) []byte {
 	return buf
 }
 
-func DeserializeNamedGameReviewsMetrics(data []byte) (*NamedGameReviewsMetrics, int, error) {
+func DeserializeNamedGameReviewsMetrics(data []byte) (*NamedGameReviewsMetrics, error) {
+	metrics, _, err := DeserializeNamedGameReviewsMetricsWithReadAmount(data)
+	return metrics, err
+}
+
+func DeserializeNamedGameReviewsMetricsWithReadAmount(data []byte) (*NamedGameReviewsMetrics, int, error) {
 	if len(data) < 14 {
 		return nil, 0, errors.New("data too short to deserialize into NamedGameReviewsMetrics")
 	}
@@ -128,7 +133,7 @@ func DeserializeNamedGameReviewsMetricsBatch(data []byte) ([]*NamedGameReviewsMe
 
 	var metrics []*NamedGameReviewsMetrics
 	for i := 0; i < count; i++ {
-		metric, bytesRead, err := DeserializeNamedGameReviewsMetrics(data[offset:])
+		metric, bytesRead, err := DeserializeNamedGameReviewsMetricsWithReadAmount(data[offset:])
 		if err != nil {
 			return nil, err
 		}

@@ -9,6 +9,7 @@ RUN go mod download
 
 COPY system/action_reviews_accumulator ./system/action_reviews_accumulator
 COPY middleware ./middleware
+COPY persistence ./persistence
 COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils
 
