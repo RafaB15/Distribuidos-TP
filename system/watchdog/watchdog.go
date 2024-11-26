@@ -188,10 +188,16 @@ func performLeaderTask() {
 			services := getServices()
 			for service, instances := range services {
 				for i := 1; i <= instances; i++ {
+					unique := false
 					host := fmt.Sprintf("%s_%d:80", service, i)
+					if instances == 1 {
+						host = fmt.Sprintf("%s:80", service)
+						unique = true
+					}
+
 					if !pingHost(host) {
 						fmt.Printf("%s is not responding, restarting service...\n", host)
-						restartService(service, i)
+						restartService(service, i, unique)
 					} else {
 						fmt.Printf("Ping to %s successful\n", host)
 					}
@@ -206,11 +212,18 @@ func getServices() map[string]int {
 	return map[string]int{
 		"os_accumulator":       2,
 		"action_review_joiner": 5,
+		"os_final_accumulator": 1,
 	}
 }
 
-func restartService(service string, instance int) {
-	cmd := exec.Command("docker", "start", fmt.Sprintf("%s_%d", service, instance))
+func restartService(service string, instance int, unique bool) {
+
+	toRestart := fmt.Sprintf("%s_%d", service, instance)
+	if unique {
+		toRestart = service
+	}
+
+	cmd := exec.Command("docker", "start", toRestart)
 	err := cmd.Run()
 	if err != nil {
 		fmt.Printf("Error restarting service %s_%d: %v\n", service, instance, err)

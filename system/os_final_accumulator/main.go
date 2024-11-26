@@ -4,8 +4,10 @@ import (
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/os_final_accumulator/logic"
 	m "distribuidos-tp/system/os_final_accumulator/middleware"
+	p "distribuidos-tp/system/os_final_accumulator/persistence"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -40,10 +42,14 @@ func main() {
 		log,
 	)
 
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
+
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		osAccumulator.Run(osAccumulatorsAmount)
+		osAccumulator.Run(osAccumulatorsAmount, repository)
 		doneChannel <- true
 	}()
 

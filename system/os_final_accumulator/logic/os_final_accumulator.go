@@ -3,6 +3,8 @@ package os_final_accumulator
 import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	n "distribuidos-tp/internal/system_protocol/node"
+	p "distribuidos-tp/system/os_final_accumulator/persistence"
+
 	"github.com/op/go-logging"
 )
 
@@ -35,9 +37,13 @@ func NewOSFinalAccumulator(
 	}
 }
 
-func (o *OSFinalAccumulator) Run(osAccumulatorsAmount int) {
-	osMetricsMap := make(map[int]*oa.GameOSMetrics)
-	messageTracker := n.NewMessageTracker(osAccumulatorsAmount)
+func (o *OSFinalAccumulator) Run(osAccumulatorsAmount int, repository *p.Repository) {
+
+	osMetricsMap, messageTracker, syncNumber, err := repository.LoadAll(osAccumulatorsAmount)
+	if err != nil {
+		o.logger.Errorf("failed to load data: %v", err)
+		return
+	}
 
 	messageUntilAck := AckBatchSize
 
@@ -48,10 +54,10 @@ func (o *OSFinalAccumulator) Run(osAccumulatorsAmount int) {
 			return
 		}
 
-		clientOSMetrics, exists := osMetricsMap[clientID]
+		clientOSMetrics, exists := osMetricsMap.Get(clientID)
 		if !exists {
 			clientOSMetrics = &oa.GameOSMetrics{}
-			osMetricsMap[clientID] = clientOSMetrics
+			osMetricsMap.Set(clientID, clientOSMetrics)
 		}
 
 		if newMessage && !eof {
@@ -60,14 +66,22 @@ func (o *OSFinalAccumulator) Run(osAccumulatorsAmount int) {
 		}
 
 		if messageTracker.ClientFinished(clientID, o.logger) {
+
 			o.logger.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
 			err = o.SendFinalMetrics(clientID, clientOSMetrics)
 			if err != nil {
 				o.logger.Errorf("Failed to send final metrics: %v", err)
 				return
 			}
-			delete(osMetricsMap, clientID)
 			messageTracker.DeleteClientInfo(clientID)
+			osMetricsMap.Delete(clientID)
+
+			syncNumber++
+			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
+			if err != nil {
+				o.logger.Errorf("failed to save data: %v", err)
+				return
+			}
 
 			messageUntilAck = AckBatchSize
 			err = o.AckLastMessage()
@@ -78,6 +92,12 @@ func (o *OSFinalAccumulator) Run(osAccumulatorsAmount int) {
 		}
 
 		if messageUntilAck == 0 {
+			syncNumber++
+			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
+			if err != nil {
+				o.logger.Errorf("failed to save data: %v", err)
+				return
+			}
 			messageUntilAck = AckBatchSize
 			err = o.AckLastMessage()
 			if err != nil {

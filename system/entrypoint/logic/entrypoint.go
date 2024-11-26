@@ -15,7 +15,7 @@ type SendGamesBatchFunc func(clientID int, data []byte, messageTracker *n.Messag
 type SendReviewsBatchFunc func(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, messageTracker *n.MessageTracker) (sentReviewsAmount int, e error)
 type SendGamesEndOfFileFunc func(clientID int, messageTracker *n.MessageTracker) error
 type SendReviewsEndOfFileFunc func(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, messageTracker *n.MessageTracker) error
-type ReceiveQueryResultFunc func() (rawMessage []byte, e error)
+type ReceiveQueryResultFunc func(querysArrived map[int]bool) (rawMessage []byte, repeated bool, e error)
 
 type EntryPoint struct {
 	SendGamesBatch       SendGamesBatchFunc
@@ -89,11 +89,18 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount 
 
 	remainingQueries := 5
 
+	querysArrived := make(map[int]bool)
+
 	for remainingQueries > 0 {
-		result, err := e.ReceiveQueryResult()
+		result, repeated, err := e.ReceiveQueryResult(querysArrived)
 		if err != nil {
 			log.Errorf("Error receiving query result for client %d: %v", clientID, err)
 			return
+		}
+
+		if repeated {
+			log.Infof("Client %d received repeated query", clientID)
+			continue
 		}
 
 		totalWritten := 0

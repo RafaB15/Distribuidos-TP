@@ -201,43 +201,50 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, actionReviewJoinersAmoun
 	return nil
 }
 
-func (m *Middleware) ReceiveQueryResponse() ([]byte, error) {
+func (m *Middleware) ReceiveQueryResponse(querysArrived map[int]bool) ([]byte, bool, error) {
 	rawMsg, err := m.QueryResultsQueue.Consume()
 	if err != nil {
-		return nil, fmt.Errorf("failed to consume message: %v", err)
+		return nil, false, fmt.Errorf("failed to consume message: %v", err)
 	}
 
 	queryResponseMessage, err := sp.DeserializeQuery(rawMsg)
 
+	if querysArrived[int(queryResponseMessage.Type)] {
+		return nil, true, nil
+	}
+
+	querysArrived[int(queryResponseMessage.Type)] = true
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to deserialize message: %v", err)
+		return nil, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 	// fmt.Printf("Received query response of type: %d\n", queryResponseMessage.Type)
 	switch queryResponseMessage.Type {
 	case sp.MsgOsResolvedQuery:
 		fmt.Printf("Received OS resolved query\n")
-		return handleMsgOsResolvedQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
+		result, err := handleMsgOsResolvedQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
+		return result, false, err
 
 	case sp.MsgTopTenDecadeAvgPtfQuery:
 		fmt.Printf("Received decade reviews query\n")
-		return handleMsgTopTenResolvedQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
-
+		result, err := handleMsgTopTenResolvedQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
+		return result, false, err
 	case sp.MsgIndiePositiveJoinedReviewsQuery:
 		fmt.Printf("Received positive indie reviews query\n")
-		return handleMsgIndiePositiveResolvedQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
-
+		result, err := handleMsgIndiePositiveResolvedQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
+		return result, false, err
 	case sp.MsgActionNegativeEnglishReviewsQuery:
 		fmt.Printf("Received positive reviews query\n")
-		return handleMsgActionNegativeEnglishReviewsQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
-
+		result, err := handleMsgActionNegativeEnglishReviewsQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
+		return result, false, err
 	case sp.MsgActionNegativeReviewsQuery:
 		fmt.Printf("Received negative reviews query\n")
-		return handleMsgActionNegativeReviewsQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
-
+		result, err := handleMsgActionNegativeReviewsQuery(queryResponseMessage.ClientID, queryResponseMessage.Body)
+		return result, false, err
 	default:
 		fmt.Printf("Received unknown query response\n")
 	}
-	return rawMsg, nil
+	return rawMsg, false, nil
 }
 
 func handleMsgOsResolvedQuery(clientID int, message []byte) ([]byte, error) {
