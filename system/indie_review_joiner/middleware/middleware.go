@@ -5,9 +5,12 @@ import (
 	"distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	"distribuidos-tp/internal/system_protocol/games"
 	j "distribuidos-tp/internal/system_protocol/joiner"
+	n "distribuidos-tp/internal/system_protocol/node"
 	mom "distribuidos-tp/middleware"
 
 	"fmt"
+
+	"github.com/op/go-logging"
 )
 
 const (
@@ -28,9 +31,10 @@ type Middleware struct {
 	Manager                 *mom.MiddlewareManager
 	IndieReviewJoinQueue    *mom.Queue
 	PositiveReviewsExchange *mom.Exchange
+	logger                  *logging.Logger
 }
 
-func NewMiddleware(id int) (*Middleware, error) {
+func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, err
@@ -41,7 +45,7 @@ func NewMiddleware(id int) (*Middleware, error) {
 	indieReviewJoinQueueName := fmt.Sprintf("%s%d", IndieReviewJoinQueueNamePrefix, id)
 
 	routingKeys := []string{accumulatedReviewsRoutingKey, indieGameRoutingKey}
-	indieReviewJoinQueue, err := manager.CreateBoundQueueMultipleRoutingKeys(indieReviewJoinQueueName, IndieReviewJoinExchangeName, IndieReviewJoinExchangeType, routingKeys, true)
+	indieReviewJoinQueue, err := manager.CreateBoundQueueMultipleRoutingKeys(indieReviewJoinQueueName, IndieReviewJoinExchangeName, IndieReviewJoinExchangeType, routingKeys, false)
 	if err != nil {
 		return nil, err
 	}
@@ -55,40 +59,59 @@ func NewMiddleware(id int) (*Middleware, error) {
 		Manager:                 manager,
 		IndieReviewJoinQueue:    indieReviewJoinQueue,
 		PositiveReviewsExchange: topPositiveReviewsExchange,
+		logger:                  logger,
 	}, nil
 }
 
-func (m *Middleware) ReceiveMsg() (int, []*games.GameName, []*reviews_accumulator.GameReviewsMetrics, bool, error) {
+func (m *Middleware) ReceiveMsg(messageTracker *n.MessageTracker) (clientID int, games []*games.GameName, reviews []*reviews_accumulator.GameReviewsMetrics, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.IndieReviewJoinQueue.Consume()
 	if err != nil {
-		return 0, nil, nil, false, err
+		return 0, nil, nil, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, nil, false, err
+		return 0, nil, nil, false, false, err
+	}
+
+	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
+	if err != nil {
+		return message.ClientID, nil, nil, false, false, nil
+	}
+
+	if !newMessage {
+		return message.ClientID, nil, nil, false, false, nil
 	}
 
 	switch message.Type {
+	case sp.MsgEndOfFile:
+		m.logger.Infof("Received EOF from client %d", message.ClientID)
+		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
+		if err != nil {
+			return message.ClientID, nil, nil, false, false, fmt.Errorf("failed to deserialize EOF: %v", err)
+		}
+
+		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
+		if err != nil {
+			return message.ClientID, nil, nil, false, false, fmt.Errorf("failed to register EOF: %v", err)
+		}
+		return message.ClientID, nil, nil, true, true, nil
 	case sp.MsgGameNames:
 		gamesNames, err := HandleGameNames(message.Body)
 		if err != nil {
-			return message.ClientID, nil, nil, false, err
+			return message.ClientID, nil, nil, false, false, err
 		}
-		return message.ClientID, gamesNames, nil, false, nil
+		return message.ClientID, gamesNames, nil, false, true, nil
 
 	case sp.MsgGameReviewsMetrics:
 		reviews, err := HandleGameReviewMetrics(message.Body)
 		if err != nil {
-			return message.ClientID, nil, nil, false, err
+			return message.ClientID, nil, nil, false, false, err
 		}
-		return message.ClientID, nil, reviews, false, err
-
-	case sp.MsgEndOfFile:
-		return message.ClientID, nil, nil, true, nil
+		return message.ClientID, nil, reviews, false, true, err
 
 	default:
-		return message.ClientID, nil, nil, false, fmt.Errorf("unknown type msg")
+		return message.ClientID, nil, nil, false, false, fmt.Errorf("unknown type msg")
 	}
 
 }
@@ -109,21 +132,32 @@ func HandleGameNames(message []byte) ([]*games.GameName, error) {
 	return gameNames, nil
 }
 
-func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedPositiveGameReview) error {
+func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedPositiveGameReview, messageTracker *n.MessageTracker) error {
 	serializedMetrics, err := sp.SerializeMsgJoinedPositiveGameReviews(clientID, reviewsInformation)
 	if err != nil {
 		return err
 	}
 
-	return m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, serializedMetrics)
+	err = m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, serializedMetrics)
+	messageTracker.RegisterSentMessage(clientID, TopPositiveReviewsRoutingKey)
+	return err
 }
 
-func (m *Middleware) SendEof(clientID int) error {
+func (m *Middleware) SendEof(clientID int, senderID int, messageTracker *n.MessageTracker) error {
 	err := m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, sp.SerializeMsgEndOfFile(clientID))
 	if err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func (m *Middleware) AckLastMessage() error {
+	err := m.IndieReviewJoinQueue.AckLastMessages()
+	if err != nil {
+		return fmt.Errorf("failed to ack last message: %v", err)
+	}
+	m.logger.Infof("Acked last message")
 	return nil
 }
 
