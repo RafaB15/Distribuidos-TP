@@ -2,10 +2,10 @@ package os_accumulator
 
 import (
 	p "distribuidos-tp/system/os_accumulator/persistence"
-	"math/rand"
 
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	n "distribuidos-tp/internal/system_protocol/node"
+
 	"github.com/op/go-logging"
 )
 
@@ -57,11 +57,6 @@ func (o *OSAccumulator) Run(id int, repository *p.Repository) {
 		clientID, gamesOS, eof, newMessage, err := o.ReceiveGamesOS(messageTracker)
 		if err != nil {
 			o.logger.Errorf("failed to receive game os: %v", err)
-			return
-		}
-
-		if rand.Float32() < 0.01 {
-			o.logger.Errorf("simulated random error in logic")
 			return
 		}
 

@@ -3,7 +3,11 @@ package middleware
 import (
 	sp "distribuidos-tp/internal/system_protocol"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	n "distribuidos-tp/internal/system_protocol/node"
 	mom "distribuidos-tp/middleware"
+
+	"github.com/op/go-logging"
+
 	"fmt"
 )
 
@@ -23,15 +27,16 @@ type Middleware struct {
 	Manager                 *mom.MiddlewareManager
 	AccumulatedReviewsQueue *mom.Queue
 	QueryResultsExchange    *mom.Exchange
+	logger                  *logging.Logger
 }
 
-func NewMiddleware() (*Middleware, error) {
+func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, err
 	}
 
-	accumulatedReviewsQueue, err := manager.CreateBoundQueue(AccumulatedReviewsQueueName, AccumulatedReviewsExchangeName, AccumulatedReviewsExchangeType, AccumulatedReviewsRoutingKey, true)
+	accumulatedReviewsQueue, err := manager.CreateBoundQueue(AccumulatedReviewsQueueName, AccumulatedReviewsExchangeName, AccumulatedReviewsExchangeType, AccumulatedReviewsRoutingKey, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
@@ -45,37 +50,57 @@ func NewMiddleware() (*Middleware, error) {
 		Manager:                 manager,
 		AccumulatedReviewsQueue: accumulatedReviewsQueue,
 		QueryResultsExchange:    queryResultsExchange,
+		logger:                  logger,
 	}, nil
 
 }
 
-func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.NamedGameReviewsMetrics, bool, error) {
+func (m *Middleware) ReceiveGameReviewsMetrics(messageTracker *n.MessageTracker) (clientID int, namedReviews []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.AccumulatedReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, false, false, err
+	}
+
+	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
+	if err != nil {
+		return 0, nil, false, false, err
+	}
+
+	if !newMessage {
+		return message.ClientID, nil, false, false, nil
 	}
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		fmt.Printf("Message body: %v\n", message.Body)
-		return message.ClientID, nil, true, nil
+
+		m.logger.Infof("Received EOF from client %d", message.ClientID)
+		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
+		if err != nil {
+			return message.ClientID, nil, false, false, err
+		}
+		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
+		if err != nil {
+			return message.ClientID, nil, false, false, err
+		}
+		return message.ClientID, nil, true, true, nil
+
 	case sp.MsgNamedGameReviewsMetrics:
-		fmt.Print("Received game reviews metrics\n")
+
 		gameReviewsMetrics, err := sp.DeserializeMsgNamedGameReviewsMetricsBatch(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, err
+			return message.ClientID, nil, false, false, err
 		}
-		fmt.Printf("Message: %v\n", message.Body)
-		return message.ClientID, gameReviewsMetrics, false, nil
+
+		return message.ClientID, gameReviewsMetrics, false, true, nil
+
 	default:
-		fmt.Printf("Received unexpected message type: %v\n", message.Type)
-		fmt.Printf("Message body: %v\n", rawMsg)
-		return message.ClientID, nil, false, fmt.Errorf("received unexpected message type: %v", message.Type)
+
+		return message.ClientID, nil, false, false, fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
 }
 
@@ -83,6 +108,15 @@ func (m *Middleware) SendQueryResults(clientID int, namedGameReviewsMetricsBatch
 	queryMessage := sp.SerializeMsgActionNegativeReviewsQuery(clientID, namedGameReviewsMetricsBatch)
 	routingKey := fmt.Sprintf("%s%d", QueryRoutingKeyPrefix, clientID)
 	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
+}
+
+func (m *Middleware) AckLastMessage() error {
+	err := m.AccumulatedReviewsQueue.AckLastMessages()
+	if err != nil {
+		return fmt.Errorf("failed to ack last message: %v", err)
+	}
+	m.logger.Infof("Acked last message")
+	return nil
 }
 
 func (m *Middleware) Close() error {

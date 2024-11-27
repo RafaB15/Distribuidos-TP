@@ -11,6 +11,7 @@ COPY system/percentile_accumulator ./system/percentile_accumulator
 COPY middleware ./middleware
 COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils
+COPY persistence ./persistence
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/percentile_accumulator ./system/percentile_accumulator
 

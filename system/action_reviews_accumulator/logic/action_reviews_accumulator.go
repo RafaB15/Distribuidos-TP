@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	AckBatchSize = 500
+	AckBatchSize = 200
 )
 
 type ReceiveReviewFunc func(messageTracker *n.MessageTracker) (clientID int, reducedReview *r.ReducedReview, eof bool, newMessage bool, e error)
-type SendAccumulatedReviewsFunc func(clientID int, metrics []*ra.NamedGameReviewsMetrics) error
-type SendEndOfFilesFunc func(clientID int) error
+type SendAccumulatedReviewsFunc func(clientID int, metrics []*ra.NamedGameReviewsMetrics, messageTracker *n.MessageTracker) error
+type SendEndOfFilesFunc func(clientID int, messageTracker *n.MessageTracker) error
 type AckLastMessageFunc func() error
 
 type ActionReviewsAccumulator struct {
@@ -82,14 +82,14 @@ func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int, repository
 			a.logger.Infof("Client %d finished", clientID)
 
 			metrics := clientAccumulatedReviews.Values()
-			err = a.SendAccumulatedReviews(clientID, metrics)
+			err = a.SendAccumulatedReviews(clientID, metrics, messageTracker)
 			if err != nil {
 				a.logger.Errorf("Failed to send accumulated reviews: %v", err)
 				return
 			}
 
 			a.logger.Info("Sending EOFs")
-			err = a.SendEndOfFiles(clientID)
+			err = a.SendEndOfFiles(clientID, messageTracker)
 			if err != nil {
 				a.logger.Errorf("Failed to send EOF: %v", err)
 				return

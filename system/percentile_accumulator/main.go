@@ -30,7 +30,7 @@ func main() {
 	}
 
 	log.Info("Starting Percentile Accumulator")
-	middleware, err := m.NewMiddleware()
+	middleware, err := m.NewMiddleware(log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
@@ -39,6 +39,8 @@ func main() {
 	positiveReviewsFilter := l.NewPercentileAccumulator(
 		middleware.ReceiveGameReviewsMetrics,
 		middleware.SendQueryResults,
+		middleware.AckLastMessage,
+		log,
 	)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)

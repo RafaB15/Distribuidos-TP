@@ -2,6 +2,7 @@ package percentile_accumulator
 
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	n "distribuidos-tp/internal/system_protocol/node"
 	"errors"
 	"math"
 	"sort"
@@ -9,31 +10,41 @@ import (
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("log")
+const (
+	AckBatchSize = 10
+)
 
-type ReceiveGameReviewsMetricsFunc func() (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, err error)
+type ReceiveGameReviewsMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, err error)
 type SendQueryResultsFunc func(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) error
+type AckLastMessageFunc func() error
 
 type PercentileAccumulator struct {
 	ReceiveGameReviewsMetrics ReceiveGameReviewsMetricsFunc
 	SendGameReviewsMetrics    SendQueryResultsFunc
+	AckLastMessage            AckLastMessageFunc
+	logger                    *logging.Logger
 }
 
-func NewPercentileAccumulator(receiveGameReviewsMetrics ReceiveGameReviewsMetricsFunc, sendQueryResults SendQueryResultsFunc) *PercentileAccumulator {
+func NewPercentileAccumulator(receiveGameReviewsMetrics ReceiveGameReviewsMetricsFunc, sendQueryResults SendQueryResultsFunc, ackLastMessage AckLastMessageFunc, logger *logging.Logger) *PercentileAccumulator {
 	return &PercentileAccumulator{
 		ReceiveGameReviewsMetrics: receiveGameReviewsMetrics,
 		SendGameReviewsMetrics:    sendQueryResults,
+		AckLastMessage:            ackLastMessage,
+		logger:                    logger,
 	}
 }
 
 func (p *PercentileAccumulator) Run(previousAccumulators int) {
-	remainingEOFsMap := make(map[int]int)
+
+	messageTracker := n.NewMessageTracker(previousAccumulators)
+	messagesUntilAck := AckBatchSize
+
 	percentileMap := make(map[int][]*ra.NamedGameReviewsMetrics)
 
 	for {
-		clientID, gameReviewsMetrics, eof, err := p.ReceiveGameReviewsMetrics()
+		clientID, gameReviewsMetrics, eof, newMessage, err := p.ReceiveGameReviewsMetrics(messageTracker)
 		if err != nil {
-			log.Errorf("Failed to receive game reviews metrics: %v", err)
+			p.logger.Errorf("Failed to receive game reviews metrics: %v", err)
 			return
 		}
 
@@ -43,44 +54,51 @@ func (p *PercentileAccumulator) Run(previousAccumulators int) {
 			percentileMap[clientID] = percentileReviews
 		}
 
-		if eof {
-			log.Info("Received EOF for client ", clientID)
+		if newMessage && !eof {
+			allReviews := addGamesAndMaintainOrder(percentileMap[clientID], gameReviewsMetrics)
+			percentileMap[clientID] = allReviews
+			p.logger.Infof("Received game reviews metrics for client %d", clientID)
+			p.logger.Infof("Quantity of games: %d", len(allReviews))
+		}
 
-			remainingEOFs, exists := remainingEOFsMap[clientID]
-			if !exists {
-				remainingEOFs = previousAccumulators
-			}
-			remainingEOFs--
-			remainingEOFsMap[clientID] = remainingEOFs
-			if remainingEOFs > 0 {
-				continue
-			}
-			log.Info("Received all EOFs")
-
-			abovePercentile, err := getTop10PercentByNegativeReviews(percentileReviews, log)
+		if messageTracker.ClientFinished(clientID, p.logger) {
+			p.logger.Infof("Client %d finished sending data", clientID)
+			abovePercentile, err := getTop10PercentByNegativeReviews(percentileReviews, p.logger)
 			if err != nil {
-				log.Errorf("Failed to get top 10 percent by negative reviews: %v", err)
+				p.logger.Errorf("Failed to get top 10 percent by negative reviews: %v", err)
 				return
 			}
 			for _, review := range abovePercentile {
-				log.Infof("Metrics above p90: id:%v #:%v", review.AppID, review.NegativeReviews)
+				p.logger.Infof("Metrics above p90: id:%v #:%v", review.AppID, review.NegativeReviews)
 			}
 
 			err = p.SendGameReviewsMetrics(clientID, abovePercentile)
 			if err != nil {
-				log.Errorf("Failed to send game reviews metrics: %v", err)
+				p.logger.Errorf("Failed to send game reviews metrics: %v", err)
 				return
 			}
 
-			delete(remainingEOFsMap, clientID)
+			messageTracker.DeleteClientInfo(clientID)
+			messagesUntilAck = AckBatchSize
+			err = p.AckLastMessage()
+			if err != nil {
+				p.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
 
 			continue
 		}
 
-		allReviews := addGamesAndMaintainOrder(percentileMap[clientID], gameReviewsMetrics)
-		percentileMap[clientID] = allReviews
-		log.Infof("Received game reviews metrics for client %d", clientID)
-		log.Infof("Quantity of games: %d", len(allReviews))
+		if messagesUntilAck == 0 {
+			err = p.AckLastMessage()
+			if err != nil {
+				p.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+			messagesUntilAck = AckBatchSize
+		} else {
+			messagesUntilAck--
+		}
 
 	}
 }
