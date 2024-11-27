@@ -4,8 +4,10 @@ import (
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/reviews_accumulator/logic"
 	m "distribuidos-tp/system/reviews_accumulator/middleware"
+	p "distribuidos-tp/system/reviews_accumulator/persistence"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -44,10 +46,14 @@ func main() {
 
 	reviewsAccumulator := l.NewReviewsAccumulator(middleware.ReceiveReviews, middleware.SendAccumulatedReviews, middleware.AckLastMessage, middleware.SendEof, log)
 
-	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
+
+	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		reviewsAccumulator.Run(id, indieReviewJoinersAmount)
+		reviewsAccumulator.Run(id, indieReviewJoinersAmount, repository)
 		doneChannel <- true
 	}()
 

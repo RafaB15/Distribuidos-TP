@@ -2,6 +2,7 @@ package reviews_accumulator
 
 import (
 	r "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	p "distribuidos-tp/system/reviews_accumulator/persistence"
 
 	n "distribuidos-tp/internal/system_protocol/node"
 	"distribuidos-tp/internal/system_protocol/reviews"
@@ -9,15 +10,13 @@ import (
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("log")
-
 const (
 	AckBatchSize = 100
 	expectedEOFs = 1
 )
 
 type ReceiveReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, rawReviews []*reviews.RawReview, eof bool, newMessage bool, e error)
-type SendAccumulatedReviewsFunc func(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics, indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error
+type SendAccumulatedReviewsFunc func(clientID int, accumulatedReviews *n.IntMap[*r.GameReviewsMetrics], indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error
 type AckLastMessageFunc func() error
 type SendEofFunc func(clientID int, senderID int, indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error
 
@@ -45,23 +44,27 @@ func NewReviewsAccumulator(
 	}
 }
 
-func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int) {
-	accumulatedReviews := make(map[int]map[uint32]*r.GameReviewsMetrics)
-	messageTracker := n.NewMessageTracker(expectedEOFs)
-
+func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, repository *p.Repository) {
+	accumulatedReviewsMap, messageTracker, syncNumber, err := repository.LoadAll(expectedEOFs)
+	if err != nil {
+		ra.logger.Errorf("Failed to load data: %v", err)
+		return
+	}
 	messagesUntilAck := AckBatchSize
+	//accumulatedReviews := make(map[int]map[uint32]*r.GameReviewsMetrics)
+	//messageTracker := n.NewMessageTracker(expectedEOFs)
 
 	for {
 		clientID, rawReviews, eof, newMessage, err := ra.ReceiveReviews(messageTracker)
 		if err != nil {
-			log.Error("Error receiving reviews: ", err)
+			ra.logger.Error("Error receiving reviews: ", err)
 			return
 		}
 
-		clientAccumulatedReviews, exists := accumulatedReviews[clientID]
+		clientAccumulatedReviews, exists := accumulatedReviewsMap.Get(clientID)
 		if !exists {
-			clientAccumulatedReviews = make(map[uint32]*r.GameReviewsMetrics)
-			accumulatedReviews[clientID] = clientAccumulatedReviews
+			clientAccumulatedReviews = repository.InitializeAccumulatedReviewsMap()
+			accumulatedReviewsMap.Set(clientID, clientAccumulatedReviews)
 		}
 
 		if newMessage && !eof {
@@ -69,13 +72,13 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int) {
 
 			for _, review := range rawReviews {
 				// log.Infof("Received review for app %d with review id %d", review.AppId, review.ReviewId)
-				if metrics, exists := clientAccumulatedReviews[review.AppId]; exists {
+				if metrics, exists := clientAccumulatedReviews.Get(int(review.AppId)); exists {
 					// log.Infof("Accumulating review for app %d", review.AppId)
 					metrics.UpdateWithRawReview(review)
 				} else {
 					newMetrics := r.NewReviewsMetrics(review.AppId)
 					newMetrics.UpdateWithRawReview(review)
-					clientAccumulatedReviews[review.AppId] = newMetrics
+					clientAccumulatedReviews.Set(int(review.AppId), newMetrics)
 				}
 			}
 		}
@@ -87,17 +90,23 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int) {
 				ra.logger.Errorf("Failed to send accumulated reviews: %v", err)
 				return
 			}
-			ra.logger.Infof("Sent accumulated reviews to client %d", clientID)
+			ra.logger.Infof("Sent accumulated reviews")
 
 			err = ra.SendEof(clientID, id, indieReviewJoinersAmount, messageTracker)
 			if err != nil {
 				ra.logger.Errorf("Failed to send EOF: %v", err)
 				return
 			}
-			ra.logger.Infof("Sent EOF to client %d", clientID)
+			ra.logger.Infof("Sent EOFs of client %d", clientID)
 
-			delete(accumulatedReviews, clientID)
 			messageTracker.DeleteClientInfo(clientID)
+
+			syncNumber++
+			err = repository.SaveAll(accumulatedReviewsMap, messageTracker, syncNumber)
+			if err != nil {
+				ra.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
 
 			messagesUntilAck = AckBatchSize
 			err = ra.AckLastMessage()
@@ -108,12 +117,19 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int) {
 		}
 
 		if messagesUntilAck == 0 {
-			err = ra.AckLastMessage()
+			syncNumber++
+			err = repository.SaveAll(accumulatedReviewsMap, messageTracker, syncNumber)
 			if err != nil {
-				log.Errorf("error acking last message: %s", err)
+				ra.logger.Errorf("Failed to save data: %v", err)
 				return
 			}
-			messagesUntilAck = 100
+
+			err = ra.AckLastMessage()
+			if err != nil {
+				ra.logger.Errorf("error acking last message: %s", err)
+				return
+			}
+			messagesUntilAck = AckBatchSize
 		} else {
 			messagesUntilAck--
 		}

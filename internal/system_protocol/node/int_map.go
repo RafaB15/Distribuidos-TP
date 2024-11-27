@@ -101,3 +101,11 @@ func (m *IntMap[T]) Values() []T {
 	}
 	return values
 }
+
+func (m *IntMap[T]) Range(f func(key int, value T) bool) {
+	for k, v := range m.contents {
+		if !f(k, v) {
+			break
+		}
+	}
+}

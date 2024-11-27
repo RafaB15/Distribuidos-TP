@@ -7,6 +7,7 @@ import (
 	"distribuidos-tp/internal/system_protocol/reviews"
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
+	"sort"
 
 	"fmt"
 
@@ -103,10 +104,15 @@ func (m *Middleware) ReceiveReviews(messageTracker *n.MessageTracker) (clientID 
 	}
 }
 
-func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics, indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error {
+func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews *n.IntMap[*r.GameReviewsMetrics], indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error {
 	keyMap := idMapToKeyMap(accumulatedReviews, indieReviewJoinersAmount, IndieReviewJoinExchangeRoutingKeyPrefix)
 
 	for routingKey, metrics := range keyMap {
+
+		sort.Slice(metrics, func(i, j int) bool {
+			return metrics[i].AppID < metrics[j].AppID
+		})
+
 		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
 
 		err := m.IndieReviewJoinExchange.Publish(routingKey, serializedMetricsBatch)
@@ -135,12 +141,13 @@ func (m *Middleware) SendEof(clientID int, senderID int, indieReviewJoinersAmoun
 	return nil
 }
 
-func idMapToKeyMap(idMap map[uint32]*r.GameReviewsMetrics, nodeAmount int, routingKeyPrefix string) map[string][]*r.GameReviewsMetrics {
+func idMapToKeyMap(idMap *n.IntMap[*r.GameReviewsMetrics], nodeAmount int, routingKeyPrefix string) map[string][]*r.GameReviewsMetrics {
 	keyMap := make(map[string][]*r.GameReviewsMetrics)
-	for _, metrics := range idMap {
-		key := u.GetPartitioningKeyFromInt(int(metrics.AppID), nodeAmount, routingKeyPrefix)
-		keyMap[key] = append(keyMap[key], metrics)
-	}
+	idMap.Range(func(key int, value *r.GameReviewsMetrics) bool {
+		partitionKey := u.GetPartitioningKeyFromInt(key, nodeAmount, routingKeyPrefix)
+		keyMap[partitionKey] = append(keyMap[partitionKey], value)
+		return true
+	})
 	return keyMap
 }
 
