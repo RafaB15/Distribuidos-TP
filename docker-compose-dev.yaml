@@ -21,7 +21,7 @@ services:
     image: entrypoint:latest
     entrypoint: /entrypoint
     environment:
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
       - REVIEW_ACCUMULATORS_AMOUNT=4
     depends_on:
       rabbitmq:
@@ -37,7 +37,7 @@ services:
       - OS_ACCUMULATORS_AMOUNT=2
       - DECADE_FILTER_AMOUNT=2
       - INDIE_REVIEW_JOINERS_AMOUNT=2
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       entrypoint:
         condition: service_started
@@ -220,7 +220,7 @@ services:
     entrypoint: /action_review_joiner
     environment:
       - ID=1
-      - ENGLISH_FILTERS_AMOUNT=5
+      - ENGLISH_FILTERS_AMOUNT=4
       - ACTION_REVIEWS_ACCUMULATORS_AMOUNT=4
     depends_on:
       game_mapper:
@@ -236,7 +236,7 @@ services:
     entrypoint: /action_review_joiner
     environment:
       - ID=2
-      - ENGLISH_FILTERS_AMOUNT=5
+      - ENGLISH_FILTERS_AMOUNT=4
       - ACTION_REVIEWS_ACCUMULATORS_AMOUNT=4
     depends_on:
       game_mapper:
@@ -252,7 +252,7 @@ services:
     entrypoint: /action_review_joiner
     environment:
       - ID=3
-      - ENGLISH_FILTERS_AMOUNT=5
+      - ENGLISH_FILTERS_AMOUNT=4
       - ACTION_REVIEWS_ACCUMULATORS_AMOUNT=4
     depends_on:
       game_mapper:
@@ -268,23 +268,7 @@ services:
     entrypoint: /action_review_joiner
     environment:
       - ID=4
-      - ENGLISH_FILTERS_AMOUNT=5
-      - ACTION_REVIEWS_ACCUMULATORS_AMOUNT=4
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  action_review_joiner_5:
-    container_name: action_review_joiner_5
-    image: action_review_joiner:latest
-    entrypoint: /action_review_joiner
-    environment:
-      - ID=5
-      - ENGLISH_FILTERS_AMOUNT=5
+      - ENGLISH_FILTERS_AMOUNT=4
       - ACTION_REVIEWS_ACCUMULATORS_AMOUNT=4
     depends_on:
       game_mapper:
@@ -301,7 +285,7 @@ services:
     environment:
       - ID=1
       - ACCUMULATORS_AMOUNT=2
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -317,7 +301,7 @@ services:
     environment:
       - ID=2
       - ACCUMULATORS_AMOUNT=2
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -333,7 +317,7 @@ services:
     environment:
       - ID=3
       - ACCUMULATORS_AMOUNT=2
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -349,23 +333,7 @@ services:
     environment:
       - ID=4
       - ACCUMULATORS_AMOUNT=2
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-  english_filter_5:
-    container_name: english_filter_5
-    image: english_reviews_filter:latest
-    entrypoint: /english_reviews_filter
-    environment:
-      - ID=5
-      - ACCUMULATORS_AMOUNT=2
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -380,7 +348,7 @@ services:
     entrypoint: /english_reviews_accumulator
     environment:
       - ID=1
-      - FILTERS_AMOUNT=5
+      - FILTERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -395,7 +363,7 @@ services:
     entrypoint: /english_reviews_accumulator
     environment:
       - ID=2
-      - FILTERS_AMOUNT=5
+      - FILTERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -424,7 +392,7 @@ services:
     entrypoint: /action_reviews_accumulator
     environment:
       - ID=1
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -439,7 +407,7 @@ services:
     entrypoint: /action_reviews_accumulator
     environment:
       - ID=2
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -454,7 +422,7 @@ services:
     entrypoint: /action_reviews_accumulator
     environment:
       - ID=3
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -469,7 +437,7 @@ services:
     entrypoint: /action_reviews_accumulator
     environment:
       - ID=4
-      - ACTION_REVIEW_JOINERS_AMOUNT=5
+      - ACTION_REVIEW_JOINERS_AMOUNT=4
     depends_on:
       game_mapper:
         condition: service_started
@@ -517,63 +485,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      english_filter_1:
-        condition: service_started
-      english_reviews_accumulator_2:
-        condition: service_started
-      os_accumulator_1:
-        condition: service_started
-      top_positive_reviews:
-        condition: service_started
-      percentile_accumulator:
-        condition: service_started
-      reviews_accumulator_4:
-        condition: service_started
-      top_ten_accumulator:
-        condition: service_started
-      english_reviews_accumulator_1:
-        condition: service_started
-      action_reviews_accumulator_2:
-        condition: service_started
-      indie_review_joiner_1:
-        condition: service_started
-      action_reviews_accumulator_1:
-        condition: service_started
-      os_final_accumulator:
-        condition: service_started
-      reviews_accumulator_3:
-        condition: service_started
-      action_review_joiner_1:
-        condition: service_started
-      action_review_joiner_4:
-        condition: service_started
-      action_reviews_accumulator_3:
-        condition: service_started
-      game_mapper:
-        condition: service_started
-      decade_filter_2:
-        condition: service_started
-      action_review_joiner_5:
-        condition: service_started
-      english_filter_5:
-        condition: service_started
-      action_reviews_accumulator_4:
-        condition: service_started
-      indie_review_joiner_2:
-        condition: service_started
-      decade_filter_1:
-        condition: service_started
-      action_review_joiner_2:
-        condition: service_started
       english_filter_2:
-        condition: service_started
-      english_filter_3:
-        condition: service_started
-      reviews_accumulator_2:
-        condition: service_started
-      action_review_joiner_3:
-        condition: service_started
-      english_filter_4:
         condition: service_started
       negative_reviews_filter:
         condition: service_started
@@ -581,9 +493,61 @@ services:
         condition: service_started
       entrypoint:
         condition: service_started
-      os_accumulator_2:
+      os_accumulator_1:
+        condition: service_started
+      os_final_accumulator:
         condition: service_started
       reviews_accumulator_1:
+        condition: service_started
+      reviews_accumulator_2:
+        condition: service_started
+      indie_review_joiner_1:
+        condition: service_started
+      decade_filter_1:
+        condition: service_started
+      action_review_joiner_3:
+        condition: service_started
+      english_reviews_accumulator_1:
+        condition: service_started
+      action_reviews_accumulator_4:
+        condition: service_started
+      os_accumulator_2:
+        condition: service_started
+      top_ten_accumulator:
+        condition: service_started
+      english_reviews_accumulator_2:
+        condition: service_started
+      action_reviews_accumulator_1:
+        condition: service_started
+      indie_review_joiner_2:
+        condition: service_started
+      reviews_accumulator_3:
+        condition: service_started
+      decade_filter_2:
+        condition: service_started
+      english_filter_4:
+        condition: service_started
+      percentile_accumulator:
+        condition: service_started
+      action_reviews_accumulator_3:
+        condition: service_started
+      game_mapper:
+        condition: service_started
+      reviews_accumulator_4:
+        condition: service_started
+      action_review_joiner_1:
+        condition: service_started
+      action_review_joiner_4:
+        condition: service_started
+      english_filter_1:
+        condition: service_started
+      action_reviews_accumulator_2:
+        condition: service_started
+      top_positive_reviews:
+        condition: service_started
+      action_review_joiner_2:
+        condition: service_started
+      english_filter_3:
         condition: service_started
     networks:
       - distributed_network

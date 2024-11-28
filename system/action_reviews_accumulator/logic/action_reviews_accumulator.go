@@ -15,7 +15,7 @@ const (
 
 type ReceiveReviewFunc func(messageTracker *n.MessageTracker) (clientID int, reducedReview *r.ReducedReview, eof bool, newMessage bool, e error)
 type SendAccumulatedReviewsFunc func(clientID int, metrics []*ra.NamedGameReviewsMetrics, messageTracker *n.MessageTracker) error
-type SendEndOfFilesFunc func(clientID int, messageTracker *n.MessageTracker) error
+type SendEndOfFilesFunc func(clientID int, senderID int, messageTracker *n.MessageTracker) error
 type AckLastMessageFunc func() error
 
 type ActionReviewsAccumulator struct {
@@ -42,7 +42,7 @@ func NewActionReviewsAccumulator(
 	}
 }
 
-func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int, repository *p.Repository) {
+func (a *ActionReviewsAccumulator) Run(id int, actionReviewJoinersAmount int, repository *p.Repository) {
 	accumulatedReviews, messageTracker, syncNumber, err := repository.LoadAll(actionReviewJoinersAmount)
 	if err != nil {
 		a.logger.Errorf("Failed to load data: %v", err)
@@ -89,7 +89,7 @@ func (a *ActionReviewsAccumulator) Run(actionReviewJoinersAmount int, repository
 			}
 
 			a.logger.Info("Sending EOFs")
-			err = a.SendEndOfFiles(clientID, messageTracker)
+			err = a.SendEndOfFiles(clientID, id, messageTracker)
 			if err != nil {
 				a.logger.Errorf("Failed to send EOF: %v", err)
 				return

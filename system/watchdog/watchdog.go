@@ -211,9 +211,10 @@ func performLeaderTask() {
 func getServices() map[string]int {
 	return map[string]int{
 		"os_accumulator":             2,
-		"action_review_joiner":       5,
+		"action_review_joiner":       4,
 		"os_final_accumulator":       1,
 		"action_reviews_accumulator": 4,
+		"english_filter":             4,
 	}
 }
 

@@ -3,9 +3,12 @@ package middleware
 import (
 	sp "distribuidos-tp/internal/system_protocol"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	mom "distribuidos-tp/middleware"
 	"fmt"
+	"github.com/op/go-logging"
+	"sort"
 )
 
 const (
@@ -25,9 +28,10 @@ type Middleware struct {
 	Manager                           *mom.MiddlewareManager
 	EnglishReviewsQueue               *mom.Queue
 	AccumulatedEnglishReviewsExchange *mom.Exchange
+	logger                            *logging.Logger
 }
 
-func NewMiddleware(id int) (*Middleware, error) {
+func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create middleware manager: %v", err)
@@ -35,7 +39,7 @@ func NewMiddleware(id int) (*Middleware, error) {
 
 	englishReviewQueueName := fmt.Sprintf("%s%d", EnglishReviewQueueNamePrefix, id)
 	englishReviewsRoutingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, id)
-	englishReviewsQueue, err := manager.CreateBoundQueue(englishReviewQueueName, EnglishReviewsExchangeName, EnglishReviewsExchangeType, englishReviewsRoutingKey, true)
+	englishReviewsQueue, err := manager.CreateBoundQueue(englishReviewQueueName, EnglishReviewsExchangeName, EnglishReviewsExchangeType, englishReviewsRoutingKey, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
@@ -49,51 +53,98 @@ func NewMiddleware(id int) (*Middleware, error) {
 		Manager:                           manager,
 		EnglishReviewsQueue:               englishReviewsQueue,
 		AccumulatedEnglishReviewsExchange: accumulatedEnglishReviewsExchange,
+		logger:                            logger,
 	}, nil
 }
 
-func (m *Middleware) ReceiveReview() (clientID int, reducedReview *r.ReducedReview, eof bool, e error) {
+func (m *Middleware) ReceiveReview(messageTracker *n.MessageTracker) (clientID int, reducedReview *r.ReducedReview, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.EnglishReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
+		return 0, nil, false, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
-	fmt.Printf("Received message from client %d\n", message.ClientID)
+	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
+	if err != nil {
+		return 0, nil, false, false, fmt.Errorf("failed to process message: %v", err)
+	}
+
+	m.logger.Debugf("Message new: %v", newMessage)
+
+	if !newMessage {
+		return message.ClientID, nil, false, false, nil
+	}
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return message.ClientID, nil, true, nil
+		m.logger.Infof("Received EOF from client %d", message.ClientID)
+		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
+		if err != nil {
+			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize EOF: %v", err)
+		}
+
+		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
+		if err != nil {
+			return message.ClientID, nil, false, false, fmt.Errorf("failed to register EOF: %v", err)
+		}
+
+		return message.ClientID, nil, true, true, nil
 	case sp.MsgReducedReviewInformation:
 		review, err := sp.DeserializeMsgReducedReviewInformation(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, fmt.Errorf("failed to deserialize review: %v", err)
+			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize review: %v", err)
 		}
-		return message.ClientID, review, false, nil
+		m.logger.Debugf("Received review: %v", review)
+		return message.ClientID, review, false, true, nil
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %v", message.Type)
 	}
 }
 
-func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.NamedGameReviewsMetrics) error {
+func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.NamedGameReviewsMetrics, messageTracker *n.MessageTracker) error {
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].AppID < metrics[j].AppID
+	})
+
 	serializedMetricsBatch := sp.SerializeMsgNamedGameReviewsMetricsBatch(clientID, metrics)
 	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedMetricsBatch)
 	if err != nil {
 		return fmt.Errorf("failed to publish accumulated reviews: %v", err)
 	}
+
+	messageTracker.RegisterSentMessage(clientID, AccumulatedEnglishReviewsRoutingKey)
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(clientID int) error {
+func (m *Middleware) SendEndOfFiles(clientID int, _ int, messageTracker *n.MessageTracker) error {
+	/*Para cuando refactorice el siguiente
+	messagesSent := messageTracker.GetSentMessages(clientID)
+	messagesSentToNode := messagesSent[AccumulatedEnglishReviewsRoutingKey]
+	serializedEOF := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedEOF)
+	if err != nil {
+		return fmt.Errorf("failed to publish end of file: %v", err)
+	}
+	return nil
+	*/
 	serializedEOF := sp.SerializeMsgEndOfFile(clientID)
 	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedEOF)
 	if err != nil {
 		return fmt.Errorf("failed to publish end of file: %v", err)
 	}
+	return nil
+}
+
+func (m *Middleware) AckLastMessages() error {
+	err := m.EnglishReviewsQueue.AckLastMessages()
+	if err != nil {
+		return fmt.Errorf("failed to ack last message: %v", err)
+	}
+	m.logger.Infof("Acked last message")
 	return nil
 }
 

@@ -1,10 +1,9 @@
 package os_accumulator
 
 import (
-	p "distribuidos-tp/system/os_accumulator/persistence"
-
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	n "distribuidos-tp/internal/system_protocol/node"
+	p "distribuidos-tp/system/os_accumulator/persistence"
 
 	"github.com/op/go-logging"
 )

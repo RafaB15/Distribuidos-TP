@@ -2,105 +2,134 @@ package english_reviews_accumulator
 
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
+	p "distribuidos-tp/system/english_reviews_accumulator/persistence"
 
 	"github.com/op/go-logging"
 )
 
 var log = logging.MustGetLogger("log")
 
-type ReceiveReviewFunc func() (clientID int, reducedReview *r.ReducedReview, eof bool, e error)
-type SendAccumulatedReviewsFunc func(clientID int, metrics []*ra.NamedGameReviewsMetrics) error
-type SendEndOfFilesFunc func(clientID int) error
+const (
+	AckBatchSize = 200
+)
+
+type ReceiveReviewFunc func(messageTracker *n.MessageTracker) (clientID int, reducedReview *r.ReducedReview, eof bool, newMessage bool, e error)
+type SendAccumulatedReviewsFunc func(clientID int, metrics []*ra.NamedGameReviewsMetrics, messageTracker *n.MessageTracker) error
+type SendEndOfFilesFunc func(clientID int, senderID int, messageTracker *n.MessageTracker) error
+type AckLastMessageFunc func() error
 
 type EnglishReviewsAccumulator struct {
 	ReceiveReview          ReceiveReviewFunc
 	SendAccumulatedReviews SendAccumulatedReviewsFunc
 	SendEndOfFiles         SendEndOfFilesFunc
+	AckLastMessage         AckLastMessageFunc
+	logger                 *logging.Logger
 }
 
 func NewEnglishReviewsAccumulator(
 	receiveReview ReceiveReviewFunc,
 	sendAccumulatedReviews SendAccumulatedReviewsFunc,
 	sendEndOfFiles SendEndOfFilesFunc,
+	ackLastMessage AckLastMessageFunc,
+	logger *logging.Logger,
 ) *EnglishReviewsAccumulator {
 	return &EnglishReviewsAccumulator{
 		ReceiveReview:          receiveReview,
 		SendAccumulatedReviews: sendAccumulatedReviews,
 		SendEndOfFiles:         sendEndOfFiles,
+		AckLastMessage:         ackLastMessage,
+		logger:                 logger,
 	}
 }
 
-func (a *EnglishReviewsAccumulator) Run(englishFiltersAmount int) {
-	remainingEOFsMap := make(map[int]int)
+func (a *EnglishReviewsAccumulator) Run(id int, englishFiltersAmount int, repository *p.Repository) {
+	accumulatedReviews, messageTracker, syncNumber, err := repository.LoadAll(englishFiltersAmount)
+	if err != nil {
+		log.Errorf("Failed to load data: %v", err)
+		return
+	}
 
-	accumulatedReviews := make(map[int]map[uint32]*ra.NamedGameReviewsMetrics)
+	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, reducedReview, eof, err := a.ReceiveReview()
+		clientID, reducedReview, eof, newMessage, err := a.ReceiveReview(messageTracker)
 		if err != nil {
 			log.Errorf("Failed to receive reviews: %v", err)
 			return
 		}
 
-		clientAccumulatedReviews, exists := accumulatedReviews[clientID]
+		clientAccumulatedReviews, exists := accumulatedReviews.Get(clientID)
 		if !exists {
-			clientAccumulatedReviews = make(map[uint32]*ra.NamedGameReviewsMetrics)
-			accumulatedReviews[clientID] = clientAccumulatedReviews
+			clientAccumulatedReviews = repository.InitializeAccumulatedReviewsMap()
+			accumulatedReviews.Set(clientID, clientAccumulatedReviews)
 		}
 
-		if eof {
-			log.Info("Received EOF for client ", clientID)
-			remainingEOFs, exists := remainingEOFsMap[clientID]
-			if !exists {
-				remainingEOFs = englishFiltersAmount
+		if newMessage && !eof {
+			if metrics, exists := clientAccumulatedReviews.Get(int(reducedReview.AppId)); exists {
+				// a.logger.Info("Updating metrics for appID: ", reducedReview.AppId)
+				// Update existing metrics
+				metrics.UpdateWithReview(reducedReview)
+			} else {
+				// Create new metrics
+				//a.logger.Info("Creating new metrics for appID: ", reducedReview.AppId)
+				newMetrics := ra.NewNamedGameReviewsMetrics(reducedReview.AppId, reducedReview.Name)
+				newMetrics.UpdateWithReview(reducedReview)
+				clientAccumulatedReviews.Set(int(reducedReview.AppId), newMetrics)
 			}
-			log.Info("Remaining EOFs: ", remainingEOFs)
-			remainingEOFs--
-			remainingEOFsMap[clientID] = remainingEOFs
-			log.Info("Remaining EOFs AFTER: ", remainingEOFs)
+		}
 
-			log.Infof("Received EOF for client %d. Remaining EOFs: %d", clientID, remainingEOFs)
-			if remainingEOFs > 0 {
-				continue
-			}
-			log.Info("Received all EOFs")
+		if messageTracker.ClientFinished(clientID, a.logger) {
+			a.logger.Infof("Client %d finished", clientID)
 
-			metrics := idMapToList(clientAccumulatedReviews)
-			err = a.SendAccumulatedReviews(clientID, metrics)
+			metrics := clientAccumulatedReviews.Values()
+			err = a.SendAccumulatedReviews(clientID, metrics, messageTracker)
 			if err != nil {
-				log.Errorf("Failed to send accumulated reviews: %v", err)
+				a.logger.Errorf("Failed to send accumulated reviews: %v", err)
 				return
 			}
 
-			err = a.SendEndOfFiles(clientID)
+			a.logger.Info("Sending EOFs")
+			err = a.SendEndOfFiles(clientID, id, messageTracker)
 			if err != nil {
-				log.Errorf("Failed to send EOFs: %v", err)
+				a.logger.Errorf("Failed to send EOF: %v", err)
 				return
 			}
-			delete(accumulatedReviews, clientID)
-			delete(remainingEOFsMap, clientID)
-			continue
+
+			messageTracker.DeleteClientInfo(clientID)
+
+			syncNumber++
+			err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
+			if err != nil {
+				a.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
+			err = a.AckLastMessage()
+			if err != nil {
+				a.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
 		}
 
-		if metrics, exists := clientAccumulatedReviews[reducedReview.AppId]; exists {
-			log.Info("Updating metrics for appID: ", reducedReview.AppId)
-			// Update existing metrics
-			metrics.UpdateWithReview(reducedReview)
+		if messagesUntilAck == 0 {
+			syncNumber++
+			err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
+			if err != nil {
+				a.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
+			err = a.AckLastMessage()
+			if err != nil {
+				a.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+			messagesUntilAck = AckBatchSize
 		} else {
-			// Create new metrics
-			log.Info("Creating new metrics for appID: ", reducedReview.AppId)
-			newMetrics := ra.NewNamedGameReviewsMetrics(reducedReview.AppId, reducedReview.Name)
-			newMetrics.UpdateWithReview(reducedReview)
-			clientAccumulatedReviews[reducedReview.AppId] = newMetrics
+			messagesUntilAck--
 		}
 	}
-}
-
-func idMapToList(idMap map[uint32]*ra.NamedGameReviewsMetrics) []*ra.NamedGameReviewsMetrics {
-	var list []*ra.NamedGameReviewsMetrics
-	for _, value := range idMap {
-		list = append(list, value)
-	}
-	return list
 }

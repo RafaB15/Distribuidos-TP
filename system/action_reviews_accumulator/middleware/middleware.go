@@ -30,7 +30,6 @@ type Middleware struct {
 	ActionReviewsAccumulatorQueue *mom.Queue
 	AccumulatedReviewsExchange    *mom.Exchange
 	logger                        *logging.Logger
-	senderID                      int
 }
 
 func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
@@ -56,7 +55,6 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 		ActionReviewsAccumulatorQueue: actionReviewsAccumulatorQueue,
 		AccumulatedReviewsExchange:    accumulatedReviewsExchange,
 		logger:                        logger,
-		senderID:                      id,
 	}, nil
 }
 
@@ -121,10 +119,10 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.NamedGam
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(clientID int, messageTracker *n.MessageTracker) error {
+func (m *Middleware) SendEndOfFiles(clientID int, senderID int, messageTracker *n.MessageTracker) error {
 	messagesSent := messageTracker.GetSentMessages(clientID)
 	messagesSentToNode := messagesSent[AccumulatedReviewsRoutingKey]
-	serializedEOF := sp.SerializeMsgEndOfFileV2(clientID, m.senderID, messagesSentToNode)
+	serializedEOF := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
 	err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, serializedEOF)
 	if err != nil {
 		return fmt.Errorf("failed to publish end of file: %v", err)

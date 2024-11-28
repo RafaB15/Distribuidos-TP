@@ -104,7 +104,7 @@ func (m *Middleware) ReceiveGameReviews(messageTracker *n.MessageTracker) (clien
 	}
 }
 
-func (m *Middleware) SendEnglishReview(clientID int, reducedReview *r.ReducedReview, englishAccumulatorsAmount int) error {
+func (m *Middleware) SendEnglishReview(clientID int, reducedReview *r.ReducedReview, englishAccumulatorsAmount int, messageTracker *n.MessageTracker) error {
 	routingKey := u.GetPartitioningKeyFromInt(int(reducedReview.AppId), englishAccumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
 	serializedReview := sp.SerializeMsgReducedReviewInformation(clientID, reducedReview)
 
@@ -113,18 +113,25 @@ func (m *Middleware) SendEnglishReview(clientID int, reducedReview *r.ReducedRev
 		return fmt.Errorf("failed to publish message: %v", err)
 	}
 
+	messageTracker.RegisterSentMessage(clientID, routingKey)
+
 	m.logger.Infof("Sent review for client %d", clientID)
 
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(clientID int, accumulatorsAmount int) error {
+func (m *Middleware) SendEndOfFiles(clientID int, senderID int, accumulatorsAmount int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+
 	for i := 1; i <= accumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, i)
-		err := m.EnglishReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
+		messagesSentToNode := messagesSent[routingKey]
+		serializedMsg := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+		err := m.EnglishReviewsExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}
+		m.logger.Infof("Sent EOF for client %d with routing key %s and expected messages: %d", clientID, routingKey, messagesSentToNode)
 	}
 
 	return nil

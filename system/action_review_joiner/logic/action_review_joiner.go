@@ -4,9 +4,8 @@ import (
 	g "distribuidos-tp/internal/system_protocol/games"
 	j "distribuidos-tp/internal/system_protocol/joiner"
 	n "distribuidos-tp/internal/system_protocol/node"
-	p "distribuidos-tp/system/action_review_joiner/persistence"
-
 	r "distribuidos-tp/internal/system_protocol/reviews"
+	p "distribuidos-tp/system/action_review_joiner/persistence"
 	"github.com/op/go-logging"
 )
 

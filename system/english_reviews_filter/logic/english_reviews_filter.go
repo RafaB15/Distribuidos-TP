@@ -3,16 +3,17 @@ package english_reviews_filter
 import (
 	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
+	p "distribuidos-tp/system/english_reviews_filter/persistence"
 	"github.com/op/go-logging"
 )
 
 const (
-	AckBatchSize = 100
+	AckBatchSize = 250
 )
 
 type ReceiveGameReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, review *r.Review, eof bool, newMessage bool, e error)
-type SendEnglishReviewFunc func(clientID int, reducedReview *r.ReducedReview, englishAccumulatorsAmount int) error
-type SendEndOfFilesFunc func(clientID int, accumulatorsAmount int) error
+type SendEnglishReviewFunc func(clientID int, reducedReview *r.ReducedReview, englishAccumulatorsAmount int, messageTracker *n.MessageTracker) error
+type SendEndOfFilesFunc func(clientID int, senderID int, accumulatorsAmount int, messageTracker *n.MessageTracker) error
 type AckLastMessageFunc func() error
 
 type EnglishReviewsFilter struct {
@@ -39,8 +40,8 @@ func NewEnglishReviewsFilter(
 	}
 }
 
-func (f *EnglishReviewsFilter) Run(accumulatorsAmount int, negativeReviewsPreFilterAmount int) {
-	messageTracker := n.NewMessageTracker(negativeReviewsPreFilterAmount)
+func (f *EnglishReviewsFilter) Run(id int, accumulatorsAmount int, actionReviewJoinersAmount int, repository *p.Repository) {
+	messageTracker, syncNumber := repository.LoadMessageTracker(actionReviewJoinersAmount)
 
 	messagesUntilAck := AckBatchSize
 
@@ -56,14 +57,11 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int, negativeReviewsPreFil
 		if newMessage && !eof {
 			if languageIdentifier.IsEnglish(review.ReviewText) {
 				review := r.NewReducedReview(review.ReviewId, review.AppId, review.Name, review.Positive)
-				err := f.SendEnglishReview(clientID, review, accumulatorsAmount)
+				err := f.SendEnglishReview(clientID, review, accumulatorsAmount, messageTracker)
 				if err != nil {
 					f.logger.Errorf("Failed to send english review: %v", err)
 					return
 				}
-				f.logger.Infof("Sent english review for app %d", review.AppId)
-			} else {
-				f.logger.Infof("ReducedReview for app %d is not in english", review.AppId)
 			}
 		}
 
@@ -71,13 +69,20 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int, negativeReviewsPreFil
 			f.logger.Infof("Client %d finished", clientID)
 
 			f.logger.Info("Sending EOFs")
-			err = f.SendEnfOfFiles(clientID, accumulatorsAmount)
+			err = f.SendEnfOfFiles(clientID, id, accumulatorsAmount, messageTracker)
 			if err != nil {
 				f.logger.Errorf("Failed to send EOF: %v", err)
 				return
 			}
 
 			messageTracker.DeleteClientInfo(clientID)
+
+			syncNumber++
+			err = repository.SaveMessageTracker(messageTracker, syncNumber)
+			if err != nil {
+				f.logger.Errorf("Failed to save message tracker: %v", err)
+				return
+			}
 
 			messagesUntilAck = AckBatchSize
 			err = f.AckLastMessage()
@@ -88,6 +93,13 @@ func (f *EnglishReviewsFilter) Run(accumulatorsAmount int, negativeReviewsPreFil
 		}
 
 		if messagesUntilAck == 0 {
+			syncNumber++
+			err = repository.SaveMessageTracker(messageTracker, syncNumber)
+			if err != nil {
+				f.logger.Errorf("Failed to save message tracker: %v", err)
+				return
+			}
+
 			err = f.AckLastMessage()
 			if err != nil {
 				f.logger.Errorf("Failed to ack last message: %v", err)

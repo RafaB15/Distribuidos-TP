@@ -4,8 +4,10 @@ import (
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/english_reviews_accumulator/logic"
 	m "distribuidos-tp/system/english_reviews_accumulator/middleware"
+	p "distribuidos-tp/system/english_reviews_accumulator/persistence"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -36,7 +38,7 @@ func main() {
 		return
 	}
 
-	middleware, err := m.NewMiddleware(id)
+	middleware, err := m.NewMiddleware(id, log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
@@ -46,12 +48,18 @@ func main() {
 		middleware.ReceiveReview,
 		middleware.SendAccumulatedReviews,
 		middleware.SendEndOfFiles,
+		middleware.AckLastMessages,
+		log,
 	)
 
-	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
+
+	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		englishReviewsAccumulator.Run(filtersAmount)
+		englishReviewsAccumulator.Run(id, filtersAmount, repository)
 		doneChannel <- true
 	}()
 

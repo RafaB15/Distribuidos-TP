@@ -59,7 +59,7 @@ func main() {
 	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		actionReviewsAccumulator.Run(actionReviewJoinersAmount, repository)
+		actionReviewsAccumulator.Run(id, actionReviewJoinersAmount, repository)
 		doneChannel <- true
 	}()
 
