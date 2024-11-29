@@ -6,7 +6,6 @@ import (
 	p "distribuidos-tp/system/percentile_accumulator/persistence"
 	"errors"
 	"math"
-	"math/rand"
 	"sort"
 
 	"github.com/op/go-logging"
@@ -113,11 +112,6 @@ func (p *PercentileAccumulator) Run(previousAccumulators int, repository *p.Repo
 			err = repository.SaveAll(percentileMap, messageTracker, syncNumber)
 			if err != nil {
 				p.logger.Errorf("failed to save data: %v", err)
-				return
-			}
-
-			if rand.Float32() < 0.5 {
-				p.logger.Infof("Simulating a crash")
 				return
 			}
 

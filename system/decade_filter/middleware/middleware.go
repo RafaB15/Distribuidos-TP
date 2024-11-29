@@ -107,7 +107,7 @@ func (m *Middleware) ReceiveYearAvgPtf(messageTracker *n.MessageTracker) (client
 
 }
 
-func (m *Middleware) SendFilteredYearAvgPtf(clientID int, gamesYearsAvgPtfs []*df.GameYearAndAvgPtf) error {
+func (m *Middleware) SendFilteredYearAvgPtf(clientID int, gamesYearsAvgPtfs []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error {
 	data := sp.SerializeMsgGameYearAndAvgPtf(clientID, gamesYearsAvgPtfs)
 
 	fmt.Printf("About to publish to top ten accumulator exchange\n")
@@ -117,16 +117,20 @@ func (m *Middleware) SendFilteredYearAvgPtf(clientID int, gamesYearsAvgPtfs []*d
 	}
 	fmt.Printf("Published to top ten accumulator exchange\n")
 
+	messageTracker.RegisterSentMessage(clientID, TopTenAccumulatorRoutingKey)
+
 	return nil
 }
 
-func (m *Middleware) SendEof(clientID int, _ int, _ *n.MessageTracker) error {
-
-	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, sp.SerializeMsgEndOfFile(clientID))
+func (m *Middleware) SendEof(clientID int, senderID int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+	messagesSentToNode := messagesSent[TopTenAccumulatorRoutingKey]
+	serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, serializedMessage)
 	if err != nil {
 		return err
 	}
-
+	m.logger.Infof("Sent EOF to client %d", clientID)
 	return nil
 }
 

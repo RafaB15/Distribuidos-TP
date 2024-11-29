@@ -31,13 +31,13 @@ func main() {
 	}
 
 	log.Infof("Starting Top Ten Accumulator")
-	middleware, err := m.NewMiddleware()
+	middleware, err := m.NewMiddleware(log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
 	}
 
-	topTenAccumulator := l.NewTopTenAccumulator(middleware.ReceiveMsg, middleware.SendMsg)
+	topTenAccumulator := l.NewTopTenAccumulator(middleware.ReceiveMsg, middleware.SendMsg, middleware.AckLastMessage, log)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 

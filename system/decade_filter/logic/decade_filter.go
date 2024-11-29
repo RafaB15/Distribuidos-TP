@@ -17,13 +17,13 @@ var log = logging.MustGetLogger("log")
 
 type DecadeFilter struct {
 	ReceiveYearAvgPtf      func(messageTracker *n.MessageTracker) (int, []*df.GameYearAndAvgPtf, bool, bool, error)
-	SendFilteredYearAvgPtf func(int, []*df.GameYearAndAvgPtf) error
+	SendFilteredYearAvgPtf func(clientID int, gameMetrics []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error
 	SendEof                func(clientID int, senderID int, messageTracker *n.MessageTracker) error
 	AckLastMessage         func() error
 	logger                 *logging.Logger
 }
 
-func NewDecadeFilter(receiveYearAvgPtf func(messageTracker *n.MessageTracker) (int, []*df.GameYearAndAvgPtf, bool, bool, error), sendFilteredYearAvgPtf func(int, []*df.GameYearAndAvgPtf) error, sendEof func(clientID int, senderID int, messageTracker *n.MessageTracker) error, ackLastMessage func() error, logger *logging.Logger) *DecadeFilter {
+func NewDecadeFilter(receiveYearAvgPtf func(messageTracker *n.MessageTracker) (int, []*df.GameYearAndAvgPtf, bool, bool, error), sendFilteredYearAvgPtf func(clientID int, gameMetrics []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error, sendEof func(clientID int, senderID int, messageTracker *n.MessageTracker) error, ackLastMessage func() error, logger *logging.Logger) *DecadeFilter {
 	return &DecadeFilter{
 		ReceiveYearAvgPtf:      receiveYearAvgPtf,
 		SendFilteredYearAvgPtf: sendFilteredYearAvgPtf,
@@ -49,10 +49,13 @@ func (d *DecadeFilter) Run(senderID int) {
 
 			yearsAvgPtfFiltered := df.FilterByDecade(yearAvgPtfSlice, DECADE)
 			log.Infof("Sending ClientID %d filtered year and avg ptf to top ten accumulator", clientID)
-			err = d.SendFilteredYearAvgPtf(clientID, yearsAvgPtfFiltered)
-			if err != nil {
-				log.Errorf("failed to send filtered year and avg ptf: %v", err)
-				return
+
+			if len(yearsAvgPtfFiltered) > 0 {
+				err = d.SendFilteredYearAvgPtf(clientID, yearsAvgPtfFiltered, messageTracker)
+				if err != nil {
+					log.Errorf("failed to send filtered year and avg ptf: %v", err)
+					return
+				}
 			}
 
 		}
