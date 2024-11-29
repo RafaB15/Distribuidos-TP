@@ -33,7 +33,7 @@ var log = logging.MustGetLogger("log")
 
 type ReceiveGameBatchFunc func(messageTracker *n.MessageTracker) (clientID int, gameLines []string, eof bool, newMessage bool, e error)
 type SendGamesOSFunc func(clientID int, osAccumulatorsAmount int, gamesOS []*oa.GameOS, messageTracker *n.MessageTracker) error
-type SendGameYearAndAvgPtfFunc func(clientID int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error
+type SendGameYearAndAvgPtfFunc func(clientID int, decadeFilterAmount int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error
 type SendIndieGamesNamesFunc func(clientID int, indieGamesNames map[int][]*g.GameName, messageTracker *n.MessageTracker) error
 type SendActionGamesFunc func(clientID int, actionGames []*g.Game, actionReviewJoinerAmount int, messageTracker *n.MessageTracker) error
 type SendEndOfFileFunc func(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int, messageTracker *n.MessageTracker) error
@@ -121,7 +121,7 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 				return
 			}
 
-			err = gm.SendGameYearAndAvgPtf(clientID, gamesYearAndAvgPtf, messageTracker)
+			err = gm.SendGameYearAndAvgPtf(clientID, decadeFilterAmount, gamesYearAndAvgPtf, messageTracker)
 			if err != nil {
 				log.Errorf("Failed to send game year and avg ptf: %v", err)
 				return

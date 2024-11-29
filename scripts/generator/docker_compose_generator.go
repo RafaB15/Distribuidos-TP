@@ -241,6 +241,8 @@ func main() {
     container_name: %s
     image: decade_filter:latest
     entrypoint: /decade_filter
+    environment:
+      - ID=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -249,7 +251,7 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName)
+`, serviceName, serviceName, i)
 		services[serviceName] = true
 	}
 

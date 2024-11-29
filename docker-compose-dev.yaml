@@ -194,6 +194,8 @@ services:
     container_name: decade_filter_1
     image: decade_filter:latest
     entrypoint: /decade_filter
+    environment:
+      - ID=1
     depends_on:
       game_mapper:
         condition: service_started
@@ -206,6 +208,8 @@ services:
     container_name: decade_filter_2
     image: decade_filter:latest
     entrypoint: /decade_filter
+    environment:
+      - ID=2
     depends_on:
       game_mapper:
         condition: service_started

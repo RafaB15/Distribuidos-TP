@@ -25,9 +25,9 @@ const (
 	OSGamesRoutingKeyPrefix = "os_games_key_"
 	OSGamesExchangeType     = "direct"
 
-	YearAndAvgPtfExchangeName = "year_avg_ptf_exchange"
-	YearAndAvgPtfExchangeType = "direct"
-	YearAndAvgPtfRoutingKey   = "year_avg_ptf_key"
+	YearAndAvgPtfExchangeName     = "year_avg_ptf_exchange"
+	YearAndAvgPtfExchangeType     = "direct"
+	YearAndAvgPtfRoutingKeyPrefix = "year_avg_ptf_key_"
 
 	IndieReviewJoinExchangeName     = "indie_review_join_exchange"
 	IndieReviewJoinExchangeType     = "direct"
@@ -156,14 +156,22 @@ func (m *Middleware) SendGamesOS(clientID int, osAccumulatorsAmount int, gamesOS
 	return nil
 }
 
-func (m *Middleware) SendGameYearAndAvgPtf(clientID int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error {
+func (m *Middleware) SendGameYearAndAvgPtf(clientID int, decadeFilterAmount int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error {
 	serializedGameYearAndAvgPtf := sp.SerializeMsgGameYearAndAvgPtf(clientID, gameYearAndAvgPtf)
-	// Esto hay que cambiarlo, se manda todo a la misma cola, no se hará conteo único.
-	err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, serializedGameYearAndAvgPtf)
+
+	hashedSerializedGameYearAndAvgPtf, err := u.Hash(serializedGameYearAndAvgPtf)
+	if err != nil {
+		return fmt.Errorf("failed to hash serialized game year and avg ptf: %v", err)
+	}
+
+	routingKey := u.GetPartitioningKeyFromInt(hashedSerializedGameYearAndAvgPtf, decadeFilterAmount, YearAndAvgPtfRoutingKeyPrefix)
+	fmt.Printf("Publishing games OS to routingKey: %s for clientID: %d\n", routingKey, clientID)
+
+	err = m.YearAndAvgPtfExchange.Publish(routingKey, serializedGameYearAndAvgPtf)
 	if err != nil {
 		return fmt.Errorf("failed to publish game year and avg ptf: %v", err)
 	}
-	messageTracker.RegisterSentMessage(clientID, YearAndAvgPtfRoutingKey)
+	messageTracker.RegisterSentMessage(clientID, routingKey)
 	return nil
 }
 
@@ -231,8 +239,12 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 		}
 	}
 
-	for i := 0; i < decadeFilterAmount; i++ {
-		err := m.YearAndAvgPtfExchange.Publish(YearAndAvgPtfRoutingKey, sp.SerializeMsgEndOfFile(clientID))
+	for i := 1; i <= decadeFilterAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", YearAndAvgPtfRoutingKeyPrefix, i)
+		messageSentToRoutingKey := messagesSent[routingKey]
+		fmt.Printf("Publishing EndOfFile to routingKey: %s for clientID: %d\n", routingKey, clientID)
+		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 1, messageSentToRoutingKey)
+		err := m.YearAndAvgPtfExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
 			return err
 		}
