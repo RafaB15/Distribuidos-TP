@@ -4,8 +4,10 @@ import (
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/percentile_accumulator/logic"
 	m "distribuidos-tp/system/percentile_accumulator/middleware"
+	p "distribuidos-tp/system/percentile_accumulator/persistence"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -43,10 +45,14 @@ func main() {
 		log,
 	)
 
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
+
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		positiveReviewsFilter.Run(previousAccumulators)
+		positiveReviewsFilter.Run(previousAccumulators, repository)
 		doneChannel <- true
 	}()
 

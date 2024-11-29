@@ -3,15 +3,17 @@ package percentile_accumulator
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	n "distribuidos-tp/internal/system_protocol/node"
+	p "distribuidos-tp/system/percentile_accumulator/persistence"
 	"errors"
 	"math"
+	"math/rand"
 	"sort"
 
 	"github.com/op/go-logging"
 )
 
 const (
-	AckBatchSize = 10
+	AckBatchSize = 1
 )
 
 type ReceiveGameReviewsMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, err error)
@@ -34,12 +36,15 @@ func NewPercentileAccumulator(receiveGameReviewsMetrics ReceiveGameReviewsMetric
 	}
 }
 
-func (p *PercentileAccumulator) Run(previousAccumulators int) {
+func (p *PercentileAccumulator) Run(previousAccumulators int, repository *p.Repository) {
 
-	messageTracker := n.NewMessageTracker(previousAccumulators)
+	percentileMap, messageTracker, syncNumber, err := repository.LoadAll(previousAccumulators)
+	if err != nil {
+		p.logger.Errorf("Failed to load data: %v", err)
+		return
+	}
+
 	messagesUntilAck := AckBatchSize
-
-	percentileMap := make(map[int][]*ra.NamedGameReviewsMetrics)
 
 	for {
 		clientID, gameReviewsMetrics, eof, newMessage, err := p.ReceiveGameReviewsMetrics(messageTracker)
@@ -48,15 +53,21 @@ func (p *PercentileAccumulator) Run(previousAccumulators int) {
 			return
 		}
 
-		percentileReviews, exists := percentileMap[clientID]
+		percentileReviews, exists := percentileMap.Get(clientID)
 		if !exists {
 			percentileReviews = []*ra.NamedGameReviewsMetrics{}
-			percentileMap[clientID] = percentileReviews
+			percentileMap.Set(clientID, percentileReviews)
+
 		}
 
 		if newMessage && !eof {
-			allReviews := addGamesAndMaintainOrder(percentileMap[clientID], gameReviewsMetrics)
-			percentileMap[clientID] = allReviews
+			percentileReviews, exists := percentileMap.Get(clientID)
+			if !exists {
+				p.logger.Errorf("Client %d does not exist in the map", clientID)
+				return
+			}
+			allReviews := addGamesAndMaintainOrder(percentileReviews, gameReviewsMetrics)
+			percentileMap.Set(clientID, allReviews)
 			p.logger.Infof("Received game reviews metrics for client %d", clientID)
 			p.logger.Infof("Quantity of games: %d", len(allReviews))
 		}
@@ -77,8 +88,16 @@ func (p *PercentileAccumulator) Run(previousAccumulators int) {
 				p.logger.Errorf("Failed to send game reviews metrics: %v", err)
 				return
 			}
-
 			messageTracker.DeleteClientInfo(clientID)
+			percentileMap.Delete(clientID)
+
+			syncNumber++
+			err = repository.SaveAll(percentileMap, messageTracker, syncNumber)
+			if err != nil {
+				p.logger.Errorf("failed to save data: %v", err)
+				return
+			}
+
 			messagesUntilAck = AckBatchSize
 			err = p.AckLastMessage()
 			if err != nil {
@@ -90,12 +109,24 @@ func (p *PercentileAccumulator) Run(previousAccumulators int) {
 		}
 
 		if messagesUntilAck == 0 {
+			syncNumber++
+			err = repository.SaveAll(percentileMap, messageTracker, syncNumber)
+			if err != nil {
+				p.logger.Errorf("failed to save data: %v", err)
+				return
+			}
+
+			if rand.Float32() < 0.5 {
+				p.logger.Infof("Simulating a crash")
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
 			err = p.AckLastMessage()
 			if err != nil {
 				p.logger.Errorf("Failed to ack last message: %v", err)
 				return
 			}
-			messagesUntilAck = AckBatchSize
 		} else {
 			messagesUntilAck--
 		}
