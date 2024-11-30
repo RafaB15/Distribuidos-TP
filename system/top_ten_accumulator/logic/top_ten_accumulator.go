@@ -3,7 +3,7 @@ package top_ten_accumulator
 import (
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	n "distribuidos-tp/internal/system_protocol/node"
-	rp "distribuidos-tp/system/top_ten_accumulator/persistence"
+	p "distribuidos-tp/system/top_ten_accumulator/persistence"
 
 	"github.com/op/go-logging"
 )
@@ -17,7 +17,6 @@ const (
 type TopTenAccumulator struct {
 	ReceiveMsg     func(messageTracker *n.MessageTracker) (clientID int, gamesMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, e error)
 	SendMsg        func(int, []*df.GameYearAndAvgPtf) error
-	Repository     *rp.Repository
 	AckLastMessage func() error
 	logger         *logging.Logger
 }
@@ -26,14 +25,18 @@ func NewTopTenAccumulator(receiveMsg func(messageTracker *n.MessageTracker) (cli
 	return &TopTenAccumulator{
 		ReceiveMsg:     receiveMsg,
 		SendMsg:        sendMsg,
-		Repository:     rp.NewRepository("top_ten_accumulator"),
 		AckLastMessage: ackLastMessage,
 		logger:         logger,
 	}
 }
 
-func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
-	messageTracker := n.NewMessageTracker(decadeFilterAmount)
+func (t *TopTenAccumulator) Run(decadeFilterAmount int, repository *p.Repository) {
+	topTenGamesMap, messageTracker, syncNumber, err := repository.LoadAll(decadeFilterAmount)
+	if err != nil {
+		t.logger.Errorf("failed to load data: %v", err)
+		return
+	}
+
 	messagesUntilAck := AckBatchSize
 
 	for {
@@ -44,16 +47,15 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 			return
 		}
 
-		clientTopTenGames, err := t.Repository.Load(clientID)
-		if err != nil {
-			log.Errorf("failed to load client %d top ten games: %v", clientID, err)
-			continue
+		clientTopTenGames, exists := topTenGamesMap.Get(clientID)
+		if !exists {
+			clientTopTenGames = []*df.GameYearAndAvgPtf{}
+			topTenGamesMap.Set(clientID, clientTopTenGames)
 		}
 
 		if newMessage && !eof {
 			clientTopTenGames = df.TopTenAvgPlaytimeForever(append(clientTopTenGames, decadeGames...))
-			t.Repository.Persist(clientID, clientTopTenGames)
-			// log.Infof("Updated top ten games for client %d", clientID)
+			topTenGamesMap.Set(clientID, clientTopTenGames)
 		}
 
 		if messageTracker.ClientFinished(clientID, log) {
@@ -65,6 +67,14 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 			}
 
 			messageTracker.DeleteClientInfo(clientID)
+			topTenGamesMap.Delete(clientID)
+			syncNumber++
+
+			err = repository.SaveAll(topTenGamesMap, messageTracker, syncNumber)
+			if err != nil {
+				log.Errorf("failed to save data: %v", err)
+				return
+			}
 
 			messagesUntilAck = AckBatchSize
 			err = t.AckLastMessage()
@@ -76,6 +86,19 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
 		}
 
 		if messagesUntilAck == 0 {
+
+			syncNumber++
+			err = repository.SaveAll(topTenGamesMap, messageTracker, syncNumber)
+			if err != nil {
+				log.Errorf("failed to save data: %v", err)
+				return
+			}
+
+			// if rand.Float32() < 0.04 {
+			// 	t.logger.Infof("Simulating a crash")
+			// 	return
+			// }
+
 			messagesUntilAck = AckBatchSize
 			err = t.AckLastMessage()
 			if err != nil {

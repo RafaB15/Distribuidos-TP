@@ -23,6 +23,7 @@ var (
 )
 
 func main() {
+
 	// Get the node ID from the environment variable
 	id, err := strconv.Atoi(os.Getenv("WATCHDOG_HOST"))
 	if err != nil {
@@ -217,6 +218,7 @@ func getServices() map[string]int {
 		"english_filter":             4,
 		"percentile_accumulator":     1,
 		"decade_filter":              2,
+		"top_ten_accumulator":        1,
 	}
 }
 
