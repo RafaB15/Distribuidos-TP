@@ -216,6 +216,7 @@ func getServices() map[string]int {
 		"action_reviews_accumulator": 4,
 		"english_filter":             4,
 		"percentile_accumulator":     1,
+		"decade_filter":              2,
 	}
 }
 

@@ -4,8 +4,10 @@ import (
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/decade_filter/logic"
 	m "distribuidos-tp/system/decade_filter/middleware"
+	p "distribuidos-tp/system/decade_filter/persistence"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -36,10 +38,14 @@ func main() {
 
 	decadeFilter := l.NewDecadeFilter(middleware.ReceiveYearAvgPtf, middleware.SendFilteredYearAvgPtf, middleware.SendEof, middleware.AckLastMessage, log)
 
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
+
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		decadeFilter.Run(id)
+		decadeFilter.Run(id, repository)
 		doneChannel <- true
 	}()
 

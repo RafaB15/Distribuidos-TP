@@ -3,6 +3,8 @@ package decade_filter
 import (
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	n "distribuidos-tp/internal/system_protocol/node"
+	p "distribuidos-tp/system/decade_filter/persistence"
+	"math/rand"
 
 	"github.com/op/go-logging"
 )
@@ -10,7 +12,7 @@ import (
 const DECADE = 2010
 
 const (
-	AckBatchSize = 100
+	AckBatchSize = 10
 )
 
 var log = logging.MustGetLogger("log")
@@ -33,8 +35,8 @@ func NewDecadeFilter(receiveYearAvgPtf func(messageTracker *n.MessageTracker) (i
 	}
 }
 
-func (d *DecadeFilter) Run(senderID int) {
-	messageTracker := n.NewMessageTracker(1)
+func (d *DecadeFilter) Run(senderID int, repository *p.Repository) {
+	messageTracker, syncNumber := repository.LoadMessageTracker(1)
 	messagesUntilAck := AckBatchSize
 	for {
 
@@ -70,6 +72,13 @@ func (d *DecadeFilter) Run(senderID int) {
 
 			messageTracker.DeleteClientInfo(clientID)
 
+			syncNumber++
+			err = repository.SaveMessageTracker(messageTracker, syncNumber)
+			if err != nil {
+				d.logger.Errorf("Failed to save message tracker: %v", err)
+				return
+			}
+
 			messagesUntilAck = AckBatchSize
 			err = d.AckLastMessage()
 			if err != nil {
@@ -80,6 +89,17 @@ func (d *DecadeFilter) Run(senderID int) {
 		}
 
 		if messagesUntilAck == 0 {
+			syncNumber++
+			err = repository.SaveMessageTracker(messageTracker, syncNumber)
+			if err != nil {
+				d.logger.Errorf("Failed to save message tracker: %v", err)
+				return
+			}
+
+			if rand.Float32() < 0.099 {
+				d.logger.Infof("Simulated crash")
+				return
+			}
 
 			err = d.AckLastMessage()
 			if err != nil {
