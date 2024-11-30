@@ -211,17 +211,18 @@ func performLeaderTask() {
 
 func getServices() map[string]int {
 	return map[string]int{
-		"os_accumulator":             2,
-		"action_review_joiner":       4,
-		"os_final_accumulator":       1,
-		"action_reviews_accumulator": 4,
-		"english_filter":             4,
-		"percentile_accumulator":     1,
-		"decade_filter":              2,
-		"top_ten_accumulator":        1,
-		"reviews_accumulator":        4,
-		"indie_review_joiner":        2,
-		"top_positive_reviews":       1,
+		"os_accumulator":              2,
+		"action_review_joiner":        4,
+		"os_final_accumulator":        1,
+		"action_reviews_accumulator":  4,
+		"english_filter":              4,
+		"percentile_accumulator":      1,
+		"decade_filter":               2,
+		"top_ten_accumulator":         1,
+		"reviews_accumulator":         4,
+		"indie_review_joiner":         2,
+		"top_positive_reviews":        1,
+		"english_reviews_accumulator": 2,
 	}
 }
 

@@ -73,7 +73,7 @@ func (m *Middleware) ReceiveReview(messageTracker *n.MessageTracker) (clientID i
 		return 0, nil, false, false, fmt.Errorf("failed to process message: %v", err)
 	}
 
-	m.logger.Debugf("Message new: %v", newMessage)
+	//m.logger.Debugf("Message new: %v", newMessage)
 
 	if !newMessage {
 		return message.ClientID, nil, false, false, nil
@@ -98,7 +98,7 @@ func (m *Middleware) ReceiveReview(messageTracker *n.MessageTracker) (clientID i
 		if err != nil {
 			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize review: %v", err)
 		}
-		m.logger.Debugf("Received review: %v", review)
+		//m.logger.Debugf("Received review: %v", review)
 		return message.ClientID, review, false, true, nil
 	default:
 		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %v", message.Type)
@@ -120,18 +120,10 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.NamedGam
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(clientID int, _ int, messageTracker *n.MessageTracker) error {
-	/*Para cuando refactorice el siguiente
+func (m *Middleware) SendEndOfFiles(clientID int, senderID int, messageTracker *n.MessageTracker) error {
 	messagesSent := messageTracker.GetSentMessages(clientID)
 	messagesSentToNode := messagesSent[AccumulatedEnglishReviewsRoutingKey]
 	serializedEOF := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
-	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedEOF)
-	if err != nil {
-		return fmt.Errorf("failed to publish end of file: %v", err)
-	}
-	return nil
-	*/
-	serializedEOF := sp.SerializeMsgEndOfFile(clientID)
 	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedEOF)
 	if err != nil {
 		return fmt.Errorf("failed to publish end of file: %v", err)

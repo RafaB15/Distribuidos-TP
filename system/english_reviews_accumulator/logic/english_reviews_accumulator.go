@@ -5,7 +5,6 @@ import (
 	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	p "distribuidos-tp/system/english_reviews_accumulator/persistence"
-
 	"github.com/op/go-logging"
 )
 

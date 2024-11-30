@@ -30,7 +30,7 @@ func main() {
 		return
 	}
 
-	middleware, err := m.NewMiddleware()
+	middleware, err := m.NewMiddleware(log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
@@ -39,6 +39,8 @@ func main() {
 	negativeReviewsFilter := l.NewNegativeReviewsFilter(
 		middleware.ReceiveGameReviewsMetrics,
 		middleware.SendQueryResults,
+		middleware.AckLastMessage,
+		log,
 	)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
