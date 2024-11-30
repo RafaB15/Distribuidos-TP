@@ -4,13 +4,16 @@ import (
 	j "distribuidos-tp/internal/system_protocol/joiner"
 	n "distribuidos-tp/internal/system_protocol/node"
 
+	p "distribuidos-tp/system/top_positive_reviews/persistence"
+
 	"sort"
 
 	"github.com/op/go-logging"
 )
 
 const (
-	AckBatchSize = 50
+	AckBatchSize      = 50
+	TopPositiveNumber = 5
 )
 
 type ReceiveMsgFunc func(messageTracker *n.MessageTracker) (clientID int, reviews *j.JoinedPositiveGameReview, eof bool, newMessage bool, e error)
@@ -32,12 +35,14 @@ func NewTopPositiveReviews(receiveMsg ReceiveMsgFunc, sendMetrics SendQueryResul
 	}
 }
 
-func (t *TopPositiveReviews) Run(indieReviewJoinerAmount int) {
-	messageTracker := n.NewMessageTracker(indieReviewJoinerAmount)
-	messagesUntilAck := AckBatchSize
+func (t *TopPositiveReviews) Run(indieReviewJoinersAmount int, repository *p.Repository) {
+	topPositiveIndieGames, messageTracker, syncNumber, err := repository.LoadAll(indieReviewJoinersAmount)
+	if err != nil {
+		t.logger.Errorf("Failed to load data: %v", err)
+		return
+	}
 
-	remainingEOFsMap := make(map[int]int)
-	topPositiveIndieGames := make(map[int][]*j.JoinedPositiveGameReview)
+	messagesUntilAck := AckBatchSize
 
 	for {
 		clientID, msg, eof, newMessage, err := t.ReceiveMsg(messageTracker)
@@ -46,25 +51,25 @@ func (t *TopPositiveReviews) Run(indieReviewJoinerAmount int) {
 			return
 		}
 
-		clientTopPositiveIndieGames, exists := topPositiveIndieGames[clientID]
+		clientTopPositiveIndieGames, exists := topPositiveIndieGames.Get(int(clientID))
 		if !exists {
 			clientTopPositiveIndieGames = []*j.JoinedPositiveGameReview{}
-			topPositiveIndieGames[clientID] = clientTopPositiveIndieGames
+			topPositiveIndieGames.Set(clientID, clientTopPositiveIndieGames)
 		}
 
 		if newMessage && !eof {
 			t.logger.Infof("Received indie game with ID: %v", msg.AppId)
 			t.logger.Infof("Evaluating number of positive reviews and saving game")
 			clientTopPositiveIndieGames = append(clientTopPositiveIndieGames, msg)
-			topPositiveIndieGames[clientID] = clientTopPositiveIndieGames
-			if len(clientTopPositiveIndieGames) > 5 {
+			topPositiveIndieGames.Set(clientID, clientTopPositiveIndieGames)
+			if len(clientTopPositiveIndieGames) > TopPositiveNumber {
 				// Sort the slice by positive reviews in descending order
 				sort.Slice(clientTopPositiveIndieGames, func(i, j int) bool {
 					return clientTopPositiveIndieGames[i].PositiveReviews > clientTopPositiveIndieGames[j].PositiveReviews
 				})
 				// Keep only the top 5
 				clientTopPositiveIndieGames = clientTopPositiveIndieGames[:5]
-				topPositiveIndieGames[clientID] = clientTopPositiveIndieGames
+				topPositiveIndieGames.Set(clientID, clientTopPositiveIndieGames)
 			}
 
 		}
@@ -78,10 +83,17 @@ func (t *TopPositiveReviews) Run(indieReviewJoinerAmount int) {
 				t.logger.Errorf("Failed to send metrics: %v", err)
 				return
 			}
-			t.logger.Infof("Sent Top 5 positive reviews to writer")
-			delete(topPositiveIndieGames, clientID)
-			delete(remainingEOFsMap, clientID)
+			t.logger.Infof("Sent Top 5 positive reviews to client %d", clientID)
 			messageTracker.DeleteClientInfo(clientID)
+			topPositiveIndieGames.Delete(clientID)
+
+			syncNumber++
+			err = repository.SaveAll(topPositiveIndieGames, messageTracker, syncNumber)
+			if err != nil {
+				t.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
 			messagesUntilAck = AckBatchSize
 			err = t.AckLastMessage()
 			if err != nil {
@@ -91,6 +103,13 @@ func (t *TopPositiveReviews) Run(indieReviewJoinerAmount int) {
 		}
 
 		if messagesUntilAck == 0 {
+			syncNumber++
+			err = repository.SaveAll(topPositiveIndieGames, messageTracker, syncNumber)
+			if err != nil {
+				t.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+			messagesUntilAck = AckBatchSize
 			err = t.AckLastMessage()
 			if err != nil {
 				t.logger.Errorf("error acking last message: %s", err)

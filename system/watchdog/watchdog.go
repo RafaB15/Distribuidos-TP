@@ -219,6 +219,9 @@ func getServices() map[string]int {
 		"percentile_accumulator":     1,
 		"decade_filter":              2,
 		"top_ten_accumulator":        1,
+		"reviews_accumulator":        4,
+		"indie_review_joiner":        2,
+		"top_positive_reviews":       1,
 	}
 }
 

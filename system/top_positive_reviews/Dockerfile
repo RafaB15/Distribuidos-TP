@@ -9,6 +9,7 @@ RUN go mod download
 
 COPY system/top_positive_reviews ./system/top_positive_reviews
 COPY middleware ./middleware
+COPY persistence ./persistence
 COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils
 

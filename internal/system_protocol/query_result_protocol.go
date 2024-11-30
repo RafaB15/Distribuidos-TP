@@ -44,10 +44,8 @@ func DeserializeMsgTopTenResolvedQuery(message []byte) ([]*df.GameYearAndAvgPtf,
 // Message IndiePositiveJoinedReviewsQuery
 
 func SerializeMsgIndiePositiveJoinedReviewsQuery(clientID int, joinedReviews []*j.JoinedPositiveGameReview) ([]byte, error) {
-	data, err := j.SerializeJoinedPositiveGameReviewsBatch(joinedReviews)
-	if err != nil {
-		return nil, err
-	}
+	data := j.SerializeJoinedPositiveGameReviewsBatch(joinedReviews)
+
 	return SerializeQuery(MsgIndiePositiveJoinedReviewsQuery, clientID, data), nil
 }
 
