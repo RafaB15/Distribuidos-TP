@@ -5,14 +5,13 @@ import (
 	"distribuidos-tp/internal/system_protocol/games"
 	j "distribuidos-tp/internal/system_protocol/joiner"
 	n "distribuidos-tp/internal/system_protocol/node"
+	p "distribuidos-tp/system/indie_review_joiner/persistence"
 
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("log")
-
 const (
-	AckBatchSize  = 50
+	AckBatchSize  = 25
 	GameMapperEOF = 1
 )
 
@@ -39,27 +38,39 @@ func NewIndieReviewJoiner(receiveMsg ReceiveMsgFunc, sendMetrics SendMetricsFunc
 	}
 }
 
-func (i *IndieReviewJoiner) Run(id int, accumulatorsAmount int) {
-	messageTracker := n.NewMessageTracker(accumulatorsAmount + GameMapperEOF)
+func (i *IndieReviewJoiner) Run(id int, repository *p.Repository, accumulatorsAmount int) {
+	accumulatedGameReviews, gamesToSendMap, messageTracker, syncNumber, err := repository.LoadAll(accumulatorsAmount + GameMapperEOF)
+	if err != nil {
+		i.logger.Errorf("Failed to load data: %v", err)
+		return
+	}
+
 	messagesUntilAck := AckBatchSize
-	accumulatedGameReviews := make(map[int]map[uint32]*j.JoinedPositiveGameReview)
 
 	for {
 		clientID, games, reviews, eof, newMessage, err := i.ReceiveMsg(messageTracker)
 		if err != nil {
-			log.Errorf("Failed to receive message: %v", err)
+			i.logger.Errorf("Failed to receive message: %v", err)
 			return
 		}
 
-		clientAccumulatedGameReviews, exists := accumulatedGameReviews[clientID]
-		if !exists {
-			clientAccumulatedGameReviews = make(map[uint32]*j.JoinedPositiveGameReview)
-			accumulatedGameReviews[clientID] = clientAccumulatedGameReviews
-		}
-
 		if newMessage && !eof {
+
+			clientAccumulatedGameReviews, exists := accumulatedGameReviews.Get(clientID)
+			if !exists {
+				clientAccumulatedGameReviews = repository.InitializeIndieJoinedReviewsMap()
+				accumulatedGameReviews.Set(clientID, clientAccumulatedGameReviews)
+
+			}
+
+			clientGamesToSend, exists := gamesToSendMap.Get(clientID)
+			if !exists {
+				clientGamesToSend = repository.InitializeGamesToSendMap()
+				gamesToSendMap.Set(clientID, clientGamesToSend)
+			}
+
 			if games != nil {
-				err := i.handleGames(clientID, games, clientAccumulatedGameReviews, messageTracker)
+				err := i.handleGames(clientID, games, clientGamesToSend, clientAccumulatedGameReviews, messageTracker)
 				if err != nil {
 					i.logger.Errorf("Failed to handle games: %v", err)
 					return
@@ -67,7 +78,7 @@ func (i *IndieReviewJoiner) Run(id int, accumulatorsAmount int) {
 			}
 
 			if reviews != nil {
-				err = i.handleReview(clientID, reviews, clientAccumulatedGameReviews, messageTracker)
+				err = i.handleReviews(clientID, reviews, clientAccumulatedGameReviews, clientGamesToSend, messageTracker)
 				if err != nil {
 					i.logger.Errorf("Failed to handle reviews: %v", err)
 					return
@@ -84,8 +95,16 @@ func (i *IndieReviewJoiner) Run(id int, accumulatorsAmount int) {
 				i.logger.Errorf("Failed to send EOF: %v", err)
 				return
 			}
-			delete(accumulatedGameReviews, clientID)
+			accumulatedGameReviews.Delete(clientID)
+			gamesToSendMap.Delete(clientID)
 			messageTracker.DeleteClientInfo(clientID)
+
+			syncNumber++
+			err := repository.SaveAll(accumulatedGameReviews, gamesToSendMap, messageTracker, syncNumber)
+			if err != nil {
+				i.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
 
 			messagesUntilAck = AckBatchSize
 			err = i.AckLastMessage()
@@ -97,6 +116,13 @@ func (i *IndieReviewJoiner) Run(id int, accumulatorsAmount int) {
 		}
 
 		if messagesUntilAck == 0 {
+			syncNumber++
+			err := repository.SaveAll(accumulatedGameReviews, gamesToSendMap, messageTracker, syncNumber)
+			if err != nil {
+				i.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
 			err = i.AckLastMessage()
 			if err != nil {
 				i.logger.Errorf("error acking last message: %s", err)
@@ -106,48 +132,52 @@ func (i *IndieReviewJoiner) Run(id int, accumulatorsAmount int) {
 		} else {
 			messagesUntilAck--
 		}
+
 	}
 }
 
-func (i *IndieReviewJoiner) handleGames(clientID int, games []*games.GameName, clientAccumulatedGameReviews map[uint32]*j.JoinedPositiveGameReview, messageTracker *n.MessageTracker) error {
-	for _, indieGame := range games {
-
-		if joinedGameReviewsMsg, exists := clientAccumulatedGameReviews[indieGame.AppId]; exists {
-			i.logger.Infof("Joining indie game into review with ID: %v", indieGame.AppId)
-			joinedGameReviewsMsg.UpdateWithGame(indieGame)
-			err := i.SendMetrics(clientID, joinedGameReviewsMsg, messageTracker)
+func (i *IndieReviewJoiner) handleReviews(clientID int, reviews []*reviews_accumulator.GameReviewsMetrics, clientAccumulatedGameReviews *n.IntMap[*reviews_accumulator.GameReviewsMetrics], clientGamesToSend *n.IntMap[*j.GameToSend], messageTracker *n.MessageTracker) error {
+	for _, gameReviewMetric := range reviews {
+		clientAccumulatedGameReviews.Set(int(gameReviewMetric.AppID), gameReviewMetric)
+		if gameToSend, exists := clientGamesToSend.Get(int(gameReviewMetric.AppID)); exists {
+			i.logger.Infof("Joining review into indie game with ID: %v", gameReviewMetric.AppID)
+			newJoinedIndieGameReview := j.NewJoinedPositiveGameReview(gameToSend.AppId)
+			newJoinedIndieGameReview.UpdateWithReview(gameReviewMetric)
+			newJoinedIndieGameReview.UpdateWithGame(gameToSend.Name)
+			err := i.SendMetrics(clientID, newJoinedIndieGameReview, messageTracker)
 			if err != nil {
 				i.logger.Errorf("Failed to send metrics: %v", err)
 				return err
 			}
-			delete(clientAccumulatedGameReviews, indieGame.AppId)
+			i.logger.Infof("Sent metrics for game with ID %v", gameReviewMetric.AppID)
+			clientAccumulatedGameReviews.Delete(int(gameReviewMetric.AppID))
 		} else {
-			i.logger.Info("Saving indie game with AppID %v for later join", indieGame.AppId)
-			newJoinedPositiveGameReview := j.NewJoinedPositiveGameReview(indieGame.AppId)
-			newJoinedPositiveGameReview.UpdateWithGame(indieGame)
-			clientAccumulatedGameReviews[indieGame.AppId] = newJoinedPositiveGameReview
+			i.logger.Infof("Game with ID %v not found in gamesToSendMap. Saving Review for later join", gameReviewMetric.AppID)
 		}
 	}
 	return nil
 }
 
-func (i *IndieReviewJoiner) handleReview(clientID int, reviews []*reviews_accumulator.GameReviewsMetrics, clientAccumulatedGameReviews map[uint32]*j.JoinedPositiveGameReview, messageTracker *n.MessageTracker) error {
-	for _, gameReviewsMetrics := range reviews {
-		if joinedGameReviewsMsg, exists := clientAccumulatedGameReviews[gameReviewsMetrics.AppID]; exists {
-			i.logger.Infof("Joining review into indie game with ID: %v", gameReviewsMetrics.AppID)
-			joinedGameReviewsMsg.UpdateWithReview(gameReviewsMetrics)
-
-			err := i.SendMetrics(clientID, joinedGameReviewsMsg, messageTracker)
+func (i *IndieReviewJoiner) handleGames(clientID int, games []*games.GameName, clientGamesToSend *n.IntMap[*j.GameToSend], clientAccumulatedGameReviews *n.IntMap[*reviews_accumulator.GameReviewsMetrics], messageTracker *n.MessageTracker) error {
+	for _, indieGame := range games {
+		gameToSend := j.NewGameToSend(indieGame.AppId, indieGame.Name, true) //asumo que todos los juegos que me estan llegando son indies.
+		clientGamesToSend.Set(int(indieGame.AppId), gameToSend)
+		if joinedGameReview, exists := clientAccumulatedGameReviews.Get(int(gameToSend.AppId)); exists {
+			i.logger.Infof("Joining indie game into review with ID: %v", indieGame.AppId)
+			newJoinedIndieGameReview := j.NewJoinedPositiveGameReview(gameToSend.AppId)
+			newJoinedIndieGameReview.UpdateWithGame(indieGame.Name)
+			newJoinedIndieGameReview.UpdateWithReview(joinedGameReview)
+			err := i.SendMetrics(clientID, newJoinedIndieGameReview, messageTracker)
 			if err != nil {
 				i.logger.Errorf("Failed to send metrics: %v", err)
 				return err
 			}
-			delete(clientAccumulatedGameReviews, gameReviewsMetrics.AppID)
-
+			clientAccumulatedGameReviews.Delete(int(gameToSend.AppId))
 		} else {
-			i.logger.Infof("Saving review with AppID %v for later join", gameReviewsMetrics.AppID)
-			clientAccumulatedGameReviews[gameReviewsMetrics.AppID] = j.NewJoinedPositiveGameReview(gameReviewsMetrics.AppID)
+			i.logger.Info("Saving indie game with AppID %v for later join", indieGame.AppId)
 		}
+
 	}
+
 	return nil
 }

@@ -2,8 +2,8 @@ package joiner
 
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
-	g "distribuidos-tp/internal/system_protocol/games"
 	"encoding/binary"
+	"fmt"
 	"strconv"
 )
 
@@ -25,8 +25,8 @@ func (m *JoinedPositiveGameReview) UpdateWithReview(review *ra.GameReviewsMetric
 	m.PositiveReviews += review.PositiveReviews
 }
 
-func (m *JoinedPositiveGameReview) UpdateWithGame(game *g.GameName) {
-	m.GameName = game.Name
+func (m *JoinedPositiveGameReview) UpdateWithGame(name string) {
+	m.GameName = name
 }
 
 func SerializeJoinedPositiveGameReview(metrics *JoinedPositiveGameReview) ([]byte, error) {
@@ -46,7 +46,9 @@ func SerializeJoinedPositiveGameReview(metrics *JoinedPositiveGameReview) ([]byt
 }
 
 func DeserializeJoinedPositiveGameReview(data []byte) (*JoinedPositiveGameReview, error) {
-
+	if len(data) < 10 {
+		return nil, fmt.Errorf("data too short to deserialize JoinedPositiveGameReview")
+	}
 	appId := binary.BigEndian.Uint32(data[0:4])
 
 	gameNameLen := binary.BigEndian.Uint16(data[4:6])
@@ -62,7 +64,7 @@ func DeserializeJoinedPositiveGameReview(data []byte) (*JoinedPositiveGameReview
 	}, nil
 }
 
-func SerializeJoinedPositiveGameReviewsBatch(joinedActionGameReviews []*JoinedPositiveGameReview) ([]byte, error) {
+func SerializeJoinedPositiveGameReviewsBatch(joinedActionGameReviews []*JoinedPositiveGameReview) []byte {
 	count := len(joinedActionGameReviews)
 	headerSize := 2
 	body := make([]byte, headerSize) // 2 bytes para el count
@@ -73,16 +75,20 @@ func SerializeJoinedPositiveGameReviewsBatch(joinedActionGameReviews []*JoinedPo
 	for _, joinedActionGameReview := range joinedActionGameReviews {
 		serializedJoinedPositiveGameReview, err := SerializeJoinedPositiveGameReview(joinedActionGameReview)
 		if err != nil {
-			return nil, err
+			fmt.Errorf("failed to serialize joined positive game review: %v", err)
+			return nil
 		}
 		body = append(body, serializedJoinedPositiveGameReview...)
 		offset += len(serializedJoinedPositiveGameReview)
 	}
 
-	return body, nil
+	return body
 }
 
 func DeserializeJoinedPositiveGameReviewsBatch(data []byte) ([]*JoinedPositiveGameReview, error) {
+	if len(data) < 2 {
+		return nil, fmt.Errorf("data too short for batch")
+	}
 	count := binary.BigEndian.Uint16(data[:2])
 	offset := 2
 	joinedActionGameReviews := make([]*JoinedPositiveGameReview, 0)
