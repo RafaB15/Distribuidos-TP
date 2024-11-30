@@ -4,7 +4,6 @@ import (
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	n "distribuidos-tp/internal/system_protocol/node"
 	p "distribuidos-tp/system/decade_filter/persistence"
-	"math/rand"
 
 	"github.com/op/go-logging"
 )
@@ -96,10 +95,10 @@ func (d *DecadeFilter) Run(senderID int, repository *p.Repository) {
 				return
 			}
 
-			if rand.Float32() < 0.099 {
-				d.logger.Infof("Simulated crash")
-				return
-			}
+			// if rand.Float32() < 0.099 {
+			// 	d.logger.Infof("Simulated crash")
+			// 	return
+			// }
 
 			err = d.AckLastMessage()
 			if err != nil {
