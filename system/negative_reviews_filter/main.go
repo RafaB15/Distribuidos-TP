@@ -4,8 +4,10 @@ import (
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/negative_reviews_filter/logic"
 	m "distribuidos-tp/system/negative_reviews_filter/middleware"
+	p "distribuidos-tp/system/negative_reviews_filter/persistence"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -43,10 +45,14 @@ func main() {
 		log,
 	)
 
-	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
+
+	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		negativeReviewsFilter.Run(englishReviewAccumulatorsAmount, MinPositiveReviews)
+		negativeReviewsFilter.Run(englishReviewAccumulatorsAmount, MinPositiveReviews, repository)
 		doneChannel <- true
 	}()
 

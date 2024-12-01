@@ -3,14 +3,15 @@ package negative_reviews_filter
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	n "distribuidos-tp/internal/system_protocol/node"
-
+	p "distribuidos-tp/system/negative_reviews_filter/persistence"
 	"github.com/op/go-logging"
+	"math/rand"
 )
 
 var log = logging.MustGetLogger("log")
 
 const (
-	AckBatchSize = 10
+	AckBatchSize = 1
 )
 
 type ReceiveGameReviewsMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, err error)
@@ -38,9 +39,12 @@ func NewNegativeReviewsFilter(
 	}
 }
 
-func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNegativeReviews int) {
-	messageTracker := n.NewMessageTracker(englishReviewAccumulatorsAmount)
-	negativeReviewsMap := make(map[int][]*ra.NamedGameReviewsMetrics)
+func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNegativeReviews int, repository *p.Repository) {
+	negativeReviewsMap, messageTracker, syncNumber, err := repository.LoadAll(englishReviewAccumulatorsAmount)
+	if err != nil {
+		log.Errorf("Failed to load data: %v", err)
+		return
+	}
 
 	messagesUntilAck := AckBatchSize
 
@@ -52,10 +56,10 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 			return
 		}
 
-		clientNegativeReviews, exists := negativeReviewsMap[clientID]
+		clientNegativeReviews, exists := negativeReviewsMap.Get(clientID)
 		if !exists {
 			clientNegativeReviews = make([]*ra.NamedGameReviewsMetrics, 0)
-			negativeReviewsMap[clientID] = clientNegativeReviews
+			negativeReviewsMap.Set(clientID, clientNegativeReviews)
 		}
 
 		if newMessage && !eof {
@@ -69,7 +73,7 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 				}
 			}
 
-			negativeReviewsMap[clientID] = clientNegativeReviews
+			negativeReviewsMap.Set(clientID, clientNegativeReviews)
 		}
 
 		if messageTracker.ClientFinished(clientID, f.logger) {
@@ -84,7 +88,14 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 			log.Infof("Sent final result of client: %d", clientID)
 
 			messageTracker.DeleteClientInfo(clientID)
-			delete(negativeReviewsMap, clientID)
+			negativeReviewsMap.Delete(clientID)
+
+			syncNumber++
+			err = repository.SaveAll(negativeReviewsMap, messageTracker, syncNumber)
+			if err != nil {
+				log.Errorf("Failed to save data: %v", err)
+				return
+			}
 
 			messagesUntilAck = AckBatchSize
 			err = f.AckLastMessage()
@@ -95,6 +106,18 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 		}
 
 		if messagesUntilAck == 0 {
+			syncNumber++
+			err = repository.SaveAll(negativeReviewsMap, messageTracker, syncNumber)
+			if err != nil {
+				log.Errorf("Failed to save data: %v", err)
+				return
+			}
+
+			if rand.Float32() < 0.6 {
+				f.logger.Infof("Simulating random error")
+				return
+			}
+
 			messagesUntilAck = AckBatchSize
 			err = f.AckLastMessage()
 			if err != nil {
