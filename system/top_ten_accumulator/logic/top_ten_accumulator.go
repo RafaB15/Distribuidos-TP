@@ -94,11 +94,6 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, repository *p.Repository
 				return
 			}
 
-			// if rand.Float32() < 0.04 {
-			// 	t.logger.Infof("Simulating a crash")
-			// 	return
-			// }
-
 			messagesUntilAck = AckBatchSize
 			err = t.AckLastMessage()
 			if err != nil {

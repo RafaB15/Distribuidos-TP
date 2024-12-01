@@ -95,11 +95,6 @@ func (d *DecadeFilter) Run(senderID int, repository *p.Repository) {
 				return
 			}
 
-			// if rand.Float32() < 0.099 {
-			// 	d.logger.Infof("Simulated crash")
-			// 	return
-			// }
-
 			err = d.AckLastMessage()
 			if err != nil {
 				d.logger.Errorf("Failed to ack last message: %v", err)

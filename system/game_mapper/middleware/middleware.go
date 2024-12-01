@@ -55,7 +55,7 @@ func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 		return nil, err
 	}
 
-	rawGamesQueue, err := manager.CreateBoundQueue(RawGamesQueueName, RawGamesExchangeName, RawGamesExchangeType, RawGamesRoutingKey, true)
+	rawGamesQueue, err := manager.CreateBoundQueue(RawGamesQueueName, RawGamesExchangeName, RawGamesExchangeType, RawGamesRoutingKey, false)
 	if err != nil {
 		return nil, err
 	}
@@ -272,6 +272,15 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 		m.logger.Infof("Published EOF to action review joiner %d with sent messages %d and routing key %s", i, messagesSentToReviewJoin, routingKey)
 	}
 
+	return nil
+}
+
+func (m *Middleware) AckLastMessages() error {
+	err := m.RawGamesQueue.AckLastMessages()
+	if err != nil {
+		return fmt.Errorf("failed to ack last message: %v", err)
+	}
+	m.logger.Infof("Acked last message")
 	return nil
 }
 

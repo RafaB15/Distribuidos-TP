@@ -6,6 +6,7 @@ import (
 	g "distribuidos-tp/internal/system_protocol/games"
 	n "distribuidos-tp/internal/system_protocol/node"
 	u "distribuidos-tp/internal/utils"
+	p "distribuidos-tp/system/game_mapper/persistence"
 	"encoding/csv"
 	"strconv"
 	"strings"
@@ -27,6 +28,8 @@ const (
 	ActionGenre = "action"
 
 	EntrypointAmount = 1
+
+	AckBatchSize = 1
 )
 
 var log = logging.MustGetLogger("log")
@@ -37,6 +40,7 @@ type SendGameYearAndAvgPtfFunc func(clientID int, decadeFilterAmount int, gameYe
 type SendIndieGamesNamesFunc func(clientID int, indieGamesNames map[int][]*g.GameName, messageTracker *n.MessageTracker) error
 type SendActionGamesFunc func(clientID int, actionGames []*g.Game, actionReviewJoinerAmount int, messageTracker *n.MessageTracker) error
 type SendEndOfFileFunc func(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int, messageTracker *n.MessageTracker) error
+type AckLastMessageFunc func() error
 
 type GameMapper struct {
 	ReceiveGameBatch      ReceiveGameBatchFunc
@@ -45,6 +49,8 @@ type GameMapper struct {
 	SendIndieGamesNames   SendIndieGamesNamesFunc
 	SendActionGames       SendActionGamesFunc
 	SendEndOfFile         SendEndOfFileFunc
+	AckLastMessage        AckLastMessageFunc
+	logger                *logging.Logger
 }
 
 func NewGameMapper(
@@ -54,6 +60,8 @@ func NewGameMapper(
 	sendIndieGamesNames SendIndieGamesNamesFunc,
 	sendActionGames SendActionGamesFunc,
 	sendEndOfFile SendEndOfFileFunc,
+	ackLastMessage AckLastMessageFunc,
+	logger *logging.Logger,
 ) *GameMapper {
 	return &GameMapper{
 		ReceiveGameBatch:      receiveGameBatch,
@@ -62,11 +70,15 @@ func NewGameMapper(
 		SendIndieGamesNames:   sendIndieGamesNames,
 		SendActionGames:       sendActionGames,
 		SendEndOfFile:         sendEndOfFile,
+		AckLastMessage:        ackLastMessage,
+		logger:                logger,
 	}
 }
 
-func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int) {
-	messageTracker := n.NewMessageTracker(EntrypointAmount)
+func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int, repository *p.Repository) {
+	messageTracker, syncNumber := repository.LoadMessageTracker(EntrypointAmount)
+
+	messagesUntilAck := AckBatchSize
 
 	for {
 		var gamesOS []*oa.GameOS
@@ -151,6 +163,38 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 			}
 
 			messageTracker.DeleteClientInfo(clientID)
+
+			syncNumber++
+			err = repository.SaveMessageTracker(messageTracker, syncNumber)
+			if err != nil {
+				log.Errorf("Failed to save message tracker: %v", err)
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
+			err = gm.AckLastMessage()
+			if err != nil {
+				log.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+		}
+
+		if messagesUntilAck == 0 {
+			syncNumber++
+			err = repository.SaveMessageTracker(messageTracker, syncNumber)
+			if err != nil {
+				gm.logger.Errorf("Failed to save message tracker: %v", err)
+				return
+			}
+
+			err = gm.AckLastMessage()
+			if err != nil {
+				gm.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+			messagesUntilAck = AckBatchSize
+		} else {
+			messagesUntilAck--
 		}
 	}
 }

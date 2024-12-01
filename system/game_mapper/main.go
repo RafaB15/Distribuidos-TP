@@ -4,8 +4,10 @@ import (
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/game_mapper/logic"
 	m "distribuidos-tp/system/game_mapper/middleware"
+	p "distribuidos-tp/system/game_mapper/persistence"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -63,9 +65,15 @@ func main() {
 		middleware.SendIndieGamesNames,
 		middleware.SendActionGames,
 		middleware.SendEndOfFiles,
+		middleware.AckLastMessages,
+		log,
 	)
 
-	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
+
+	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
 		gameMapper.Run(
@@ -73,6 +81,7 @@ func main() {
 			decadeFilterAmount,
 			indieReviewJoinersAmount,
 			actionReviewJoinersAmount,
+			repository,
 		)
 		doneChannel <- true
 	}()

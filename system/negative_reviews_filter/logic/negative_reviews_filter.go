@@ -5,7 +5,6 @@ import (
 	n "distribuidos-tp/internal/system_protocol/node"
 	p "distribuidos-tp/system/negative_reviews_filter/persistence"
 	"github.com/op/go-logging"
-	"math/rand"
 )
 
 var log = logging.MustGetLogger("log")
@@ -42,7 +41,7 @@ func NewNegativeReviewsFilter(
 func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNegativeReviews int, repository *p.Repository) {
 	negativeReviewsMap, messageTracker, syncNumber, err := repository.LoadAll(englishReviewAccumulatorsAmount)
 	if err != nil {
-		log.Errorf("Failed to load data: %v", err)
+		f.logger.Errorf("Failed to load data: %v", err)
 		return
 	}
 
@@ -52,7 +51,7 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 
 		clientID, gameReviewsMetrics, eof, newMessage, err := f.ReceiveGameReviewsMetrics(messageTracker)
 		if err != nil {
-			log.Errorf("Failed to receive game reviews metrics: %v", err)
+			f.logger.Errorf("Failed to receive game reviews metrics: %v", err)
 			return
 		}
 
@@ -63,13 +62,13 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 		}
 
 		if newMessage && !eof {
-			log.Infof("Received game reviews metrics for client %d", clientID)
+			f.logger.Infof("Received game reviews metrics for client %d", clientID)
 			for _, currentGameReviewsMetrics := range gameReviewsMetrics {
-				log.Infof("Received review with negative reviews: %d", currentGameReviewsMetrics.NegativeReviews)
+				f.logger.Infof("Received review with negative reviews: %d", currentGameReviewsMetrics.NegativeReviews)
 				if currentGameReviewsMetrics.NegativeReviews >= minNegativeReviews {
-					log.Infof("Client %d has a game with negative reviews: %s", clientID, currentGameReviewsMetrics.Name)
+					f.logger.Infof("Client %d has a game with negative reviews: %s", clientID, currentGameReviewsMetrics.Name)
 					clientNegativeReviews = append(clientNegativeReviews, currentGameReviewsMetrics)
-					log.Infof("Neagtive filtered: %d", len(clientNegativeReviews))
+					f.logger.Infof("Neagtive filtered: %d", len(clientNegativeReviews))
 				}
 			}
 
@@ -77,15 +76,15 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 		}
 
 		if messageTracker.ClientFinished(clientID, f.logger) {
-			log.Infof("Client %d finished", clientID)
+			f.logger.Infof("Client %d finished", clientID)
 
-			log.Info("Sending query results")
+			f.logger.Info("Sending query results")
 			err = f.SendQueryResults(clientID, clientNegativeReviews)
 			if err != nil {
-				log.Errorf("Failed to send game reviews metrics: %v", err)
+				f.logger.Errorf("Failed to send game reviews metrics: %v", err)
 				return
 			}
-			log.Infof("Sent final result of client: %d", clientID)
+			f.logger.Infof("Sent final result of client: %d", clientID)
 
 			messageTracker.DeleteClientInfo(clientID)
 			negativeReviewsMap.Delete(clientID)
@@ -93,7 +92,7 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 			syncNumber++
 			err = repository.SaveAll(negativeReviewsMap, messageTracker, syncNumber)
 			if err != nil {
-				log.Errorf("Failed to save data: %v", err)
+				f.logger.Errorf("Failed to save data: %v", err)
 				return
 			}
 
@@ -109,12 +108,7 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 			syncNumber++
 			err = repository.SaveAll(negativeReviewsMap, messageTracker, syncNumber)
 			if err != nil {
-				log.Errorf("Failed to save data: %v", err)
-				return
-			}
-
-			if rand.Float32() < 0.6 {
-				f.logger.Infof("Simulating random error")
+				f.logger.Errorf("Failed to save data: %v", err)
 				return
 			}
 

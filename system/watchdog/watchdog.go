@@ -223,6 +223,7 @@ func getServices() map[string]int {
 		"indie_review_joiner":         2,
 		"top_positive_reviews":        1,
 		"english_reviews_accumulator": 2,
+		"game_mapper":                 1,
 	}
 }
 
