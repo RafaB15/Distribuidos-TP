@@ -49,7 +49,6 @@ func (d *DecadeFilter) Run(senderID int, repository *p.Repository) {
 		if newMessage && !eof {
 
 			yearsAvgPtfFiltered := df.FilterByDecade(yearAvgPtfSlice, DECADE)
-			log.Infof("Sending ClientID %d filtered year and avg ptf to top ten accumulator", clientID)
 
 			if len(yearsAvgPtfFiltered) > 0 {
 				err = d.SendFilteredYearAvgPtf(clientID, yearsAvgPtfFiltered, messageTracker)

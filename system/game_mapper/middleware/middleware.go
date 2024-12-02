@@ -146,7 +146,7 @@ func (m *Middleware) SendGamesOS(clientID int, osAccumulatorsAmount int, gamesOS
 
 	routingKey := u.GetPartitioningKeyFromInt(hashedSerializedGameOS, osAccumulatorsAmount, OSGamesRoutingKeyPrefix)
 
-	fmt.Printf("Publishing games OS to routingKey: %s for clientID: %d\n", routingKey, clientID)
+	m.logger.Infof("Publishing games OS to routingKey: %s for clientID: %d", routingKey, clientID)
 	err = m.OSGamesExchange.Publish(routingKey, serializedGameOS)
 	if err != nil {
 		return fmt.Errorf("failed to publish games OS: %v", err)
@@ -165,7 +165,7 @@ func (m *Middleware) SendGameYearAndAvgPtf(clientID int, decadeFilterAmount int,
 	}
 
 	routingKey := u.GetPartitioningKeyFromInt(hashedSerializedGameYearAndAvgPtf, decadeFilterAmount, YearAndAvgPtfRoutingKeyPrefix)
-	fmt.Printf("Publishing games OS to routingKey: %s for clientID: %d\n", routingKey, clientID)
+	m.logger.Infof("Publishing games OS to routingKey: %s for clientID: %d\n", routingKey, clientID)
 
 	err = m.YearAndAvgPtfExchange.Publish(routingKey, serializedGameYearAndAvgPtf)
 	if err != nil {
@@ -176,7 +176,23 @@ func (m *Middleware) SendGameYearAndAvgPtf(clientID int, decadeFilterAmount int,
 }
 
 func (m *Middleware) SendIndieGamesNames(clientID int, indieGamesNames map[int][]*g.GameName, messageTracker *n.MessageTracker) error {
-	return sendGamesNamesToReviewJoin(clientID, indieGamesNames, m.IndieReviewJoinExchange, IndieReviewJoinRoutingKeyPrefix, messageTracker)
+	for shardingKey, gameName := range indieGamesNames {
+		routingKey := fmt.Sprintf("%s%d", IndieReviewJoinRoutingKeyPrefix, shardingKey)
+
+		serializedGamesNames, err := sp.SerializeMsgGameNames(clientID, gameName)
+		if err != nil {
+			return fmt.Errorf("failed to serialize game names: %v", err)
+		}
+
+		err = m.IndieReviewJoinExchange.Publish(routingKey, serializedGamesNames)
+		if err != nil {
+			return fmt.Errorf("failed to publish game names: %v", err)
+		}
+
+		messageTracker.RegisterSentMessage(clientID, routingKey)
+	}
+
+	return nil
 }
 
 func (m *Middleware) SendActionGames(clientID int, actionGames []*g.Game, actionReviewJoinerAmount int, messageTracker *n.MessageTracker) error {
@@ -200,26 +216,6 @@ func (m *Middleware) SendActionGames(clientID int, actionGames []*g.Game, action
 
 		messageTracker.RegisterSentMessage(clientID, routingKey)
 		m.logger.Infof("Published games to action review joiner with routing key: %s", routingKey)
-	}
-
-	return nil
-}
-
-func sendGamesNamesToReviewJoin(clientID int, gamesNamesMap map[int][]*g.GameName, reviewJoinExchange *mom.Exchange, keyPrefix string, messageTracker *n.MessageTracker) error {
-	for shardingKey, gameName := range gamesNamesMap {
-		routingKey := fmt.Sprintf("%s%d", keyPrefix, shardingKey)
-
-		serializedGamesNames, err := sp.SerializeMsgGameNames(clientID, gameName)
-		if err != nil {
-			return fmt.Errorf("failed to serialize game names: %v", err)
-		}
-
-		err = reviewJoinExchange.Publish(routingKey, serializedGamesNames)
-		if err != nil {
-			return fmt.Errorf("failed to publish game names: %v", err)
-		}
-
-		messageTracker.RegisterSentMessage(clientID, routingKey)
 	}
 
 	return nil

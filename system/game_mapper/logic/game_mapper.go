@@ -29,7 +29,7 @@ const (
 
 	EntrypointAmount = 1
 
-	AckBatchSize = 1
+	AckBatchSize = 10
 )
 
 var log = logging.MustGetLogger("log")
@@ -121,11 +121,7 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 					log.Errorf("Failed to update game name maps: %v", err)
 					continue
 				}
-				log.Infof("Action games in: %d", len(actionGames))
-
 			}
-
-			log.Infof("Action games out: %d", len(actionGames))
 
 			err = gm.SendGamesOS(clientID, osAccumulatorsAmount, gamesOS, messageTracker)
 			if err != nil {

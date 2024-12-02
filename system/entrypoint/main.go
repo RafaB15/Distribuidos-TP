@@ -75,7 +75,7 @@ func handleConnection(conn net.Conn, actionReviewJoinersAmount int, reviewAccumu
 
 	doneChannel := make(chan bool)
 
-	middleware, err := m.NewMiddleware(clientID)
+	middleware, err := m.NewMiddleware(clientID, log)
 	if err != nil {
 		fmt.Printf("Error creating middleware: %v for client %d\n", err, clientID)
 		return

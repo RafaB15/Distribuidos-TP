@@ -5,6 +5,8 @@ import (
 	l "distribuidos-tp/system/game_mapper/logic"
 	m "distribuidos-tp/system/game_mapper/middleware"
 	p "distribuidos-tp/system/game_mapper/persistence"
+	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -23,6 +25,7 @@ const (
 var log = logging.MustGetLogger("log")
 
 func main() {
+	go handlePing()
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
 
@@ -87,4 +90,14 @@ func main() {
 	}()
 
 	<-doneChannel
+}
+
+func handlePing() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// fmt.Fprintln(w, "Pong")
+	})
+
+	if err := http.ListenAndServe(":80", nil); err != nil {
+		fmt.Printf("Error starting server: %v\n", err)
+	}
 }

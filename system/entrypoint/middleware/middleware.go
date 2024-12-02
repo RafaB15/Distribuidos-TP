@@ -11,6 +11,7 @@ import (
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
 	"fmt"
+	"github.com/op/go-logging"
 )
 
 const (
@@ -44,9 +45,10 @@ type Middleware struct {
 	ReviewsExchange            *mom.Exchange
 	ActionReviewJoinerExchange *mom.Exchange
 	QueryResultsQueue          *mom.Queue
+	logger                     *logging.Logger
 }
 
-func NewMiddleware(clientID int) (*Middleware, error) {
+func NewMiddleware(clientID int, logger *logging.Logger) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(MiddlewareURI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create middleware manager: %v", err)
@@ -80,6 +82,7 @@ func NewMiddleware(clientID int) (*Middleware, error) {
 		ReviewsExchange:            reviewsExchange,
 		ActionReviewJoinerExchange: actionReviewJoinerExchange,
 		QueryResultsQueue:          queryResultsQueue,
+		logger:                     logger,
 	}, nil
 }
 
@@ -99,12 +102,12 @@ func (m *Middleware) SendReviewsBatch(clientID int, actionReviewJoinersAmount in
 		return 0, fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}
 
-	err = sendToReviewNodeV2(clientID, actionReviewJoinersAmount, m.ActionReviewJoinerExchange, ActionReviewJoinerRoutingKeyPrefix, rawReviews, messageTracker)
+	err = sendToReviewNode(clientID, actionReviewJoinersAmount, m.ActionReviewJoinerExchange, ActionReviewJoinerRoutingKeyPrefix, rawReviews, messageTracker, m.logger)
 	if err != nil {
 		return 0, fmt.Errorf("failed to publish message to negative pre filter: %v", err)
 	}
 
-	err = sendToReviewNodeV2(clientID, reviewAccumulatorsAmount, m.ReviewsExchange, ReviewsRoutingKeyPrefix, rawReviews, messageTracker)
+	err = sendToReviewNode(clientID, reviewAccumulatorsAmount, m.ReviewsExchange, ReviewsRoutingKeyPrefix, rawReviews, messageTracker, m.logger)
 	if err != nil {
 		return 0, fmt.Errorf("failed to publish message to review mapper: %v", err)
 	}
@@ -112,25 +115,7 @@ func (m *Middleware) SendReviewsBatch(clientID int, actionReviewJoinersAmount in
 	return len(rawReviews), nil
 }
 
-func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview) error {
-	routingKeyMap := make(map[string][]*r.RawReview)
-	for _, rawReview := range rawReviews {
-		routingKey := u.GetPartitioningKeyFromInt(int(rawReview.AppId), nodesAmount, routingKeyPrefix)
-		routingKeyMap[routingKey] = append(routingKeyMap[routingKey], rawReview)
-	}
-
-	for routingKey, reviews := range routingKeyMap {
-		serializedReviews := sp.SerializeMsgRawReviewInformationBatch(clientID, reviews)
-		err := exchange.Publish(routingKey, serializedReviews)
-		if err != nil {
-			return fmt.Errorf("failed to publish message: %v", err)
-		}
-	}
-
-	return nil
-}
-
-func sendToReviewNodeV2(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview, messageTracker *n.MessageTracker) error {
+func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview, messageTracker *n.MessageTracker, logger *logging.Logger) error {
 	routingKeyMap := make(map[string][]*r.RawReview)
 	for _, rawReview := range rawReviews {
 		routingKey := u.GetPartitioningKeyFromInt(int(rawReview.AppId), nodesAmount, routingKeyPrefix)
