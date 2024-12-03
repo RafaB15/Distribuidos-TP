@@ -2,7 +2,9 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"net/http"
 )
 
 func WriteExact(writer io.Writer, data []byte) error {
@@ -36,4 +38,14 @@ func ReadExact(reader io.Reader, length int) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func HandlePing() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// fmt.Fprintln(w, "Pong")
+	})
+
+	if err := http.ListenAndServe(":80", nil); err != nil {
+		fmt.Printf("Error starting server: %v\n", err)
+	}
 }

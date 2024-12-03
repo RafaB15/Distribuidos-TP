@@ -21,6 +21,7 @@ const (
 var log = logging.MustGetLogger("log")
 
 func main() {
+	go u.HandlePing()
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
 
