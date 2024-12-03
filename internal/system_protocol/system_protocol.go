@@ -20,8 +20,8 @@ const (
 	MsgAccumulatedGameOSInformation
 	MsgGameYearAndAvgPtfInformation
 	MsgBatch
-	MsgReviewInformation
-	MsgReducedReviewInformation
+	MsgReviewInformationBatch
+	MsgReducedReviewInformationBatch
 	MsgGameReviewsMetrics
 	MsgNamedGameReviewsMetrics
 	MsgGameNames
@@ -173,26 +173,25 @@ func DeserializeMsgRawReviewInformation(message []byte) (*r.RawReview, error) {
 // --------------------------------------------------------
 // Message ReviewInformation
 
-func SerializeMsgReviewInformation(clientID int, review *r.Review) []byte {
-	serializedReview := review.Serialize()
-	return SerializeMessage(MsgReviewInformation, clientID, serializedReview)
+func SerializeMsgReviewInformationBatch(clientID int, reviews []*r.Review) []byte {
+	serializedReviewBatch := r.SerializeReviewsBatch(reviews)
+	return SerializeMessage(MsgReviewInformationBatch, clientID, serializedReviewBatch)
 }
 
-func DeserializeMsgReviewInformation(message []byte) (*r.Review, error) {
-	deserializedReview, _, err := r.DeserializeReview(message)
-	return deserializedReview, err
+func DeserializeMsgReviewInformationBatch(message []byte) ([]*r.Review, error) {
+	return r.DeserializeReviewsBatch(message)
 }
 
 // --------------------------------------------------------
 // SerializeMsgReviewInformation Message ReducedReview Information
 
-func SerializeMsgReducedReviewInformation(clientID int, review *r.ReducedReview) []byte {
-	serializedReview := review.Serialize()
-	return SerializeMessage(MsgReducedReviewInformation, clientID, serializedReview)
+func SerializeMsgReducedReviewInformationBatch(clientID int, reducedReviews []*r.ReducedReview) []byte {
+	serializedReview := r.SerializeReducedReviewsBatch(reducedReviews)
+	return SerializeMessage(MsgReducedReviewInformationBatch, clientID, serializedReview)
 }
 
-func DeserializeMsgReducedReviewInformation(message []byte) (*r.ReducedReview, error) {
-	return r.DeserializeReducedReview(message)
+func DeserializeMsgReducedReviewInformationBatch(message []byte) ([]*r.ReducedReview, error) {
+	return r.DeserializeReducedReviewsBatch(message)
 }
 
 // --------------------------------------------------------

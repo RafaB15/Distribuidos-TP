@@ -11,14 +11,14 @@ const (
 	AckBatchSize = 250
 )
 
-type ReceiveGameReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, review *r.Review, eof bool, newMessage bool, e error)
-type SendEnglishReviewFunc func(clientID int, reducedReview *r.ReducedReview, englishAccumulatorsAmount int, messageTracker *n.MessageTracker) error
+type ReceiveGameReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, reviews []*r.Review, eof bool, newMessage bool, e error)
+type SendEnglishReviewsFunc func(clientID int, reducedReviews []*r.ReducedReview, englishAccumulatorsAmount int, messageTracker *n.MessageTracker) error
 type SendEndOfFilesFunc func(clientID int, senderID int, accumulatorsAmount int, messageTracker *n.MessageTracker) error
 type AckLastMessageFunc func() error
 
 type EnglishReviewsFilter struct {
 	ReceiveGameReviews ReceiveGameReviewsFunc
-	SendEnglishReview  SendEnglishReviewFunc
+	SendEnglishReviews SendEnglishReviewsFunc
 	SendEnfOfFiles     SendEndOfFilesFunc
 	AckLastMessage     AckLastMessageFunc
 	logger             *logging.Logger
@@ -26,14 +26,14 @@ type EnglishReviewsFilter struct {
 
 func NewEnglishReviewsFilter(
 	receiveGameReviews ReceiveGameReviewsFunc,
-	sendEnglishReviews SendEnglishReviewFunc,
+	sendEnglishReviews SendEnglishReviewsFunc,
 	sendEndOfFiles SendEndOfFilesFunc,
 	ackLastMessage AckLastMessageFunc,
 	logger *logging.Logger,
 ) *EnglishReviewsFilter {
 	return &EnglishReviewsFilter{
 		ReceiveGameReviews: receiveGameReviews,
-		SendEnglishReview:  sendEnglishReviews,
+		SendEnglishReviews: sendEnglishReviews,
 		SendEnfOfFiles:     sendEndOfFiles,
 		AckLastMessage:     ackLastMessage,
 		logger:             logger,
@@ -48,20 +48,24 @@ func (f *EnglishReviewsFilter) Run(id int, accumulatorsAmount int, actionReviewJ
 	languageIdentifier := r.NewLanguageIdentifier()
 
 	for {
-		clientID, review, eof, newMessage, err := f.ReceiveGameReviews(messageTracker)
+		clientID, reviews, eof, newMessage, err := f.ReceiveGameReviews(messageTracker)
 		if err != nil {
-			f.logger.Errorf("Failed to receive game review: %v", err)
+			f.logger.Errorf("Failed to receive game reviews: %v", err)
 			return
 		}
 
 		if newMessage && !eof {
-			if languageIdentifier.IsEnglish(review.ReviewText) {
-				review := r.NewReducedReview(review.ReviewId, review.AppId, review.Name, review.Positive)
-				err := f.SendEnglishReview(clientID, review, accumulatorsAmount, messageTracker)
-				if err != nil {
-					f.logger.Errorf("Failed to send english review: %v", err)
-					return
+			var reviewsToSend []*r.ReducedReview
+			for _, review := range reviews {
+				if languageIdentifier.IsEnglish(review.ReviewText) {
+					review := r.NewReducedReview(review.ReviewId, review.AppId, review.Name, review.Positive)
+					reviewsToSend = append(reviewsToSend, review)
 				}
+			}
+			err := f.SendEnglishReviews(clientID, reviewsToSend, accumulatorsAmount, messageTracker)
+			if err != nil {
+				f.logger.Errorf("Failed to send english reviews: %v", err)
+				return
 			}
 		}
 

@@ -58,7 +58,7 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveReview(messageTracker *n.MessageTracker) (clientID int, reducedReview *r.ReducedReview, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveReview(messageTracker *n.MessageTracker) (clientID int, reducedReviews []*r.ReducedReview, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.ActionReviewsAccumulatorQueue.Consume()
 	if err != nil {
 		return 0, nil, false, false, err
@@ -92,12 +92,12 @@ func (m *Middleware) ReceiveReview(messageTracker *n.MessageTracker) (clientID i
 		}
 
 		return message.ClientID, nil, true, true, nil
-	case sp.MsgReducedReviewInformation:
-		review, err := sp.DeserializeMsgReducedReviewInformation(message.Body)
+	case sp.MsgReducedReviewInformationBatch:
+		reducedReviews, err := sp.DeserializeMsgReducedReviewInformationBatch(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize review: %v", err)
+			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize reducedReviews: %v", err)
 		}
-		return message.ClientID, review, false, true, nil
+		return message.ClientID, reducedReviews, false, true, nil
 	default:
 		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %v", message.Type)
 	}

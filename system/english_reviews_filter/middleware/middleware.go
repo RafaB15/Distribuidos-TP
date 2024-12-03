@@ -59,7 +59,7 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameReviews(messageTracker *n.MessageTracker) (clientID int, review *r.Review, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveGameReviews(messageTracker *n.MessageTracker) (clientID int, reviews []*r.Review, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.RawEnglishReviewsQueue.Consume()
 	if err != nil {
 		return 0, nil, false, false, fmt.Errorf("failed to consume message: %v", err)
@@ -93,29 +93,33 @@ func (m *Middleware) ReceiveGameReviews(messageTracker *n.MessageTracker) (clien
 		}
 
 		return message.ClientID, nil, true, true, nil
-	case sp.MsgReviewInformation:
-		review, err := sp.DeserializeMsgReviewInformation(message.Body)
+	case sp.MsgReviewInformationBatch:
+		reviews, err := sp.DeserializeMsgReviewInformationBatch(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, true, err
 		}
-		return message.ClientID, review, false, true, nil
+		return message.ClientID, reviews, false, true, nil
 	default:
 		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %d", message.Type)
 	}
 }
 
-func (m *Middleware) SendEnglishReview(clientID int, reducedReview *r.ReducedReview, englishAccumulatorsAmount int, messageTracker *n.MessageTracker) error {
-	routingKey := u.GetPartitioningKeyFromInt(int(reducedReview.AppId), englishAccumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
-	serializedReview := sp.SerializeMsgReducedReviewInformation(clientID, reducedReview)
+func (m *Middleware) SendEnglishReview(clientID int, reducedReviews []*r.ReducedReview, englishAccumulatorsAmount int, messageTracker *n.MessageTracker) error {
+	routingKeyMap := make(map[string][]*r.ReducedReview)
 
-	err := m.EnglishReviewsExchange.Publish(routingKey, serializedReview)
-	if err != nil {
-		return fmt.Errorf("failed to publish message: %v", err)
+	for _, reducedReview := range reducedReviews {
+		routingKey := u.GetPartitioningKeyFromInt(int(reducedReview.AppId), englishAccumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
+		routingKeyMap[routingKey] = append(routingKeyMap[routingKey], reducedReview)
 	}
 
-	messageTracker.RegisterSentMessage(clientID, routingKey)
-
-	m.logger.Infof("Sent review for client %d", clientID)
+	for routingKey, reducedReviews := range routingKeyMap {
+		serializedMsg := sp.SerializeMsgReducedReviewInformationBatch(clientID, reducedReviews)
+		err := m.EnglishReviewsExchange.Publish(routingKey, serializedMsg)
+		if err != nil {
+			return fmt.Errorf("failed to publish message: %v", err)
+		}
+		messageTracker.RegisterSentMessage(clientID, routingKey)
+	}
 
 	return nil
 }

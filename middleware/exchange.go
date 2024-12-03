@@ -66,7 +66,6 @@ func (e *Exchange) Publish(routingKey string, body []byte) error {
 	select {
 	case confirm := <-e.confirms:
 		if confirm.Ack {
-			log.Printf("Message confirmed: deliveryTag=%d", confirm.DeliveryTag)
 			return nil
 		}
 		log.Printf("Message nack'd: deliveryTag=%d", confirm.DeliveryTag)
