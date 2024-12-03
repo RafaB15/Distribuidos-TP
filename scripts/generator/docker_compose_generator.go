@@ -1,50 +1,20 @@
 package main
 
 import (
-	"encoding/json"
+	u "distribuidos-tp/internal/utils"
 	"flag"
 	"fmt"
 	"os"
 )
-
-type Config struct {
-	Rabbitmq                     int `json:"rabbitmq"`
-	Entrypoint                   int `json:"entrypoint"`
-	GameMapper                   int `json:"game_mapper"`
-	OSAccumulator                int `json:"os_accumulator"`
-	OSFinalAccumulator           int `json:"os_final_accumulator"`
-	TopTenAccumulator            int `json:"top_ten_accumulator"`
-	TopPositiveReviews           int `json:"top_positive_reviews"`
-	PercentileAccumulator        int `json:"percentile_accumulator"`
-	ReviewsAccumulator           int `json:"reviews_accumulator"`
-	DecadeFilter                 int `json:"decade_filter"`
-	ActionReviewJoiner           int `json:"action_review_joiner"`
-	ActionReviewAccumulator      int `json:"action_review_accumulator"`
-	EnglishFilter                int `json:"english_filter"`
-	EnglishReviewsAccumulator    int `json:"english_reviews_accumulator"`
-	NegativeReviewsFilter        int `json:"negative_reviews_filter"`
-	ActionEnglishReviewJoiner    int `json:"action_english_review_joiner"`
-	ActionPercentileReviewJoiner int `json:"action_percentile_review_joiner"`
-	IndieReviewJoiner            int `json:"indie_review_joiner"`
-	FinalEnglishJoiner           int `json:"final_english_joiner"`
-	FinalPercentileJoiner        int `json:"final_percentile_joiner"`
-}
 
 func main() {
 	configFile := flag.String("config", "config.json", "Configuration file")
 	outputFile := flag.String("output", "docker-compose-dev.yaml", "Output Docker Compose file")
 	flag.Parse()
 
-	config := Config{}
-	data, err := os.ReadFile(*configFile)
+	config, err := u.LoadConfig(*configFile)
 	if err != nil {
-		fmt.Printf("Error reading configuration file: %v\n", err)
-		return
-	}
-
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		fmt.Printf("Error parsing configuration file: %v\n", err)
+		fmt.Printf("Error loading configuration file: %v\n", err)
 		return
 	}
 

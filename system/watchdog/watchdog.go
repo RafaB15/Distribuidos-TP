@@ -1,7 +1,10 @@
 package main
 
 import (
+	u "distribuidos-tp/internal/utils"
+	"flag"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -31,6 +34,17 @@ func main() {
 		return
 	}
 	nodeID = id
+	configFile := flag.String("config", "config.json", "Configuration file")
+	flag.Parse()
+	config, err := u.LoadConfig(*configFile)
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
+
+	if _, err := os.Stat(*configFile); os.IsNotExist(err) {
+		log.Fatalf("Configuration file not found: %s", *configFile)
+	}
 
 	// Start the server in a goroutine
 	go startServer()
@@ -45,7 +59,7 @@ func main() {
 	go startHeartbeat()
 
 	// Start the leader task in a goroutine
-	go performLeaderTask()
+	go performLeaderTask(config)
 
 	// Keep the program running
 	select {}
@@ -180,13 +194,13 @@ func startHeartbeat() {
 	}
 }
 
-func performLeaderTask() {
+func performLeaderTask(config u.Config) {
 	for {
 		time.Sleep(2 * time.Second) // Adjust the interval as needed
 		isLeaderMutex.Lock()
 		if isLeader {
 			fmt.Printf("Node %d is performing the leader task\n", nodeID)
-			services := getServices()
+			services := getServices(config)
 			for service, instances := range services {
 				for i := 1; i <= instances; i++ {
 					unique := false
@@ -209,21 +223,28 @@ func performLeaderTask() {
 	}
 }
 
-func getServices() map[string]int {
+func getServices(config u.Config) map[string]int {
 	return map[string]int{
-		"os_accumulator":              2,
-		"action_review_joiner":        4,
-		"os_final_accumulator":        1,
-		"action_reviews_accumulator":  4,
-		"english_filter":              4,
-		"percentile_accumulator":      1,
-		"decade_filter":               2,
-		"top_ten_accumulator":         1,
-		"reviews_accumulator":         4,
-		"indie_review_joiner":         2,
-		"top_positive_reviews":        1,
-		"english_reviews_accumulator": 2,
-		"game_mapper":                 1,
+		"rabbitmq":                        config.Rabbitmq,
+		"entrypoint":                      config.Entrypoint,
+		"game_mapper":                     config.GameMapper,
+		"os_accumulator":                  config.OSAccumulator,
+		"os_final_accumulator":            config.OSFinalAccumulator,
+		"top_ten_accumulator":             config.TopTenAccumulator,
+		"top_positive_reviews":            config.TopPositiveReviews,
+		"percentile_accumulator":          config.PercentileAccumulator,
+		"reviews_accumulator":             config.ReviewsAccumulator,
+		"decade_filter":                   config.DecadeFilter,
+		"action_review_joiner":            config.ActionReviewJoiner,
+		"action_review_accumulator":       config.ActionReviewAccumulator,
+		"english_filter":                  config.EnglishFilter,
+		"english_reviews_accumulator":     config.EnglishReviewsAccumulator,
+		"negative_reviews_filter":         config.NegativeReviewsFilter,
+		"action_percentile_review_joiner": config.ActionPercentileReviewJoiner,
+		"action_english_review_joiner":    config.ActionEnglishReviewJoiner,
+		"indie_review_joiner":             config.IndieReviewJoiner,
+		"final_english_joiner":            config.FinalEnglishJoiner,
+		"final_percentile_joiner":         config.FinalPercentileJoiner,
 	}
 }
 
