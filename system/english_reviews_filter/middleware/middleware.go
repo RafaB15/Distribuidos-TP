@@ -130,7 +130,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, senderID int, accumulatorsAmou
 	for i := 1; i <= accumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, i)
 		messagesSentToNode := messagesSent[routingKey]
-		serializedMsg := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+		serializedMsg := sp.SerializeMsgEndOfFile(clientID, senderID, messagesSentToNode)
 		err := m.EnglishReviewsExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)

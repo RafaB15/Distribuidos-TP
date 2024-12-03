@@ -171,7 +171,7 @@ func (m *Middleware) SendEndOfFile(clientID int, senderID int, englishFiltersAmo
 	for i := 1; i <= englishFiltersAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", RawEnglishReviewsRoutingKeyPrefix, i)
 		messagesSentToNode := messagesSent[routingKey]
-		serializedMsg := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+		serializedMsg := sp.SerializeMsgEndOfFile(clientID, senderID, messagesSentToNode)
 		err := m.RawEnglishReviewsExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
@@ -182,7 +182,7 @@ func (m *Middleware) SendEndOfFile(clientID int, senderID int, englishFiltersAmo
 	for i := 1; i <= actionReviewsAccumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", ActionReviewsAccumulatorRoutingKeyPrefix, i)
 		messagesSentToNode := messagesSent[routingKey]
-		serializedMsg := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+		serializedMsg := sp.SerializeMsgEndOfFile(clientID, senderID, messagesSentToNode)
 		err := m.ActionReviewsAccumulatorExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)

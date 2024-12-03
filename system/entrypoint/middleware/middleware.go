@@ -151,7 +151,7 @@ func getDeserializedRawReviews(data []byte, currentReviewId int) ([]*r.RawReview
 func (m *Middleware) SendGamesEndOfFile(clientID int, messageTracker *n.MessageTracker) error {
 	messagesSent := messageTracker.GetSentMessages(clientID)
 	messagesSentToGameMapper := messagesSent[RawGamesRoutingKey]
-	serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 0, messagesSentToGameMapper)
+	serializedMessage := sp.SerializeMsgEndOfFile(clientID, 0, messagesSentToGameMapper)
 
 	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, serializedMessage)
 	if err != nil {
@@ -166,7 +166,7 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, actionReviewJoinersAmoun
 
 	for i := 1; i <= actionReviewJoinersAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, i)
-		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 0, messagesSent[routingKey])
+		serializedMessage := sp.SerializeMsgEndOfFile(clientID, 0, messagesSent[routingKey])
 		err := m.ActionReviewJoinerExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
@@ -176,7 +176,7 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, actionReviewJoinersAmoun
 
 	for i := 1; i <= reviewAccumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", ReviewsRoutingKeyPrefix, i)
-		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 0, messagesSent[routingKey])
+		serializedMessage := sp.SerializeMsgEndOfFile(clientID, 0, messagesSent[routingKey])
 		err := m.ReviewsExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)

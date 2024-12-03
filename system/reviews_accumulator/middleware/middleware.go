@@ -131,7 +131,7 @@ func (m *Middleware) SendEof(clientID int, senderID int, indieReviewJoinersAmoun
 	for nodeId := 1; nodeId <= indieReviewJoinersAmount; nodeId++ {
 		routingKey := fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId)
 		messagesSentToNode := messagesSent[routingKey]
-		serializedMsg := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+		serializedMsg := sp.SerializeMsgEndOfFile(clientID, senderID, messagesSentToNode)
 		err := m.IndieReviewJoinExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return err

@@ -228,7 +228,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 		routingKey := fmt.Sprintf("%s%d", OSGamesRoutingKeyPrefix, i)
 		messageSentToRoutingKey := messagesSent[routingKey]
 		fmt.Printf("Publishing EndOfFile to routingKey: %s for clientID: %d\n", routingKey, clientID)
-		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 1, messageSentToRoutingKey)
+		serializedMessage := sp.SerializeMsgEndOfFile(clientID, 1, messageSentToRoutingKey)
 		err := m.OSGamesExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
 			return err
@@ -239,7 +239,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 		routingKey := fmt.Sprintf("%s%d", YearAndAvgPtfRoutingKeyPrefix, i)
 		messageSentToRoutingKey := messagesSent[routingKey]
 		fmt.Printf("Publishing EndOfFile to routingKey: %s for clientID: %d\n", routingKey, clientID)
-		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 1, messageSentToRoutingKey)
+		serializedMessage := sp.SerializeMsgEndOfFile(clientID, 1, messageSentToRoutingKey)
 		err := m.YearAndAvgPtfExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
 			return err
@@ -249,7 +249,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 	for i := 1; i <= indieReviewJoinersAmount; i++ {
 		routingKey := u.GetPartitioningKeyFromInt(i, indieReviewJoinersAmount, IndieReviewJoinRoutingKeyPrefix)
 		messageSentToRoutingKey := messagesSent[routingKey]
-		serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, 1, messageSentToRoutingKey)
+		serializedMessage := sp.SerializeMsgEndOfFile(clientID, 1, messageSentToRoutingKey)
 
 		err := m.IndieReviewJoinExchange.Publish(routingKey, serializedMessage)
 		if err != nil {
@@ -260,7 +260,7 @@ func (m *Middleware) SendEndOfFiles(clientID int, osAccumulatorsAmount int, deca
 	for i := 1; i <= actionReviewJoinersAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, i)
 		messagesSentToReviewJoin := messagesSent[routingKey]
-		serializedMsg := sp.SerializeMsgEndOfFileV2(clientID, 1, messagesSentToReviewJoin)
+		serializedMsg := sp.SerializeMsgEndOfFile(clientID, 1, messagesSentToReviewJoin)
 		err := m.ActionReviewJoinExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return err

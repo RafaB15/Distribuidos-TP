@@ -125,7 +125,7 @@ func (m *Middleware) SendFilteredYearAvgPtf(clientID int, gamesYearsAvgPtfs []*d
 func (m *Middleware) SendEof(clientID int, senderID int, messageTracker *n.MessageTracker) error {
 	messagesSent := messageTracker.GetSentMessages(clientID)
 	messagesSentToNode := messagesSent[TopTenAccumulatorRoutingKey]
-	serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+	serializedMessage := sp.SerializeMsgEndOfFile(clientID, senderID, messagesSentToNode)
 	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, serializedMessage)
 	if err != nil {
 		return err

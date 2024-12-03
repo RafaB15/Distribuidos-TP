@@ -27,17 +27,10 @@ const (
 	MsgGameNames
 	MsgGames
 	MsgJoinedPositiveGameReviews
-	MsgJoinedNegativeGameReviews
-	MsgRawReviewInformation
 	MsgRawReviewInformationBatch
 )
 
-// SerializeMsgEndOfFile Message End of file
-func SerializeMsgEndOfFile(clientId int) []byte {
-	return SerializeMessage(MsgEndOfFile, clientId, nil)
-}
-
-func SerializeMsgEndOfFileV2(clientId int, senderID int, messagesSent int) []byte {
+func SerializeMsgEndOfFile(clientId int, senderID int, messagesSent int) []byte {
 	endOfFile := n.NewEndOfFile(senderID, messagesSent)
 	return SerializeMessage(MsgEndOfFile, clientId, endOfFile.Serialize())
 }
@@ -155,19 +148,6 @@ func DeserializeMsgGameOSInformation(message []byte) ([]*oa.GameOS, error) {
 	}
 
 	return gameOSList, nil
-}
-
-// --------------------------------------------------------
-// Message RawReviewInformation
-
-func SerializeMsgRawReviewInformation(clientID int, review *r.RawReview) []byte {
-	serializedReview := review.Serialize()
-	return SerializeMessage(MsgRawReviewInformation, clientID, serializedReview)
-}
-
-func DeserializeMsgRawReviewInformation(message []byte) (*r.RawReview, error) {
-	rawReview, _, err := r.DeserializeRawReview(message)
-	return rawReview, err
 }
 
 // --------------------------------------------------------

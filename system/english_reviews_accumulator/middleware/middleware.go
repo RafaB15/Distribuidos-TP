@@ -120,7 +120,7 @@ func (m *Middleware) SendAccumulatedReviews(clientID int, metrics []*ra.NamedGam
 func (m *Middleware) SendEndOfFiles(clientID int, senderID int, messageTracker *n.MessageTracker) error {
 	messagesSent := messageTracker.GetSentMessages(clientID)
 	messagesSentToNode := messagesSent[AccumulatedEnglishReviewsRoutingKey]
-	serializedEOF := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+	serializedEOF := sp.SerializeMsgEndOfFile(clientID, senderID, messagesSentToNode)
 	err := m.AccumulatedEnglishReviewsExchange.Publish(AccumulatedEnglishReviewsRoutingKey, serializedEOF)
 	if err != nil {
 		return fmt.Errorf("failed to publish end of file: %v", err)

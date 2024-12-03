@@ -146,7 +146,7 @@ func (m *Middleware) SendMetrics(clientID int, reviewsInformation *j.JoinedPosit
 func (m *Middleware) SendEof(clientID int, senderID int, messageTracker *n.MessageTracker) error {
 	messagesSent := messageTracker.GetSentMessages(clientID)
 	messagesSentToNode := messagesSent[TopPositiveReviewsRoutingKey]
-	serializedMessage := sp.SerializeMsgEndOfFileV2(clientID, senderID, messagesSentToNode)
+	serializedMessage := sp.SerializeMsgEndOfFile(clientID, senderID, messagesSentToNode)
 	err := m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, serializedMessage)
 	if err != nil {
 		return err
