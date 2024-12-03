@@ -20,6 +20,8 @@ const (
 	MsgAccumulatedGameOSInformation
 	MsgGameYearAndAvgPtfInformation
 	MsgBatch
+	MsgRawReviewInformationBatch
+	MsgReducedRawReviewInformationBatch
 	MsgReviewInformationBatch
 	MsgReducedReviewInformationBatch
 	MsgGameReviewsMetrics
@@ -27,7 +29,6 @@ const (
 	MsgGameNames
 	MsgGames
 	MsgJoinedPositiveGameReviews
-	MsgRawReviewInformationBatch
 )
 
 func SerializeMsgEndOfFile(clientId int, senderID int, messagesSent int) []byte {
@@ -184,6 +185,18 @@ func SerializeMsgRawReviewInformationBatch(clientID int, reviews []*r.RawReview)
 
 func DeserializeMsgRawReviewInformationBatch(message []byte) ([]*r.RawReview, error) {
 	return r.DeserializeRawReviewsBatch(message)
+}
+
+// --------------------------------------------------------
+// Message ReducedRawReviewInformationBatch
+
+func SerializeMsgReducedRawReviewInformationBatch(clientID int, reviews []*r.ReducedRawReview) []byte {
+	serializedReviews := r.SerializeReducedRawReviewsBatch(reviews)
+	return SerializeMessage(MsgReducedRawReviewInformationBatch, clientID, serializedReviews)
+}
+
+func DeserializeMsgReducedRawReviewInformationBatch(message []byte) ([]*r.ReducedRawReview, error) {
+	return r.DeserializeReducedRawReviewsBatch(message)
 }
 
 // --------------------------------------------------------

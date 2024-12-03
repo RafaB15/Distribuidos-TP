@@ -37,6 +37,14 @@ func (m *GameReviewsMetrics) UpdateWithRawReview(review *r.RawReview) {
 	}
 }
 
+func (m *GameReviewsMetrics) UpdateWithReducedRawReview(review *r.ReducedRawReview) {
+	if review.Positive {
+		m.PositiveReviews += 1
+	} else {
+		m.NegativeReviews += 1
+	}
+}
+
 func SerializeGameReviewsMetrics(metrics *GameReviewsMetrics) []byte {
 	buf := make([]byte, 12)
 	binary.BigEndian.PutUint32(buf[0:4], metrics.AppID)

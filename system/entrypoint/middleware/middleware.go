@@ -97,25 +97,25 @@ func (m *Middleware) SendGamesBatch(clientID int, data []byte, messageTracker *n
 }
 
 func (m *Middleware) SendReviewsBatch(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, messageTracker *n.MessageTracker) (sentReviewsAmount int, e error) {
-	rawReviews, err := getDeserializedRawReviews(data, currentReviewId)
+	rawReviews, reducedRawReviews, err := getDeserializedRawReviews(data, currentReviewId)
 	if err != nil {
 		return 0, fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}
 
-	err = sendToReviewNode(clientID, actionReviewJoinersAmount, m.ActionReviewJoinerExchange, ActionReviewJoinerRoutingKeyPrefix, rawReviews, messageTracker, m.logger)
+	err = sendReviewsToNode(clientID, actionReviewJoinersAmount, m.ActionReviewJoinerExchange, ActionReviewJoinerRoutingKeyPrefix, rawReviews, messageTracker)
 	if err != nil {
 		return 0, fmt.Errorf("failed to publish message to negative pre filter: %v", err)
 	}
 
-	err = sendToReviewNode(clientID, reviewAccumulatorsAmount, m.ReviewsExchange, ReviewsRoutingKeyPrefix, rawReviews, messageTracker, m.logger)
+	err = sendReducedReviewsToNode(clientID, reviewAccumulatorsAmount, m.ReviewsExchange, ReviewsRoutingKeyPrefix, reducedRawReviews, messageTracker)
 	if err != nil {
-		return 0, fmt.Errorf("failed to publish message to review mapper: %v", err)
+		return 0, fmt.Errorf("failed to publish message to review accumulator: %v", err)
 	}
 
 	return len(rawReviews), nil
 }
 
-func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview, messageTracker *n.MessageTracker, logger *logging.Logger) error {
+func sendReviewsToNode(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, rawReviews []*r.RawReview, messageTracker *n.MessageTracker) error {
 	routingKeyMap := make(map[string][]*r.RawReview)
 	for _, rawReview := range rawReviews {
 		routingKey := u.GetPartitioningKeyFromInt(int(rawReview.AppId), nodesAmount, routingKeyPrefix)
@@ -134,18 +134,43 @@ func sendToReviewNode(clientID int, nodesAmount int, exchange *mom.Exchange, rou
 	return nil
 }
 
-func getDeserializedRawReviews(data []byte, currentReviewId int) ([]*r.RawReview, error) {
+func sendReducedReviewsToNode(clientID int, nodesAmount int, exchange *mom.Exchange, routingKeyPrefix string, reducedRawReviews []*r.ReducedRawReview, messageTracker *n.MessageTracker) error {
+	routingKeyMap := make(map[string][]*r.ReducedRawReview)
+	for _, reducedRawReview := range reducedRawReviews {
+		routingKey := u.GetPartitioningKeyFromInt(int(reducedRawReview.AppId), nodesAmount, routingKeyPrefix)
+		routingKeyMap[routingKey] = append(routingKeyMap[routingKey], reducedRawReview)
+	}
+
+	for routingKey, reviews := range routingKeyMap {
+		serializedReviews := sp.SerializeMsgReducedRawReviewInformationBatch(clientID, reviews)
+		err := exchange.Publish(routingKey, serializedReviews)
+		if err != nil {
+			return fmt.Errorf("failed to publish message: %v", err)
+		}
+		messageTracker.RegisterSentMessage(clientID, routingKey)
+	}
+
+	return nil
+}
+
+func getDeserializedRawReviews(data []byte, currentReviewId int) ([]*r.RawReview, []*r.ReducedRawReview, error) {
 	lines, err := sp.DeserializeMsgBatch(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deserialize message: %v", err)
+		return nil, nil, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
 	rawReviews, err := r.DeserializeRawReviewsBatchFromStrings(lines, AppIdIndex, ReviewScoreIndex, ReviewTextIndex, currentReviewId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deserialize raw reviews: %v", err)
+		return nil, nil, fmt.Errorf("failed to deserialize raw reviews: %v", err)
 	}
 
-	return rawReviews, nil
+	var reducedRawReviews []*r.ReducedRawReview
+	for _, rawReviews := range rawReviews {
+		reducedRawReview := r.NewReducedRawReview(rawReviews.ReviewId, rawReviews.AppId, rawReviews.Positive)
+		reducedRawReviews = append(reducedRawReviews, reducedRawReview)
+	}
+
+	return rawReviews, reducedRawReviews, nil
 }
 
 func (m *Middleware) SendGamesEndOfFile(clientID int, messageTracker *n.MessageTracker) error {
@@ -194,15 +219,16 @@ func (m *Middleware) ReceiveQueryResponse(querysArrived map[int]bool) ([]byte, b
 
 	queryResponseMessage, err := sp.DeserializeQuery(rawMsg)
 
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to deserialize message: %v", err)
+	}
+
 	if querysArrived[int(queryResponseMessage.Type)] {
 		return nil, true, nil
 	}
 
 	querysArrived[int(queryResponseMessage.Type)] = true
 
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to deserialize message: %v", err)
-	}
 	// fmt.Printf("Received query response of type: %d\n", queryResponseMessage.Type)
 	switch queryResponseMessage.Type {
 	case sp.MsgOsResolvedQuery:

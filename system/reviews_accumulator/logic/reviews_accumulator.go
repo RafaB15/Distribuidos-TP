@@ -15,7 +15,7 @@ const (
 	expectedEOFs = 1
 )
 
-type ReceiveReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, rawReviews []*reviews.RawReview, eof bool, newMessage bool, e error)
+type ReceiveReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, rawReviews []*reviews.ReducedRawReview, eof bool, newMessage bool, e error)
 type SendAccumulatedReviewsFunc func(clientID int, accumulatedReviews *n.IntMap[*r.GameReviewsMetrics], indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error
 type AckLastMessageFunc func() error
 type SendEofFunc func(clientID int, senderID int, indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error
@@ -51,8 +51,6 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, reposito
 		return
 	}
 	messagesUntilAck := AckBatchSize
-	//accumulatedReviews := make(map[int]map[uint32]*r.GameReviewsMetrics)
-	//messageTracker := n.NewMessageTracker(expectedEOFs)
 
 	for {
 		clientID, rawReviews, eof, newMessage, err := ra.ReceiveReviews(messageTracker)
@@ -74,10 +72,10 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, reposito
 				// log.Infof("Received review for app %d with review id %d", review.AppId, review.ReviewId)
 				if metrics, exists := clientAccumulatedReviews.Get(int(review.AppId)); exists {
 					// log.Infof("Accumulating review for app %d", review.AppId)
-					metrics.UpdateWithRawReview(review)
+					metrics.UpdateWithReducedRawReview(review)
 				} else {
 					newMetrics := r.NewReviewsMetrics(review.AppId)
-					newMetrics.UpdateWithRawReview(review)
+					newMetrics.UpdateWithReducedRawReview(review)
 					clientAccumulatedReviews.Set(int(review.AppId), newMetrics)
 				}
 			}

@@ -60,7 +60,7 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveReviews(messageTracker *n.MessageTracker) (clientID int, rawReviews []*reviews.RawReview, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveReviews(messageTracker *n.MessageTracker) (clientID int, rawReviews []*reviews.ReducedRawReview, eof bool, newMessage bool, e error) {
 	rawMsg, err := m.ReviewsQueue.Consume()
 	if err != nil {
 		return 0, nil, false, false, err
@@ -93,8 +93,8 @@ func (m *Middleware) ReceiveReviews(messageTracker *n.MessageTracker) (clientID 
 		}
 		return message.ClientID, nil, true, true, nil
 
-	case sp.MsgRawReviewInformationBatch:
-		reviewsInformation, err := sp.DeserializeMsgRawReviewInformationBatch(message.Body)
+	case sp.MsgReducedRawReviewInformationBatch:
+		reviewsInformation, err := sp.DeserializeMsgReducedRawReviewInformationBatch(message.Body)
 		if err != nil {
 			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize reviewsInformation: %v", err)
 		}
