@@ -5,6 +5,7 @@ import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
+	e "distribuidos-tp/internal/system_protocol/entrypoint"
 	j "distribuidos-tp/internal/system_protocol/joiner"
 	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
@@ -211,7 +212,7 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, actionReviewJoinersAmoun
 	return nil
 }
 
-func (m *Middleware) ReceiveQueryResponse(querysArrived map[int]bool) ([]byte, bool, error) {
+func (m *Middleware) ReceiveQueryResponse(clientTracker *e.ClientTracker) ([]byte, bool, error) {
 	rawMsg, err := m.QueryResultsQueue.Consume()
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to consume message: %v", err)
@@ -223,11 +224,11 @@ func (m *Middleware) ReceiveQueryResponse(querysArrived map[int]bool) ([]byte, b
 		return nil, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
-	if querysArrived[int(queryResponseMessage.Type)] {
+	if clientTracker.IsQueryReceived(queryResponseMessage.ClientID, int(queryResponseMessage.Type)) {
 		return nil, true, nil
 	}
 
-	querysArrived[int(queryResponseMessage.Type)] = true
+	clientTracker.AddQuery(queryResponseMessage.ClientID, int(queryResponseMessage.Type))
 
 	// fmt.Printf("Received query response of type: %d\n", queryResponseMessage.Type)
 	switch queryResponseMessage.Type {

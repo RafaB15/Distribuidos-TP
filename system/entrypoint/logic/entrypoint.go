@@ -1,12 +1,18 @@
 package entrypoint
 
 import (
+	e "distribuidos-tp/internal/system_protocol/entrypoint"
 	n "distribuidos-tp/internal/system_protocol/node"
 	"net"
+	"sync"
 
 	"github.com/op/go-logging"
 
 	cp "distribuidos-tp/internal/client_protocol"
+)
+
+const (
+	QueriesAmount = 5
 )
 
 var log = logging.MustGetLogger("log")
@@ -15,7 +21,7 @@ type SendGamesBatchFunc func(clientID int, data []byte, messageTracker *n.Messag
 type SendReviewsBatchFunc func(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, messageTracker *n.MessageTracker) (sentReviewsAmount int, e error)
 type SendGamesEndOfFileFunc func(clientID int, messageTracker *n.MessageTracker) error
 type SendReviewsEndOfFileFunc func(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, messageTracker *n.MessageTracker) error
-type ReceiveQueryResultFunc func(querysArrived map[int]bool) (rawMessage []byte, repeated bool, e error)
+type ReceiveQueryResultFunc func(clientTracker *e.ClientTracker) (rawMessage []byte, repeated bool, e error)
 
 type EntryPoint struct {
 	SendGamesBatch       SendGamesBatchFunc
@@ -41,7 +47,7 @@ func NewEntryPoint(
 	}
 }
 
-func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int) {
+func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, clientTracker *e.ClientTracker, mu *sync.Mutex) {
 	eofGames := false
 	eofReviews := false
 
@@ -87,12 +93,12 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount 
 		}
 	}
 
-	remainingQueries := 5
+	mu.Lock()
+	clientTracker.StartAwaiting(clientID)
+	mu.Unlock()
 
-	querysArrived := make(map[int]bool)
-
-	for remainingQueries > 0 {
-		result, repeated, err := e.ReceiveQueryResult(querysArrived)
+	for !clientTracker.IsFinished(clientID, QueriesAmount) {
+		result, repeated, err := e.ReceiveQueryResult(clientTracker)
 		if err != nil {
 			log.Errorf("Error receiving query result for client %d: %v", clientID, err)
 			return
@@ -103,6 +109,7 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount 
 			continue
 		}
 
+		// Probar cambiar por WriteExact
 		totalWritten := 0
 		for totalWritten < len(result) {
 			n, err := conn.Write([]byte(result[totalWritten:]))
@@ -112,9 +119,11 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount 
 			}
 			totalWritten += n
 		}
-
-		remainingQueries--
 	}
+
+	mu.Lock()
+	clientTracker.Finish(clientID)
+	mu.Unlock()
 
 	log.Infof("Client %d finished", clientID)
 }

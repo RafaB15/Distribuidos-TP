@@ -1,6 +1,7 @@
 package main
 
 import (
+	e "distribuidos-tp/internal/system_protocol/entrypoint"
 	u "distribuidos-tp/internal/utils"
 	"os"
 	"os/signal"
@@ -50,7 +51,8 @@ func main() {
 
 	go handleMainGracefulShutdown(listener, signalChannel, &mainWG)
 
-	clientID := 1
+	var mu sync.Mutex
+	clientTracker := e.NewClientTracker()
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -59,14 +61,16 @@ func main() {
 		}
 
 		mainWG.Add(1)
-		go handleConnection(conn, actionReviewJoinerAmount, reviewAccumulatorsAmount, clientID, &mainWG)
-		clientID++
+		mu.Lock()
+		currentClientId := clientTracker.AddClient()
+		mu.Unlock()
+		go handleConnection(conn, actionReviewJoinerAmount, reviewAccumulatorsAmount, currentClientId, &mainWG, clientTracker, mu)
 	}
 
 	mainWG.Wait()
 }
 
-func handleConnection(conn net.Conn, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, clientID int, mainWG *sync.WaitGroup) {
+func handleConnection(conn net.Conn, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, clientID int, mainWG *sync.WaitGroup, clientTracker *e.ClientTracker, mu sync.Mutex) {
 	defer mainWG.Done()
 	defer conn.Close()
 
@@ -93,7 +97,7 @@ func handleConnection(conn net.Conn, actionReviewJoinersAmount int, reviewAccumu
 	go handleClientGracefulShutdown(clientID, conn, &clientWG, middleware, signalChannel, doneChannel)
 
 	go func() {
-		entryPoint.Run(conn, clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount)
+		entryPoint.Run(conn, clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount, clientTracker, &mu)
 		doneChannel <- true
 	}()
 
