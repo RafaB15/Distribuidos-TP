@@ -13,13 +13,13 @@ const (
 	AckBatchSize = 200
 )
 
-type ReceiveReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, reducedReviews []*r.ReducedReview, eof bool, newMessage bool, e error)
+type ReceiveReviewFunc func(messageTracker *n.MessageTracker) (clientID int, reducedReview *r.ReducedReview, eof bool, newMessage bool, e error)
 type SendAccumulatedReviewsFunc func(clientID int, metrics []*ra.NamedGameReviewsMetrics, messageTracker *n.MessageTracker) error
 type SendEndOfFilesFunc func(clientID int, senderID int, messageTracker *n.MessageTracker) error
 type AckLastMessageFunc func() error
 
 type ActionReviewsAccumulator struct {
-	ReceiveReview          ReceiveReviewsFunc
+	ReceiveReview          ReceiveReviewFunc
 	SendAccumulatedReviews SendAccumulatedReviewsFunc
 	SendEndOfFiles         SendEndOfFilesFunc
 	AckLastMessage         AckLastMessageFunc
@@ -27,7 +27,7 @@ type ActionReviewsAccumulator struct {
 }
 
 func NewActionReviewsAccumulator(
-	receiveReview ReceiveReviewsFunc,
+	receiveReview ReceiveReviewFunc,
 	sendAccumulatedReviews SendAccumulatedReviewsFunc,
 	sendEndOfFiles SendEndOfFilesFunc,
 	ackLastMessage AckLastMessageFunc,
@@ -52,7 +52,7 @@ func (a *ActionReviewsAccumulator) Run(id int, actionReviewJoinersAmount int, re
 	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, reducedReviews, eof, newMessage, err := a.ReceiveReview(messageTracker)
+		clientID, reducedReview, eof, newMessage, err := a.ReceiveReview(messageTracker)
 		if err != nil {
 			a.logger.Errorf("Failed to receive reviews: %v", err)
 			return
@@ -65,18 +65,16 @@ func (a *ActionReviewsAccumulator) Run(id int, actionReviewJoinersAmount int, re
 		}
 
 		if newMessage && !eof {
-			for _, reducedReview := range reducedReviews {
-				if metrics, exists := clientAccumulatedReviews.Get(int(reducedReview.AppId)); exists {
-					// a.logger.Info("Updating metrics for appID: ", reducedReview.AppId)
-					// Update existing metrics
-					metrics.UpdateWithReview(reducedReview)
-				} else {
-					// Create new metrics
-					//a.logger.Info("Creating new metrics for appID: ", reducedReview.AppId)
-					newMetrics := ra.NewNamedGameReviewsMetrics(reducedReview.AppId, reducedReview.Name)
-					newMetrics.UpdateWithReview(reducedReview)
-					clientAccumulatedReviews.Set(int(reducedReview.AppId), newMetrics)
-				}
+			if metrics, exists := clientAccumulatedReviews.Get(int(reducedReview.AppId)); exists {
+				// a.logger.Info("Updating metrics for appID: ", reducedReview.AppId)
+				// Update existing metrics
+				metrics.UpdateWithReview(reducedReview)
+			} else {
+				// Create new metrics
+				//a.logger.Info("Creating new metrics for appID: ", reducedReview.AppId)
+				newMetrics := ra.NewNamedGameReviewsMetrics(reducedReview.AppId, reducedReview.Name)
+				newMetrics.UpdateWithReview(reducedReview)
+				clientAccumulatedReviews.Set(int(reducedReview.AppId), newMetrics)
 			}
 		}
 

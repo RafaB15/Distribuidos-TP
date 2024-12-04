@@ -32,7 +32,7 @@ def stop_and_remove_containers(container_names):
     for container_name in container_names:
         if random.random() < stop_probability:  # Decide si detener el contenedor
             print(f"Attempting to stop container: {container_name}")
-            subprocess.run(["docker", "stop", container_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["docker", "kill", container_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         else:
             print(f"Skipping container: {container_name}")
 

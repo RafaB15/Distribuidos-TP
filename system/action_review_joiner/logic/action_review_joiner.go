@@ -17,13 +17,13 @@ const (
 )
 
 type ReceiveMessageFunc func(messageTracker *n.MessageTracker) (clientID int, reviews []*r.RawReview, games []*g.Game, eof bool, newMessage bool, e error)
-type SendReviewsFunc func(clientID int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int, reviews []*r.Review, messageTracker *n.MessageTracker) error
+type SendReviewFunc func(clientID int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int, review *r.Review, messageTracker *n.MessageTracker) error
 type AckLastMessageFunc func() error
 type SendEndOfFileFunc func(clientID int, senderID int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int, messageTracker *n.MessageTracker) error
 
 type ActionReviewJoiner struct {
 	ReceiveMessage ReceiveMessageFunc
-	SendReviews    SendReviewsFunc
+	SendReview     SendReviewFunc
 	AckLastMessage AckLastMessageFunc
 	SendEndOfFile  SendEndOfFileFunc
 	logger         *logging.Logger
@@ -31,14 +31,14 @@ type ActionReviewJoiner struct {
 
 func NewActionReviewJoiner(
 	receiveMessage ReceiveMessageFunc,
-	sendReviews SendReviewsFunc,
+	sendReview SendReviewFunc,
 	ackLastMessage AckLastMessageFunc,
 	sendEndOfFile SendEndOfFileFunc,
 	logger *logging.Logger,
 ) *ActionReviewJoiner {
 	return &ActionReviewJoiner{
 		ReceiveMessage: receiveMessage,
-		SendReviews:    sendReviews,
+		SendReview:     sendReview,
 		AckLastMessage: ackLastMessage,
 		SendEndOfFile:  sendEndOfFile,
 		logger:         logger,
@@ -144,13 +144,15 @@ func (f *ActionReviewJoiner) Run(id int, repository *p.Repository, englishFilter
 }
 
 func (f *ActionReviewJoiner) handleRawReviews(clientId int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int, clientAccumulatedRawReviews *n.IntMap[[]*r.RawReview], clientGamesToSend *n.IntMap[*j.GameToSend], rawReviews []*r.RawReview, messageTracker *n.MessageTracker) error {
-	var reviewsToSend []*r.Review
-
 	for _, rawReview := range rawReviews {
 		if gameToSend, exists := clientGamesToSend.Get(int(rawReview.AppId)); exists {
 			if gameToSend.ShouldSend && !rawReview.Positive {
 				review := r.NewReview(rawReview.ReviewId, rawReview.AppId, gameToSend.Name, rawReview.Positive, rawReview.ReviewText)
-				reviewsToSend = append(reviewsToSend, review)
+				err := f.SendReview(clientId, englishFiltersAmount, actionReviewsAccumulatorsAmount, review, messageTracker)
+				if err != nil {
+					f.logger.Errorf("Failed to send review: %v", err)
+					return err
+				}
 			} else {
 				continue
 			}
@@ -161,41 +163,29 @@ func (f *ActionReviewJoiner) handleRawReviews(clientId int, englishFiltersAmount
 			}
 		}
 	}
-
-	if len(reviewsToSend) > 0 {
-		err := f.SendReviews(clientId, englishFiltersAmount, actionReviewsAccumulatorsAmount, reviewsToSend, messageTracker)
-		if err != nil {
-			f.logger.Errorf("Failed to send reviews: %v", err)
-			return err
-		}
-	}
-
 	return nil
 }
 
 func (f *ActionReviewJoiner) handleGames(clientId int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int, clientAccumulatedRawReviews *n.IntMap[[]*r.RawReview], clientGamesToSend *n.IntMap[*j.GameToSend], games []*g.Game, messageTracker *n.MessageTracker) error {
-	var reviewsToSend []*r.Review
-
 	for _, game := range games {
 		gameToSend := j.NewGameToSend(game.AppId, game.Name, game.Action)
 		clientGamesToSend.Set(int(game.AppId), gameToSend)
 		if gameToSend.ShouldSend {
 			if reviews, exists := clientAccumulatedRawReviews.Get(int(gameToSend.AppId)); exists {
+				// Ver de mandar batches
 				for _, rawReview := range reviews {
 					review := r.NewReview(rawReview.ReviewId, rawReview.AppId, gameToSend.Name, rawReview.Positive, rawReview.ReviewText)
-					reviewsToSend = append(reviewsToSend, review)
+					err := f.SendReview(clientId, englishFiltersAmount, actionReviewsAccumulatorsAmount, review, messageTracker)
+					if err != nil {
+						f.logger.Errorf("Failed to send review: %v", err)
+						return err
+					}
 				}
 				clientAccumulatedRawReviews.Delete(int(gameToSend.AppId))
 			}
 		} else {
 			clientAccumulatedRawReviews.Delete(int(gameToSend.AppId))
 		}
-	}
-
-	err := f.SendReviews(clientId, englishFiltersAmount, actionReviewsAccumulatorsAmount, reviewsToSend, messageTracker)
-	if err != nil {
-		f.logger.Errorf("Failed to send reviews: %v", err)
-		return err
 	}
 
 	return nil
