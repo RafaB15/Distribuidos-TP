@@ -362,29 +362,7 @@ func (m *Middleware) SendDeleteClient(clientID int, actionReviewJoinersAmount in
 }
 
 func (m *Middleware) EmptyQueryQueue() {
-	var queriesArrived = make(map[int]bool)
-
 	for i := 0; i < 5; i++ {
-		resultChan := make(chan struct {
-			data     []byte
-			repeated bool
-			err      error
-		}, 1)
-
-		go func() {
-			data, repeated, err := m.ReceiveQueryResponse(queriesArrived)
-			resultChan <- struct {
-				data     []byte
-				repeated bool
-				err      error
-			}{data, repeated, err}
-		}()
-
-		select {
-		case result := <-resultChan:
-			m.logger.Infof("Emptied old query response: %v", result)
-		case <-time.After(1 * time.Second):
-			continue
-		}
+		_, _ = m.QueryResultsQueue.ConsumeWithTimeout(1 * time.Second)
 	}
 }

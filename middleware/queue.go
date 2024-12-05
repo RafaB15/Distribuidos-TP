@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"time"
 )
 
 const (
@@ -117,6 +118,19 @@ func (q *Queue) Consume() ([]byte, error) {
 	}
 	q.lastUnackedMessage = &msg
 	return msg.Body, nil
+}
+
+func (q *Queue) ConsumeWithTimeout(timeout time.Duration) ([]byte, error) {
+	select {
+	case msg, ok := <-q.messages:
+		if !ok {
+			return nil, fmt.Errorf("channel closed")
+		}
+		q.lastUnackedMessage = &msg
+		return msg.Body, nil
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("timeout after %v", timeout)
+	}
 }
 
 func (q *Queue) Bind(exchange string, routingKey string) error {

@@ -151,6 +151,6 @@ func deleteUnfinishedClients(clientTracker *e.ClientTracker, actionReviewJoiners
 		if err != nil {
 			log.Errorf("Error sending delete client message for client %d: %v", clientID, err)
 		}
-		middleware.EmptyQueryQueue()
+		go middleware.EmptyQueryQueue()
 	}
 }
