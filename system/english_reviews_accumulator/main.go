@@ -50,6 +50,7 @@ func main() {
 		middleware.ReceiveReview,
 		middleware.SendAccumulatedReviews,
 		middleware.SendEndOfFiles,
+		middleware.SendDeleteClient,
 		middleware.AckLastMessages,
 		log,
 	)
