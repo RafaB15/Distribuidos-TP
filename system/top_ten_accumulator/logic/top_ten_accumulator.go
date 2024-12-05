@@ -15,13 +15,13 @@ const (
 )
 
 type TopTenAccumulator struct {
-	ReceiveMsg     func(messageTracker *n.MessageTracker) (clientID int, gamesMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, e error)
+	ReceiveMsg     func(messageTracker *n.MessageTracker) (clientID int, gamesMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, delMessage bool, e error)
 	SendMsg        func(int, []*df.GameYearAndAvgPtf) error
 	AckLastMessage func() error
 	logger         *logging.Logger
 }
 
-func NewTopTenAccumulator(receiveMsg func(messageTracker *n.MessageTracker) (clientID int, gamesMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, e error), sendMsg func(int, []*df.GameYearAndAvgPtf) error, ackLastMessage func() error, logger *logging.Logger) *TopTenAccumulator {
+func NewTopTenAccumulator(receiveMsg func(messageTracker *n.MessageTracker) (clientID int, gamesMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, delMessage bool, e error), sendMsg func(int, []*df.GameYearAndAvgPtf) error, ackLastMessage func() error, logger *logging.Logger) *TopTenAccumulator {
 	return &TopTenAccumulator{
 		ReceiveMsg:     receiveMsg,
 		SendMsg:        sendMsg,
@@ -41,7 +41,7 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, repository *p.Repository
 
 	for {
 
-		clientID, decadeGames, eof, newMessage, err := t.ReceiveMsg(messageTracker)
+		clientID, decadeGames, eof, newMessage, delMessage, err := t.ReceiveMsg(messageTracker)
 		if err != nil {
 			log.Errorf("failed to receive message: %v", err)
 			return
@@ -53,9 +53,30 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, repository *p.Repository
 			topTenGamesMap.Set(clientID, clientTopTenGames)
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 			clientTopTenGames = df.TopTenAvgPlaytimeForever(append(clientTopTenGames, decadeGames...))
 			topTenGamesMap.Set(clientID, clientTopTenGames)
+		}
+
+		if delMessage {
+			t.logger.Infof("Received delete message for client %d.", clientID)
+
+			messageTracker.DeleteClientInfo(clientID)
+			topTenGamesMap.Delete(clientID)
+			syncNumber++
+
+			err = repository.SaveAll(topTenGamesMap, messageTracker, syncNumber)
+			if err != nil {
+				log.Errorf("failed to save data: %v", err)
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
+			err = t.AckLastMessage()
+			if err != nil {
+				t.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
 		}
 
 		if messageTracker.ClientFinished(clientID, log) {

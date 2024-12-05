@@ -56,7 +56,7 @@ func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMsg(messageTracker *n.MessageTracker) (clientID int, gameMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveMsg(messageTracker *n.MessageTracker) (clientID int, gameMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.TopTenAccumulatorQueue.Consume()
 	if err != nil {
 		e = fmt.Errorf("failed to consume message: %v", err)
@@ -94,10 +94,12 @@ func (m *Middleware) ReceiveMsg(messageTracker *n.MessageTracker) (clientID int,
 			return
 		}
 		eof = true
-
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Receive delete client %d", message.ClientID)
+		delMessage = true
+		return
 	case sp.MsgGameYearAndAvgPtfInformation:
 		gameMetrics, e = sp.DeserializeMsgGameYearAndAvgPtf(message.Body)
-		// printMetrics(message)
 
 	default:
 		e = fmt.Errorf("received unexpected message type: %v", message.Type)
