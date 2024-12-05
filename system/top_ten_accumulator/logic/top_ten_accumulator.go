@@ -2,92 +2,100 @@ package top_ten_accumulator
 
 import (
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
+	n "distribuidos-tp/internal/system_protocol/node"
+	p "distribuidos-tp/system/top_ten_accumulator/persistence"
 
 	"github.com/op/go-logging"
 )
 
 var log = logging.MustGetLogger("log")
 
+const (
+	AckBatchSize = 20
+)
+
 type TopTenAccumulator struct {
-	ReceiveMsg func() (int, []*df.GameYearAndAvgPtf, bool, error)
-	SendMsg    func(int, []*df.GameYearAndAvgPtf) error
+	ReceiveMsg     func(messageTracker *n.MessageTracker) (clientID int, gamesMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, delMessage bool, e error)
+	SendMsg        func(int, []*df.GameYearAndAvgPtf) error
+	AckLastMessage func() error
+	logger         *logging.Logger
 }
 
-func NewTopTenAccumulator(receiveMsg func() (int, []*df.GameYearAndAvgPtf, bool, error), sendMsg func(int, []*df.GameYearAndAvgPtf) error) *TopTenAccumulator {
+func NewTopTenAccumulator(receiveMsg func(messageTracker *n.MessageTracker) (clientID int, gamesMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, delMessage bool, e error), sendMsg func(int, []*df.GameYearAndAvgPtf) error, ackLastMessage func() error, logger *logging.Logger) *TopTenAccumulator {
 	return &TopTenAccumulator{
-		ReceiveMsg: receiveMsg,
-		SendMsg:    sendMsg,
+		ReceiveMsg:     receiveMsg,
+		SendMsg:        sendMsg,
+		AckLastMessage: ackLastMessage,
+		logger:         logger,
 	}
 }
 
-func (t *TopTenAccumulator) Run(decadeFilterAmount int, fileName string) {
+func (t *TopTenAccumulator) Run(decadeFilterAmount int, repository *p.Repository) {
+	topTenGamesMap, messageTracker, syncNumber, err := repository.LoadAll(decadeFilterAmount)
+	if err != nil {
+		t.logger.Errorf("failed to load data: %v", err)
+		return
+	}
 
-	// remainingEOFs := decadeFilterAmount
-	topTenGames := make(map[int][]*df.GameYearAndAvgPtf)
-	remainingEOFs := make(map[int]int)
+	messagesUntilAck := AckBatchSize
 
 	for {
 
-		clientID, decadeGames, eof, err := t.ReceiveMsg()
+		clientID, decadeGames, eof, newMessage, delMessage, err := t.ReceiveMsg(messageTracker)
 		if err != nil {
 			log.Errorf("failed to receive message: %v", err)
 			return
 		}
 
-		clientTopTenGames, exists := topTenGames[clientID]
+		clientTopTenGames, exists := topTenGamesMap.Get(clientID)
 		if !exists {
 			clientTopTenGames = []*df.GameYearAndAvgPtf{}
-			topTenGames[clientID] = clientTopTenGames
+			topTenGamesMap.Set(clientID, clientTopTenGames)
 		}
 
-		log.Infof("Received decade games")
+		if newMessage && !eof && !delMessage {
+			clientTopTenGames = df.TopTenAvgPlaytimeForever(append(clientTopTenGames, decadeGames...))
+			topTenGamesMap.Set(clientID, clientTopTenGames)
+		}
 
-		if eof {
+		if delMessage {
+			t.logger.Infof("Received delete message for client %d.", clientID)
 
-			// Si no existe inicializo el contador de EOFs restantes
-			if _, ok := remainingEOFs[clientID]; !ok {
-				remainingEOFs[clientID] = decadeFilterAmount - 1
-			} else {
-				remainingEOFs[clientID]--
+			messageTracker.DeleteClientInfo(clientID)
+			topTenGamesMap.Delete(clientID)
+		}
 
-				if remainingEOFs[clientID] <= 0 {
-					log.Infof("Received all EOFs of client %d, sending final top ten games", clientID)
-					/*finalTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile("top_ten_games")
-					if err != nil {
-						log.Errorf("error uploading top ten games from file: %v", err)
-						return
-					}*/
-					err = t.SendMsg(clientID, clientTopTenGames)
-					if err != nil {
-						log.Errorf("failed to send metrics: %v", err)
-						return
-					}
-					delete(topTenGames, clientID)
-					delete(remainingEOFs, clientID)
-				}
+		clientFinished := messageTracker.ClientFinished(clientID, log)
+		if clientFinished {
+			t.logger.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
+			err = t.SendMsg(clientID, clientTopTenGames)
+			if err != nil {
+				log.Errorf("failed to send metrics: %v", err)
+				return
 			}
+
+			messageTracker.DeleteClientInfo(clientID)
+			topTenGamesMap.Delete(clientID)
 		}
 
-		clientTopTenGames = df.TopTenAvgPlaytimeForever(append(clientTopTenGames, decadeGames...))
-		topTenGames[clientID] = clientTopTenGames
-		log.Infof("Updated top ten games for client %d", clientID)
+		if messagesUntilAck == 0 || delMessage || clientFinished {
 
-		//topTenGames := df.TopTenAvgPlaytimeForever(decadeGames)
+			syncNumber++
+			err = repository.SaveAll(topTenGamesMap, messageTracker, syncNumber)
+			if err != nil {
+				log.Errorf("failed to save data: %v", err)
+				return
+			}
 
-		// Upload the actual top ten games from the file and update the top ten games
-		/*actualTopTenGames, err := df.UploadTopTenAvgPlaytimeForeverFromFile(fileName)
-		if err != nil {
-			log.Errorf("Error uploading top ten games from file: %v", err)
-			return
+			messagesUntilAck = AckBatchSize
+			err = t.AckLastMessage()
+			if err != nil {
+				t.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+		} else {
+			messagesUntilAck--
 		}
-		updatedTopTenGames := df.TopTenAvgPlaytimeForever(append(topTenGames, actualTopTenGames...))
-
-		// Save the updated top ten games to the file
-		err = df.SaveTopTenAvgPlaytimeForeverToFile(updatedTopTenGames, "top_ten_games")
-		if err != nil {
-			log.Errorf("error saving top ten games to file: %v", err)
-			return
-		}*/
 
 	}
 }

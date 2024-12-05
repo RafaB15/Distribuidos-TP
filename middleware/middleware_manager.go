@@ -42,14 +42,7 @@ func (m *MiddlewareManager) CreateBoundQueue(queueName string, exchangeName stri
 		return nil, fmt.Errorf("failed to create exchange to bind the queue: %w", err)
 	}
 
-	err = ch.QueueBind(
-		queueName,    // queue name
-		routingKey,   // routing key
-		exchangeName, // exchange
-		false,
-		nil,
-	)
-
+	err = queue.Bind(exchangeName, routingKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bind queue to exchange: %w", err)
 	}
@@ -74,13 +67,7 @@ func (m *MiddlewareManager) CreateBoundQueueMultipleRoutingKeys(queueName string
 	}
 
 	for _, key := range routingKey {
-		err = ch.QueueBind(
-			queueName,    // queue name
-			key,          // routing key
-			exchangeName, // exchange
-			false,
-			nil,
-		)
+		err = queue.Bind(exchangeName, key)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bind queue to exchange: %w", err)
 		}
@@ -89,17 +76,25 @@ func (m *MiddlewareManager) CreateBoundQueueMultipleRoutingKeys(queueName string
 	return queue, nil
 }
 
-func (m *MiddlewareManager) CreateQueue(name string, autoAck bool) (*Queue, error) {
+func (m *MiddlewareManager) CreateBoundQueueWithPriority(queueName string, exchangeName string, exchangeKind string, routingKey string, autoAck bool, maxPriority int) (*Queue, error) {
 	ch, err := m.conn.Channel()
 	if err != nil {
-
 		return nil, err
 	}
 
-	queue, err := NewQueue(ch, name, autoAck)
+	queue, err := NewPriorityQueue(ch, queueName, autoAck, maxPriority)
 	if err != nil {
+		return nil, fmt.Errorf("failed to create queue: %w", err)
+	}
 
-		return nil, err
+	_, err = NewExchange(ch, exchangeName, exchangeKind)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create exchange to bind the queue: %w", err)
+	}
+
+	err = queue.Bind(exchangeName, routingKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind queue to exchange: %w", err)
 	}
 
 	return queue, nil

@@ -2,93 +2,136 @@ package reviews_accumulator
 
 import (
 	r "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	p "distribuidos-tp/system/reviews_accumulator/persistence"
 
+	n "distribuidos-tp/internal/system_protocol/node"
 	"distribuidos-tp/internal/system_protocol/reviews"
 
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("log")
+const (
+	AckBatchSize = 100
+	expectedEOFs = 1
+)
+
+type ReceiveReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, rawReviews []*reviews.ReducedRawReview, eof bool, newMessage bool, delMessage bool, e error)
+type SendAccumulatedReviewsFunc func(clientID int, accumulatedReviews *n.IntMap[*r.GameReviewsMetrics], indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error
+type SendDeleteClientFunc func(clientID int, indieReviewJoinersAmount int) error
+type AckLastMessageFunc func() error
+type SendEofFunc func(clientID int, senderID int, indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error
 
 type ReviewsAccumulator struct {
-	ReceiveReviews         func() (int, []*reviews.RawReview, bool, error)
-	SendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics, int, int) error
-	AckLastMessage         func() error
-	SendEof                func(int, int, int) error
+	ReceiveReviews         ReceiveReviewsFunc
+	SendAccumulatedReviews SendAccumulatedReviewsFunc
+	SendDeleteClient       SendDeleteClientFunc
+	AckLastMessage         AckLastMessageFunc
+	SendEof                SendEofFunc
+	logger                 *logging.Logger
 }
 
-func NewReviewsAccumulator(receiveReviews func() (
-	int,
-	[]*reviews.RawReview, bool, error),
-	sendAccumulatedReviews func(int, map[uint32]*r.GameReviewsMetrics, int, int) error,
-	ackLastMessage func() error,
-	sendEof func(int, int, int) error) *ReviewsAccumulator {
+func NewReviewsAccumulator(
+	receiveReviews ReceiveReviewsFunc,
+	sendAccumulatedReviews SendAccumulatedReviewsFunc,
+	sendDeleteClient SendDeleteClientFunc,
+	ackLastMessage AckLastMessageFunc,
+	sendEof SendEofFunc,
+	logger *logging.Logger,
+) *ReviewsAccumulator {
 	return &ReviewsAccumulator{
 		ReceiveReviews:         receiveReviews,
 		SendAccumulatedReviews: sendAccumulatedReviews,
+		SendDeleteClient:       sendDeleteClient,
 		AckLastMessage:         ackLastMessage,
 		SendEof:                sendEof,
+		logger:                 logger,
 	}
 }
 
-func (ra *ReviewsAccumulator) Run(indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int) {
-	accumulatedReviews := make(map[int]map[uint32]*r.GameReviewsMetrics)
+func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, repository *p.Repository) {
+	accumulatedReviewsMap, messageTracker, syncNumber, err := repository.LoadAll(expectedEOFs)
+	if err != nil {
+		ra.logger.Errorf("Failed to load data: %v", err)
+		return
+	}
+	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, rawReviews, eof, err := ra.ReceiveReviews()
+		clientID, rawReviews, eof, newMessage, delMessage, err := ra.ReceiveReviews(messageTracker)
 		if err != nil {
-			log.Error("Error receiving reviews: ", err)
+			ra.logger.Error("Error receiving reviews: ", err)
 			return
 		}
 
-		clientAccumulatedReviews, exists := accumulatedReviews[clientID]
+		clientAccumulatedReviews, exists := accumulatedReviewsMap.Get(clientID)
 		if !exists {
-			clientAccumulatedReviews = make(map[uint32]*r.GameReviewsMetrics)
-			accumulatedReviews[clientID] = clientAccumulatedReviews
+			clientAccumulatedReviews = repository.InitializeAccumulatedReviewsMap()
+			accumulatedReviewsMap.Set(clientID, clientAccumulatedReviews)
 		}
 
-		if eof {
-			log.Info("Received EOF for client ", clientID)
-			err = ra.SendAccumulatedReviews(clientID, clientAccumulatedReviews, indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
-			if err != nil {
-				log.Errorf("error sending accumulated reviews: %s", err)
-				return
-			}
-			log.Info("Sent accumulated reviews")
+		if newMessage && !eof && !delMessage {
+			ra.logger.Infof("Received reviews from client %d", clientID)
 
-			err = ra.SendEof(clientID, indieReviewJoinersAmount, negativeReviewPreFiltersAmount)
-			if err != nil {
-				log.Errorf("error sending EOF: %s", err)
-				return
-			}
-			log.Info("Sent EOFs")
-
-			err := ra.AckLastMessage()
-			if err != nil {
-				log.Errorf("error acking last message: %s", err)
-				return
-			}
-
-			delete(accumulatedReviews, clientID)
-			continue
-		}
-
-		for _, review := range rawReviews {
-			if metrics, exists := clientAccumulatedReviews[review.AppId]; exists {
-				log.Infof("Accumulating review for app %d", review.AppId)
-				metrics.UpdateWithRawReview(review)
-			} else {
-				log.Infof("Creating metrics for app %d", review.AppId)
-				newMetrics := r.NewReviewsMetrics(review.AppId)
-				newMetrics.UpdateWithRawReview(review)
-				clientAccumulatedReviews[review.AppId] = newMetrics
+			for _, review := range rawReviews {
+				// log.Infof("Received review for app %d with review id %d", review.AppId, review.ReviewId)
+				if metrics, exists := clientAccumulatedReviews.Get(int(review.AppId)); exists {
+					// log.Infof("Accumulating review for app %d", review.AppId)
+					metrics.UpdateWithReducedRawReview(review)
+				} else {
+					newMetrics := r.NewReviewsMetrics(review.AppId)
+					newMetrics.UpdateWithReducedRawReview(review)
+					clientAccumulatedReviews.Set(int(review.AppId), newMetrics)
+				}
 			}
 		}
 
-		err = ra.AckLastMessage()
-		if err != nil {
-			log.Errorf("error acking last message: %s", err)
-			return
+		if delMessage {
+			ra.logger.Infof("Received Delete Client Message. Deleting client %d", clientID)
+			ra.SendDeleteClient(clientID, indieReviewJoinersAmount)
+
+			ra.logger.Infof("Deleted all client %d information", clientID)
+
+			messageTracker.DeleteClientInfo(clientID)
+			accumulatedReviewsMap.Delete(clientID)
+		}
+
+		clientFinished := messageTracker.ClientFinished(clientID, ra.logger)
+		if clientFinished {
+			ra.logger.Infof("Received all EOFs of client %d. Sending accumulated reviews", clientID)
+			err = ra.SendAccumulatedReviews(clientID, clientAccumulatedReviews, indieReviewJoinersAmount, messageTracker)
+			if err != nil {
+				ra.logger.Errorf("Failed to send accumulated reviews: %v", err)
+				return
+			}
+			ra.logger.Infof("Sent accumulated reviews")
+
+			err = ra.SendEof(clientID, id, indieReviewJoinersAmount, messageTracker)
+			if err != nil {
+				ra.logger.Errorf("Failed to send EOF: %v", err)
+				return
+			}
+			ra.logger.Infof("Sent EOFs of client %d", clientID)
+
+			messageTracker.DeleteClientInfo(clientID)
+			accumulatedReviewsMap.Delete(clientID)
+		}
+
+		if messagesUntilAck == 0 || delMessage || clientFinished {
+			syncNumber++
+			err = repository.SaveAll(accumulatedReviewsMap, messageTracker, syncNumber)
+			if err != nil {
+				ra.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
+			err = ra.AckLastMessage()
+			if err != nil {
+				ra.logger.Errorf("error acking last message: %s", err)
+				return
+			}
+			messagesUntilAck = AckBatchSize
+		} else {
+			messagesUntilAck--
 		}
 	}
 }

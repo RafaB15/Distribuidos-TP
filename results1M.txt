@@ -1,0 +1,57 @@
+Query 1:
+Linux: 12307
+Windows: 92534
+Mac: 17703
+
+Query 2:
+AppId: 404580 ReleaseYear: 2015 AvgPlaytimeForever: 68357
+AppId: 554640 ReleaseYear: 2016 AvgPlaytimeForever: 49555
+AppId: 831980 ReleaseYear: 2019 AvgPlaytimeForever: 34798
+AppId: 989450 ReleaseYear: 2019 AvgPlaytimeForever: 33343
+AppId: 629910 ReleaseYear: 2018 AvgPlaytimeForever: 31708
+AppId: 353130 ReleaseYear: 2016 AvgPlaytimeForever: 27080
+AppId: 305940 ReleaseYear: 2018 AvgPlaytimeForever: 26827
+AppId: 557400 ReleaseYear: 2017 AvgPlaytimeForever: 19196
+AppId: 719890 ReleaseYear: 2018 AvgPlaytimeForever: 17147
+AppId: 252490 ReleaseYear: 2018 AvgPlaytimeForever: 16623
+
+Query 3:
+AppID: 105600, GameName: Terraria, PositiveReviews: 82227
+AppID: 211820, GameName: Starbound, PositiveReviews: 36134
+AppID: 212680, GameName: FTL: Faster Than Light, PositiveReviews: 25103
+AppID: 113200, GameName: The Binding of Isaac, PositiveReviews: 19539
+AppID: 107100, GameName: Bastion, PositiveReviews: 14416
+
+Query 4:
+AppID: 12210, GameName: Grand Theft Auto IV: The Complete Edition
+AppID: 208650, GameName: Batman™: Arkham Knight
+
+Query 5:
+AppID: 1250, GameName: Killing Floor, NegativeReviews: 847
+AppID: 203290, GameName: America's Army: Proving Grounds, NegativeReviews: 858
+AppID: 212070, GameName: Star Conflict, NegativeReviews: 884
+AppID: 17410, GameName: Mirror's Edge™, NegativeReviews: 896
+AppID: 203140, GameName: Hitman: Absolution™, NegativeReviews: 1063
+AppID: 12120, GameName: Grand Theft Auto: San Andreas, NegativeReviews: 1082
+AppID: 10180, GameName: Call of Duty®: Modern Warfare® 2 (2009), NegativeReviews: 1083
+AppID: 214420, GameName: Gear Up, NegativeReviews: 1153
+AppID: 201810, GameName: Wolfenstein: The New Order, NegativeReviews: 1230
+AppID: 20900, GameName: The Witcher: Enhanced Edition Director's Cut, NegativeReviews: 1274
+AppID: 211400, GameName: Deadlight, NegativeReviews: 1279
+AppID: 203160, GameName: Tomb Raider, NegativeReviews: 1355
+AppID: 204300, GameName: Awesomenauts - the 2D moba, NegativeReviews: 1416
+AppID: 202970, GameName: Call of Duty®: Black Ops II, NegativeReviews: 1451
+AppID: 209000, GameName: Batman™: Arkham Origins, NegativeReviews: 1565
+AppID: 206420, GameName: Saints Row IV, NegativeReviews: 1616
+AppID: 204100, GameName: Max Payne 3, NegativeReviews: 1764
+AppID: 209870, GameName: Blacklight: Retribution, NegativeReviews: 2216
+AppID: 105600, GameName: Terraria, NegativeReviews: 2475
+AppID: 200210, GameName: Realm of the Mad God Exalt, NegativeReviews: 2580
+AppID: 104900, GameName: ORION: Prelude, NegativeReviews: 3019
+AppID: 211420, GameName: DARK SOULS™: Prepare To Die™ Edition, NegativeReviews: 3435
+AppID: 107410, GameName: Arma 3, NegativeReviews: 3597
+AppID: 209160, GameName: Call of Duty®: Ghosts, NegativeReviews: 4673
+AppID: 211820, GameName: Starbound, NegativeReviews: 5007
+AppID: 113400, GameName: APB Reloaded, NegativeReviews: 5110
+AppID: 12210, GameName: Grand Theft Auto IV: The Complete Edition, NegativeReviews: 5978
+AppID: 208650, GameName: Batman™: Arkham Knight, NegativeReviews: 7283

@@ -2,89 +2,121 @@ package negative_reviews_filter
 
 import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
-	u "distribuidos-tp/internal/utils"
-	"strconv"
+	n "distribuidos-tp/internal/system_protocol/node"
+	p "distribuidos-tp/system/negative_reviews_filter/persistence"
 
 	"github.com/op/go-logging"
 )
 
 var log = logging.MustGetLogger("log")
 
+const (
+	AckBatchSize = 1
+)
+
+type ReceiveGameReviewsMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, delMessage bool, err error)
+type SendQueryResultsFunc func(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) error
+type AckLastMessageFunc func() error
+
 type NegativeReviewsFilter struct {
-	ReceiveGameReviewsMetrics func() (int, []*ra.GameReviewsMetrics, bool, error)
-	SendGameReviewsMetrics    func(int, map[int][]*ra.GameReviewsMetrics) error
-	SendEndOfFiles            func(int, int) error
+	ReceiveGameReviewsMetrics ReceiveGameReviewsMetricsFunc
+	SendQueryResults          SendQueryResultsFunc
+	AckLastMessage            AckLastMessageFunc
+	logger                    *logging.Logger
 }
 
-func NewNegativeReviewsFilter(receiveGameReviewsMetrics func() (int, []*ra.GameReviewsMetrics, bool, error), sendGameReviewsMetrics func(int, map[int][]*ra.GameReviewsMetrics) error, sendEndOfFiles func(int, int) error) *NegativeReviewsFilter {
+func NewNegativeReviewsFilter(
+	receiveGameReviewsMetrics ReceiveGameReviewsMetricsFunc,
+	sendQueryResults SendQueryResultsFunc,
+	ackLastMessage AckLastMessageFunc,
+	logger *logging.Logger,
+) *NegativeReviewsFilter {
 	return &NegativeReviewsFilter{
 		ReceiveGameReviewsMetrics: receiveGameReviewsMetrics,
-		SendGameReviewsMetrics:    sendGameReviewsMetrics,
-		SendEndOfFiles:            sendEndOfFiles,
+		SendQueryResults:          sendQueryResults,
+		AckLastMessage:            ackLastMessage,
+		logger:                    logger,
 	}
 }
 
-func (f *NegativeReviewsFilter) Run(actionReviewsJoinersAmount int, englishReviewAccumulatorsAmount int, minNegativeReviews int) {
-	remainingEOFsMap := make(map[int]int)
-	negativeReviewsMap := make(map[int]map[int][]*ra.GameReviewsMetrics)
+func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNegativeReviews int, repository *p.Repository) {
+	negativeReviewsMap, messageTracker, syncNumber, err := repository.LoadAll(englishReviewAccumulatorsAmount)
+	if err != nil {
+		f.logger.Errorf("Failed to load data: %v", err)
+		return
+	}
+
+	messagesUntilAck := AckBatchSize
 
 	for {
 
-		clientID, gameReviewsMetrics, eof, err := f.ReceiveGameReviewsMetrics()
+		clientID, gameReviewsMetrics, eof, newMessage, delMessage, err := f.ReceiveGameReviewsMetrics(messageTracker)
 		if err != nil {
-			log.Errorf("Failed to receive game reviews metrics: %v", err)
+			f.logger.Errorf("Failed to receive game reviews metrics: %v", err)
 			return
 		}
 
-		clientNegativeReviews, exists := negativeReviewsMap[clientID]
+		clientNegativeReviews, exists := negativeReviewsMap.Get(clientID)
 		if !exists {
-			clientNegativeReviews = make(map[int][]*ra.GameReviewsMetrics)
-			negativeReviewsMap[clientID] = clientNegativeReviews
+			clientNegativeReviews = make([]*ra.NamedGameReviewsMetrics, 0)
+			negativeReviewsMap.Set(clientID, clientNegativeReviews)
 		}
 
-		if eof {
-			log.Info("Received EOF for client ", clientID)
-			remainingEOFs, exists := remainingEOFsMap[clientID]
-			if !exists {
-				remainingEOFs = englishReviewAccumulatorsAmount
+		if newMessage && !eof && !delMessage {
+			f.logger.Infof("Received game reviews metrics for client %d", clientID)
+			for _, currentGameReviewsMetrics := range gameReviewsMetrics {
+				f.logger.Infof("Received review with negative reviews: %d", currentGameReviewsMetrics.NegativeReviews)
+				if currentGameReviewsMetrics.NegativeReviews >= minNegativeReviews {
+					f.logger.Infof("Client %d has a game with negative reviews: %s", clientID, currentGameReviewsMetrics.Name)
+					clientNegativeReviews = append(clientNegativeReviews, currentGameReviewsMetrics)
+					f.logger.Infof("Neagtive filtered: %d", len(clientNegativeReviews))
+				}
 			}
-			remainingEOFs--
-			remainingEOFsMap[clientID] = remainingEOFs
-			if remainingEOFs > 0 {
-				continue
-			}
-			log.Infof("Received all EOFs for client %d", clientID)
-			err = f.SendEndOfFiles(clientID, actionReviewsJoinersAmount)
+
+			negativeReviewsMap.Set(clientID, clientNegativeReviews)
+		}
+
+		if delMessage {
+			f.logger.Infof("Received Delete Client Message. Deleting client %d", clientID)
+			messageTracker.DeleteClientInfo(clientID)
+			negativeReviewsMap.Delete(clientID)
+
+			f.logger.Infof("Deleted all client %d information", clientID)
+		}
+
+		clientFinished := messageTracker.ClientFinished(clientID, f.logger)
+		if clientFinished {
+			f.logger.Infof("Client %d finished", clientID)
+
+			f.logger.Info("Sending query results")
+			err = f.SendQueryResults(clientID, clientNegativeReviews)
 			if err != nil {
-				log.Errorf("Failed to send EOFs: %v", err)
+				f.logger.Errorf("Failed to send game reviews metrics: %v", err)
+				return
+			}
+			f.logger.Infof("Sent final result of client: %d", clientID)
+
+			messageTracker.DeleteClientInfo(clientID)
+			negativeReviewsMap.Delete(clientID)
+		}
+
+		if messagesUntilAck == 0 || delMessage || clientFinished {
+			syncNumber++
+			err = repository.SaveAll(negativeReviewsMap, messageTracker, syncNumber)
+			if err != nil {
+				f.logger.Errorf("Failed to save data: %v", err)
 				return
 			}
 
-			log.Infof("Sent all EOFs to Joiners from client: %d", clientID)
-
-			delete(negativeReviewsMap, clientID)
-			delete(remainingEOFsMap, clientID)
-
-			continue
-		}
-
-		for _, gameReviewsMetrics := range gameReviewsMetrics {
-			if gameReviewsMetrics.NegativeReviews >= minNegativeReviews {
-				log.Infof("Game %v has %v negative reviews", gameReviewsMetrics.AppID, gameReviewsMetrics.NegativeReviews)
-				updateNegativeReviewsMap(clientNegativeReviews, gameReviewsMetrics, actionReviewsJoinersAmount)
+			messagesUntilAck = AckBatchSize
+			err = f.AckLastMessage()
+			if err != nil {
+				f.logger.Errorf("Failed to ack last message: %v", err)
+				return
 			}
+		} else {
+			messagesUntilAck--
 		}
 
-		err = f.SendGameReviewsMetrics(clientID, clientNegativeReviews)
-		if err != nil {
-			log.Errorf("Failed to send game reviews metrics: %v", err)
-			return
-		}
 	}
-}
-
-func updateNegativeReviewsMap(negativeReviewsMap map[int][]*ra.GameReviewsMetrics, gameReviewsMetrics *ra.GameReviewsMetrics, actionReviewsJoinersAmount int) {
-	appIdString := strconv.Itoa(int(gameReviewsMetrics.AppID))
-	shardingKey := u.CalculateShardingKey(appIdString, actionReviewsJoinersAmount)
-	negativeReviewsMap[shardingKey] = append(negativeReviewsMap[shardingKey], gameReviewsMetrics)
 }

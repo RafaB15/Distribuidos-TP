@@ -2,67 +2,105 @@ package os_final_accumulator
 
 import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
-	"fmt"
+	n "distribuidos-tp/internal/system_protocol/node"
+	p "distribuidos-tp/system/os_final_accumulator/persistence"
 
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("log")
+const (
+	AckBatchSize = 20
+)
+
+type ReceiveGamesOSMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, gamesOS *oa.GameOSMetrics, eof bool, newMessage bool, delMessage bool, err error)
+type SendFinalMetricsFunc func(clientID int, games *oa.GameOSMetrics) error
+type AckLastMessageFunc func() error
 
 type OSFinalAccumulator struct {
-	ReceiveGamesOSMetrics func() (int, *oa.GameOSMetrics, bool, error)
-	SendFinalMetrics      func(int, *oa.GameOSMetrics) error
-	OSAccumulatorsAmount  int
+	ReceiveGamesOSMetrics ReceiveGamesOSMetricsFunc
+	SendFinalMetrics      SendFinalMetricsFunc
+	AckLastMessage        AckLastMessageFunc
+	logger                *logging.Logger
 }
 
-func NewOSFinalAccumulator(receiveGamesOSMetrics func() (int, *oa.GameOSMetrics, bool, error), sendFinalMetrics func(int, *oa.GameOSMetrics) error, osAccumulatorsAmount int) *OSFinalAccumulator {
+func NewOSFinalAccumulator(
+	receiveGamesOSMetrics ReceiveGamesOSMetricsFunc,
+	sendFinalMetrics SendFinalMetricsFunc,
+	ackLastMessage AckLastMessageFunc,
+	logger *logging.Logger,
+) *OSFinalAccumulator {
 	return &OSFinalAccumulator{
 		ReceiveGamesOSMetrics: receiveGamesOSMetrics,
 		SendFinalMetrics:      sendFinalMetrics,
-		OSAccumulatorsAmount:  osAccumulatorsAmount,
+		AckLastMessage:        ackLastMessage,
+		logger:                logger,
 	}
 }
 
-func (o *OSFinalAccumulator) Run() error {
-	osMetricsMap := make(map[int]*oa.GameOSMetrics)
-	remainingEOFsMap := make(map[int]int)
+func (o *OSFinalAccumulator) Run(osAccumulatorsAmount int, repository *p.Repository) {
+
+	osMetricsMap, messageTracker, syncNumber, err := repository.LoadAll(osAccumulatorsAmount)
+	if err != nil {
+		o.logger.Errorf("failed to load data: %v", err)
+		return
+	}
+
+	messageUntilAck := AckBatchSize
 
 	for {
-		clientID, gamesOSMetrics, eof, err := o.ReceiveGamesOSMetrics()
+		clientID, gamesOSMetrics, eof, newMessage, delMessage, err := o.ReceiveGamesOSMetrics(messageTracker)
 		if err != nil {
-			return fmt.Errorf("failed to receive game os metrics: %v", err)
+			o.logger.Errorf("failed to receive game os metrics: %v", err)
+			return
 		}
 
-		if eof {
-			remainingEOFs, exists := remainingEOFsMap[clientID]
-			if !exists {
-				remainingEOFs = o.OSAccumulatorsAmount
+		clientOSMetrics, exists := osMetricsMap.Get(clientID)
+		if !exists {
+			clientOSMetrics = &oa.GameOSMetrics{}
+			osMetricsMap.Set(clientID, clientOSMetrics)
+		}
+
+		if newMessage && !eof && !delMessage {
+			clientOSMetrics.Merge(gamesOSMetrics)
+			o.logger.Infof("Received Game Os Metrics Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
+		}
+
+		if delMessage {
+			o.logger.Infof("Received Delete Client Message. Deleting client %d", clientID)
+			messageTracker.DeleteClientInfo(clientID)
+			osMetricsMap.Delete(clientID)
+
+			o.logger.Infof("Deleted all client %d information", clientID)
+		}
+
+		clientFinished := messageTracker.ClientFinished(clientID, o.logger)
+		if clientFinished {
+
+			o.logger.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
+			err = o.SendFinalMetrics(clientID, clientOSMetrics)
+			if err != nil {
+				o.logger.Errorf("Failed to send final metrics: %v", err)
+				return
 			}
+			messageTracker.DeleteClientInfo(clientID)
+			osMetricsMap.Delete(clientID)
+		}
 
-			remainingEOFs--
-			remainingEOFsMap[clientID] = remainingEOFs
-
-			if remainingEOFsMap[clientID] <= 0 {
-				log.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
-				err = o.SendFinalMetrics(clientID, osMetricsMap[clientID])
-				if err != nil {
-					// log.Errorf("Failed to send final metrics: %v", err)
-					return fmt.Errorf("failed to send final metrics: %v", err)
-				}
-				delete(osMetricsMap, clientID)
-				delete(remainingEOFsMap, clientID)
+		if messageUntilAck == 0 || delMessage || clientFinished {
+			syncNumber++
+			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
+			if err != nil {
+				o.logger.Errorf("failed to save data: %v", err)
+				return
 			}
-			continue
+			messageUntilAck = AckBatchSize
+			err = o.AckLastMessage()
+			if err != nil {
+				o.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+		} else {
+			messageUntilAck--
 		}
-
-		if _, ok := osMetricsMap[clientID]; !ok {
-			osMetricsMap[clientID] = oa.NewGameOSMetrics()
-		}
-
-		osMetrics := osMetricsMap[clientID]
-
-		osMetrics.Merge(gamesOSMetrics)
-		log.Infof("Received Game Os Metrics Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", osMetrics.Windows, osMetrics.Mac, osMetrics.Linux)
-
 	}
 }

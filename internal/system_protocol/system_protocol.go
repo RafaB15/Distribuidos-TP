@@ -6,6 +6,7 @@ import (
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
 	g "distribuidos-tp/internal/system_protocol/games"
 	j "distribuidos-tp/internal/system_protocol/joiner"
+	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	"encoding/binary"
 	"errors"
@@ -19,19 +20,26 @@ const (
 	MsgAccumulatedGameOSInformation
 	MsgGameYearAndAvgPtfInformation
 	MsgBatch
-	MsgReviewInformation
-	MsgQueryResolved
-	MsgGameReviewsMetrics
-	MsgGameNames
-	MsgJoinedPositiveGameReviews
-	MsgJoinedNegativeGameReviews
-	MsgRawReviewInformation
 	MsgRawReviewInformationBatch
+	MsgReducedRawReviewInformationBatch
+	MsgReviewInformation
+	MsgReducedReviewInformation
+	MsgGameReviewsMetrics
+	MsgNamedGameReviewsMetrics
+	MsgGameNames
+	MsgGames
+	MsgJoinedPositiveGameReviews
+	MsgDeleteClient
 )
 
-// SerializeMsgEndOfFile Message End of file
-func SerializeMsgEndOfFile(clientId int) []byte {
-	return SerializeMessage(MsgEndOfFile, clientId, nil)
+func SerializeMsgEndOfFile(clientId int, senderID int, messagesSent int) []byte {
+	endOfFile := n.NewEndOfFile(senderID, messagesSent)
+	return SerializeMessage(MsgEndOfFile, clientId, endOfFile.Serialize())
+}
+
+func DeserializeMsgEndOfFile(data []byte) (*n.EndOfFile, error) {
+	endOfFile, err := n.DeserializeEOF(data)
+	return endOfFile, err
 }
 
 // --------------------------------------------------------
@@ -46,9 +54,9 @@ func DeserializeMsgBatch(data []byte) ([]string, error) {
 		return []string{}, nil
 	}
 
-	numLines := int(data[0])
+	numLines := int(binary.BigEndian.Uint32(data[:4]))
 
-	serializedLines := data[1:]
+	serializedLines := data[4:]
 	var lines []string
 
 	offset := 0
@@ -145,16 +153,29 @@ func DeserializeMsgGameOSInformation(message []byte) ([]*oa.GameOS, error) {
 }
 
 // --------------------------------------------------------
-// Message RawReviewInformation
+// Message ReviewInformation
 
-func SerializeMsgRawReviewInformation(clientID int, review *r.RawReview) []byte {
+func SerializeMsgReviewInformation(clientID int, review *r.Review) []byte {
 	serializedReview := review.Serialize()
-	return SerializeMessage(MsgRawReviewInformation, clientID, serializedReview)
+	return SerializeMessage(MsgReviewInformation, clientID, serializedReview)
 }
 
-func DeserializeMsgRawReviewInformation(message []byte) (*r.RawReview, error) {
-	rawReview, _, err := r.DeserializeRawReview(message)
-	return rawReview, err
+func DeserializeMsgReviewInformation(message []byte) (*r.Review, error) {
+	deserializedReview, _, err := r.DeserializeReview(message)
+	return deserializedReview, err
+}
+
+// --------------------------------------------------------
+// SerializeMsgReviewInformation Message ReducedReview Information
+
+func SerializeMsgReducedReviewInformation(clientID int, review *r.ReducedReview) []byte {
+	serializedReview := review.Serialize()
+	return SerializeMessage(MsgReducedReviewInformation, clientID, serializedReview)
+}
+
+func DeserializeMsgReducedReviewInformation(message []byte) (*r.ReducedReview, error) {
+	reviews, _, err := r.DeserializeReducedReview(message)
+	return reviews, err
 }
 
 // --------------------------------------------------------
@@ -167,6 +188,18 @@ func SerializeMsgRawReviewInformationBatch(clientID int, reviews []*r.RawReview)
 
 func DeserializeMsgRawReviewInformationBatch(message []byte) ([]*r.RawReview, error) {
 	return r.DeserializeRawReviewsBatch(message)
+}
+
+// --------------------------------------------------------
+// Message ReducedRawReviewInformationBatch
+
+func SerializeMsgReducedRawReviewInformationBatch(clientID int, reviews []*r.ReducedRawReview) []byte {
+	serializedReviews := r.SerializeReducedRawReviewsBatch(reviews)
+	return SerializeMessage(MsgReducedRawReviewInformationBatch, clientID, serializedReviews)
+}
+
+func DeserializeMsgReducedRawReviewInformationBatch(message []byte) ([]*r.ReducedRawReview, error) {
+	return r.DeserializeReducedRawReviewsBatch(message)
 }
 
 // --------------------------------------------------------
@@ -220,19 +253,6 @@ func DeserializeMsgGameYearAndAvgPtf(message []byte) ([]*df.GameYearAndAvgPtf, e
 }
 
 // --------------------------------------------------------
-
-// SerializeMsgReviewInformation Message Review Information
-func SerializeMsgReviewInformation(clientID int, review *r.Review) []byte {
-	serializedReview := review.Serialize()
-	return SerializeMessage(MsgReviewInformation, clientID, serializedReview)
-}
-
-func DeserializeMsgReviewInformation(message []byte) (*r.Review, error) {
-	return r.DeserializeReview(message)
-}
-
-// --------------------------------------------------------
-
 // Message Game Reviews Metrics Batch
 
 func SerializeMsgGameReviewsMetricsBatch(clientID int, metrics []*m.GameReviewsMetrics) []byte {
@@ -277,6 +297,34 @@ func DeserializeMsgGameReviewsMetricsBatch(message []byte) ([]*m.GameReviewsMetr
 	}
 
 	return metrics, nil
+}
+
+// --------------------------------------------------------
+// Message Game Reviews Metrics Batch
+
+func SerializeMsgNamedGameReviewsMetricsBatch(clientID int, metrics []*m.NamedGameReviewsMetrics) []byte {
+	serializedMessage := m.SerializeNamedGameReviewsMetricsBatch(metrics)
+	return SerializeMessage(MsgNamedGameReviewsMetrics, clientID, serializedMessage)
+}
+
+func DeserializeMsgNamedGameReviewsMetricsBatch(message []byte) ([]*m.NamedGameReviewsMetrics, error) {
+	return m.DeserializeNamedGameReviewsMetricsBatch(message)
+}
+
+// --------------------------------------------------------
+// Message Games
+
+func SerializeMsgGames(clientID int, games []*g.Game) ([]byte, error) {
+	serializedGames, err := g.SerializeGameBatch(games)
+	if err != nil {
+		return nil, err
+	}
+
+	return SerializeMessage(MsgGames, clientID, serializedGames), nil
+}
+
+func DeserializeMsgGames(message []byte) ([]*g.Game, error) {
+	return g.DeserializeGameBatch(message)
 }
 
 // --------------------------------------------------------
@@ -352,34 +400,6 @@ func DeserializeMsgJoinedPositiveGameReviews(data []byte) (*j.JoinedPositiveGame
 }
 
 // --------------------------------------------------------
-
-// Message Joined Negative Action Game Reviews
-
-func SerializeMsgJoinedNegativeGameReviews(clientID int, joinedActionNegativeGameReview *j.JoinedNegativeGameReview) ([]byte, error) {
-	messageLen := 4 + 4 + len(joinedActionNegativeGameReview.GameName) + 4
-	message := make([]byte, messageLen) //chequear cuando haga el mensaje de ActionGame
-
-	serializedJoinedNegativeGameReview, err := j.SerializeJoinedActionNegativeGameReview(joinedActionNegativeGameReview)
-	if err != nil {
-		return nil, err
-	}
-	copy(message, serializedJoinedNegativeGameReview)
-
-	return SerializeMessage(MsgJoinedNegativeGameReviews, clientID, message), nil
-}
-
-func DeserializeMsgJoinedNegativeGameReviews(data []byte) (*j.JoinedNegativeGameReview, error) {
-
-	metrics, err := j.DeserializeJoinedActionNegativeGameReview(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return metrics, nil
-}
-
-// --------------------------------------------------------
-
 // Message Game Os Metrics
 
 func SerializeGameOSMetrics(clientID int, gameMetrics *oa.GameOSMetrics) []byte {
@@ -403,4 +423,11 @@ func AssembleFinalQueryMsg(clientID byte, messageType byte, body []byte) []byte 
 	copy(msg[4:], body)
 
 	return msg
+}
+
+// --------------------------------------------------------
+// Message Delete Client
+
+func SerializeMsgDeleteClient(clientID int) []byte {
+	return SerializeMessage(MsgDeleteClient, clientID, nil)
 }

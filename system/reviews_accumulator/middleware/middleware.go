@@ -3,10 +3,15 @@ package middleware
 import (
 	sp "distribuidos-tp/internal/system_protocol"
 	r "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	n "distribuidos-tp/internal/system_protocol/node"
 	"distribuidos-tp/internal/system_protocol/reviews"
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
+	"sort"
+
 	"fmt"
+
+	"github.com/op/go-logging"
 )
 
 const (
@@ -17,28 +22,19 @@ const (
 	ReviewsRoutingKeyPrefix = "reviews_key_"
 	ReviewQueueNamePrefix   = "reviews_queue_"
 
-	AccumulatedReviewsExchangeName = "accumulated_reviews_exchange"
-	AccumulatedReviewsExchangeType = "direct"
-	AccumulatedReviewsRoutingKey   = "accumulated_reviews_key"
-
-	NegativePreFilterExchangeName     = "negative_pre_filter_exchange"
-	NegativePreFilterExchangeType     = "direct"
-	NegativePreFilterRoutingKeyPrefix = "negative_pre_filter_key_"
-
 	IndieReviewJoinExchangeName             = "indie_review_join_exchange"
 	IndieReviewJoinExchangeType             = "direct"
 	IndieReviewJoinExchangeRoutingKeyPrefix = "accumulated_reviews_key_"
 )
 
 type Middleware struct {
-	Manager                    *mom.MiddlewareManager
-	ReviewsQueue               *mom.Queue
-	AccumulatedReviewsExchange *mom.Exchange
-	NegativeReviewsPreFilter   *mom.Exchange
-	IndieReviewJoinExchange    *mom.Exchange
+	Manager                 *mom.MiddlewareManager
+	ReviewsQueue            *mom.Queue
+	IndieReviewJoinExchange *mom.Exchange
+	logger                  *logging.Logger
 }
 
-func NewMiddleware(id int) (*Middleware, error) {
+func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, err
@@ -51,103 +47,94 @@ func NewMiddleware(id int) (*Middleware, error) {
 		return nil, err
 	}
 
-	accumulatedReviewsExchange, err := manager.CreateExchange(AccumulatedReviewsExchangeName, AccumulatedReviewsExchangeType)
-	if err != nil {
-		return nil, err
-	}
-
 	indieReviewJoinExchange, err := manager.CreateExchange(IndieReviewJoinExchangeName, IndieReviewJoinExchangeType)
 	if err != nil {
 		return nil, err
 	}
 
-	negativeReviewsPreFilterExchange, err := manager.CreateExchange(NegativePreFilterExchangeName, NegativePreFilterExchangeType)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Middleware{
-		Manager:                    manager,
-		ReviewsQueue:               reviewsQueue,
-		AccumulatedReviewsExchange: accumulatedReviewsExchange,
-		NegativeReviewsPreFilter:   negativeReviewsPreFilterExchange,
-		IndieReviewJoinExchange:    indieReviewJoinExchange,
+		Manager:                 manager,
+		ReviewsQueue:            reviewsQueue,
+		IndieReviewJoinExchange: indieReviewJoinExchange,
+		logger:                  logger,
 	}, nil
 }
 
-func (m *Middleware) ReceiveReviews() (int, []*reviews.RawReview, bool, error) {
+func (m *Middleware) ReceiveReviews(messageTracker *n.MessageTracker) (clientID int, rawReviews []*reviews.ReducedRawReview, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.ReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
+		return 0, nil, false, false, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
-	fmt.Printf("Received message from client %d\n", message.ClientID)
+	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
+	if err != nil {
+		return 0, nil, false, false, false, fmt.Errorf("failed to process message: %v", err)
+	}
+
+	if !newMessage {
+		return message.ClientID, nil, false, false, false, nil
+	}
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return message.ClientID, nil, true, nil
-	case sp.MsgRawReviewInformationBatch:
-		reviewsInformation, err := sp.DeserializeMsgRawReviewInformationBatch(message.Body)
+		m.logger.Infof("Received EOF from client %d", message.ClientID)
+		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, fmt.Errorf("failed to deserialize reviewsInformation: %v", err)
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to deserialize endOfFile: %v", err)
 		}
-		return message.ClientID, reviewsInformation, false, nil
+		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
+		if err != nil {
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to register EOF: %v", err)
+		}
+		return message.ClientID, nil, true, true, false, nil
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Received Delete Client for client %d", message.ClientID)
+		return message.ClientID, nil, false, true, true, nil
+	case sp.MsgReducedRawReviewInformationBatch:
+		reviewsInformation, err := sp.DeserializeMsgReducedRawReviewInformationBatch(message.Body)
+		if err != nil {
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to deserialize reviewsInformation: %v", err)
+		}
+		return message.ClientID, reviewsInformation, false, true, false, nil
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, false, false, fmt.Errorf("unexpected message type: %v", message.Type)
 	}
 }
 
-func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews map[uint32]*r.GameReviewsMetrics, indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int) error {
+func (m *Middleware) SendAccumulatedReviews(clientID int, accumulatedReviews *n.IntMap[*r.GameReviewsMetrics], indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error {
 	keyMap := idMapToKeyMap(accumulatedReviews, indieReviewJoinersAmount, IndieReviewJoinExchangeRoutingKeyPrefix)
 
 	for routingKey, metrics := range keyMap {
+
+		sort.Slice(metrics, func(i, j int) bool {
+			return metrics[i].AppID < metrics[j].AppID
+		})
+
 		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
 
-		err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, serializedMetricsBatch)
+		err := m.IndieReviewJoinExchange.Publish(routingKey, serializedMetricsBatch)
 		if err != nil {
 			return err
 		}
-
-		err = m.IndieReviewJoinExchange.Publish(routingKey, serializedMetricsBatch)
-		if err != nil {
-			return err
-		}
-	}
-
-	preFilterKeyMap := idMapToKeyMap(accumulatedReviews, negativeReviewPreFiltersAmount, NegativePreFilterRoutingKeyPrefix)
-	for routingKey, metrics := range preFilterKeyMap {
-		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
-
-		err := m.NegativeReviewsPreFilter.Publish(routingKey, serializedMetricsBatch)
-		if err != nil {
-			return err
-		}
+		messageTracker.RegisterSentMessage(clientID, routingKey)
 	}
 
 	return nil
 }
 
-func (m *Middleware) SendEof(clientID int, indieReviewJoinersAmount int, negativeReviewPreFiltersAmount int) error {
-	err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, sp.SerializeMsgEndOfFile(clientID))
-	if err != nil {
-		return err
-	}
+func (m *Middleware) SendEof(clientID int, senderID int, indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
 
 	for nodeId := 1; nodeId <= indieReviewJoinersAmount; nodeId++ {
-		err = m.IndieReviewJoinExchange.Publish(fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFile(clientID))
-		if err != nil {
-			return err
-		}
-	}
-
-	for nodeId := 1; nodeId <= negativeReviewPreFiltersAmount; nodeId++ {
-		err = m.NegativeReviewsPreFilter.Publish(fmt.Sprintf("%s%d", NegativePreFilterRoutingKeyPrefix, nodeId), sp.SerializeMsgEndOfFile(clientID))
-		fmt.Printf("Sending EOF to negative pre filter %d\n", nodeId)
+		routingKey := fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId)
+		messagesSentToNode := messagesSent[routingKey]
+		serializedMsg := sp.SerializeMsgEndOfFile(clientID, senderID, messagesSentToNode)
+		err := m.IndieReviewJoinExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return err
 		}
@@ -156,17 +143,18 @@ func (m *Middleware) SendEof(clientID int, indieReviewJoinersAmount int, negativ
 	return nil
 }
 
-func idMapToKeyMap(idMap map[uint32]*r.GameReviewsMetrics, nodeAmount int, routingKeyPrefix string) map[string][]*r.GameReviewsMetrics {
+func idMapToKeyMap(idMap *n.IntMap[*r.GameReviewsMetrics], nodeAmount int, routingKeyPrefix string) map[string][]*r.GameReviewsMetrics {
 	keyMap := make(map[string][]*r.GameReviewsMetrics)
-	for _, metrics := range idMap {
-		key := u.GetPartitioningKeyFromInt(int(metrics.AppID), nodeAmount, routingKeyPrefix)
-		keyMap[key] = append(keyMap[key], metrics)
-	}
+	idMap.Range(func(key int, value *r.GameReviewsMetrics) bool {
+		partitionKey := u.GetPartitioningKeyFromInt(key, nodeAmount, routingKeyPrefix)
+		keyMap[partitionKey] = append(keyMap[partitionKey], value)
+		return true
+	})
 	return keyMap
 }
 
 func (m *Middleware) AckLastMessage() error {
-	err := m.ReviewsQueue.AckLastMessage()
+	err := m.ReviewsQueue.AckLastMessages()
 	if err != nil {
 		return fmt.Errorf("failed to ack last message: %v", err)
 	}
@@ -175,4 +163,16 @@ func (m *Middleware) AckLastMessage() error {
 
 func (m *Middleware) Close() error {
 	return m.Manager.CloseConnection()
+}
+
+func (m *Middleware) SendDeleteClient(clientID int, indieReviewJoinersAmount int) error {
+	serializedMsg := sp.SerializeMsgDeleteClient(clientID)
+	for nodeId := 1; nodeId <= indieReviewJoinersAmount; nodeId++ {
+		routingKey := fmt.Sprintf("%s%d", IndieReviewJoinExchangeRoutingKeyPrefix, nodeId)
+		err := m.IndieReviewJoinExchange.Publish(routingKey, serializedMsg)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

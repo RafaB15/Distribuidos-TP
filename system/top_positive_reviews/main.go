@@ -4,8 +4,10 @@ import (
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/top_positive_reviews/logic"
 	m "distribuidos-tp/system/top_positive_reviews/middleware"
+	p "distribuidos-tp/system/top_positive_reviews/persistence"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -18,6 +20,9 @@ const (
 var log = logging.MustGetLogger("log")
 
 func main() {
+
+	go u.HandlePing()
+
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
 
@@ -29,18 +34,22 @@ func main() {
 		return
 	}
 
-	middleware, err := m.NewMiddleware()
+	middleware, err := m.NewMiddleware(log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
 	}
 
-	topPositiveReviews := l.NewTopPositiveReviews(middleware.ReceiveMsg, middleware.SendQueryResults)
+	topPositiveReviews := l.NewTopPositiveReviews(middleware.ReceiveMsg, middleware.SendQueryResults, middleware.AckLastMessage, log)
 
-	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
+
+	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		topPositiveReviews.Run(indieReviewJoinersAmount)
+		topPositiveReviews.Run(indieReviewJoinersAmount, repository)
 		doneChannel <- true
 	}()
 

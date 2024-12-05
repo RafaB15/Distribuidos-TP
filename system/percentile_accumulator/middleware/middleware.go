@@ -3,7 +3,11 @@ package middleware
 import (
 	sp "distribuidos-tp/internal/system_protocol"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
+	n "distribuidos-tp/internal/system_protocol/node"
 	mom "distribuidos-tp/middleware"
+
+	"github.com/op/go-logging"
+
 	"fmt"
 )
 
@@ -14,85 +18,107 @@ const (
 	AccumulatedReviewsRoutingKey   = "accumulated_reviews_key"
 	AccumulatedReviewsQueueName    = "accumulated_reviews_queue"
 
-	AccumulatedPercentileReviewsExchangeName = "action_review_join_exchange"
-	AccumulatedPercentileReviewsExchangeType = "direct"
+	QueryResultsExchangeName = "query_results_exchange"
+	QueryRoutingKeyPrefix    = "query_results_key_" // con el id del cliente
+	QueryExchangeType        = "direct"
 )
 
 type Middleware struct {
-	Manager                       *mom.MiddlewareManager
-	AccumulatedReviewsQueue       *mom.Queue
-	AccumulatedPercentileExchange *mom.Exchange
+	Manager                 *mom.MiddlewareManager
+	AccumulatedReviewsQueue *mom.Queue
+	QueryResultsExchange    *mom.Exchange
+	logger                  *logging.Logger
 }
 
-func NewMiddleware() (*Middleware, error) {
-
+func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 	manager, err := mom.NewMiddlewareManager(middlewareURI)
 	if err != nil {
 		return nil, err
 	}
-	accumulatedReviewsQueue, err := manager.CreateBoundQueue(AccumulatedReviewsQueueName, AccumulatedReviewsExchangeName, AccumulatedReviewsExchangeType, AccumulatedReviewsRoutingKey, true)
+
+	accumulatedReviewsQueue, err := manager.CreateBoundQueue(AccumulatedReviewsQueueName, AccumulatedReviewsExchangeName, AccumulatedReviewsExchangeType, AccumulatedReviewsRoutingKey, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue: %v", err)
 	}
-	accumulatedPercentileExchange, err := manager.CreateExchange(AccumulatedPercentileReviewsExchangeName, AccumulatedPercentileReviewsExchangeType)
+
+	queryResultsExchange, err := manager.CreateExchange(QueryResultsExchangeName, QueryExchangeType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to declare exchange: %v", err)
+		return nil, err
 	}
+
 	return &Middleware{
-		Manager:                       manager,
-		AccumulatedReviewsQueue:       accumulatedReviewsQueue,
-		AccumulatedPercentileExchange: accumulatedPercentileExchange,
+		Manager:                 manager,
+		AccumulatedReviewsQueue: accumulatedReviewsQueue,
+		QueryResultsExchange:    queryResultsExchange,
+		logger:                  logger,
 	}, nil
 
 }
 
-func (m *Middleware) ReceiveGameReviewsMetrics() (int, []*ra.GameReviewsMetrics, bool, error) {
+func (m *Middleware) ReceiveGameReviewsMetrics(messageTracker *n.MessageTracker) (clientID int, namedReviews []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.AccumulatedReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, false, false, false, err
+	}
+
+	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
+	if err != nil {
+		return 0, nil, false, false, false, err
+	}
+
+	if !newMessage {
+		return message.ClientID, nil, false, false, false, nil
 	}
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return message.ClientID, nil, true, nil
-	case sp.MsgGameReviewsMetrics:
-		fmt.Print("Received game reviews metrics\n")
-		gameReviewsMetrics, err := sp.DeserializeMsgGameReviewsMetricsBatch(message.Body)
+
+		m.logger.Infof("Received EOF from client %d", message.ClientID)
+		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, err
+			return message.ClientID, nil, false, false, false, err
 		}
-		return message.ClientID, gameReviewsMetrics, false, nil
+		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
+		if err != nil {
+			return message.ClientID, nil, false, false, false, err
+		}
+		return message.ClientID, nil, true, true, false, nil
+
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Receive delete client %d", message.ClientID)
+		return message.ClientID, nil, false, true, true, nil
+	case sp.MsgNamedGameReviewsMetrics:
+
+		gameReviewsMetrics, err := sp.DeserializeMsgNamedGameReviewsMetricsBatch(message.Body)
+		if err != nil {
+			return message.ClientID, nil, false, false, false, err
+		}
+
+		return message.ClientID, gameReviewsMetrics, false, true, false, nil
+
 	default:
-		fmt.Printf("Received unexpected message type: %v\n", message.Type)
-		return message.ClientID, nil, false, fmt.Errorf("received unexpected message type: %v", message.Type)
+
+		return message.ClientID, nil, false, false, false, fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
 }
 
-func (m *Middleware) SendGameReviewsMetrics(clientID int, accumulatedPercentileKeyMap map[string][]*ra.GameReviewsMetrics) error {
-	for routingKey, metrics := range accumulatedPercentileKeyMap {
-		serializedMetricsBatch := sp.SerializeMsgGameReviewsMetricsBatch(clientID, metrics)
-
-		err := m.AccumulatedPercentileExchange.Publish(routingKey, serializedMetricsBatch)
-		if err != nil {
-			return fmt.Errorf("failed to publish metrics: %v", err)
-		}
-	}
-	return nil
+func (m *Middleware) SendQueryResults(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) error {
+	queryMessage := sp.SerializeMsgActionNegativeReviewsQuery(clientID, namedGameReviewsMetricsBatch)
+	routingKey := fmt.Sprintf("%s%d", QueryRoutingKeyPrefix, clientID)
+	return m.QueryResultsExchange.Publish(routingKey, queryMessage)
 }
 
-func (m *Middleware) SendEndOfFiles(clientID int, actionNegativeReviewsJoinersAmount int, accumulatedPercentileReviewsRoutingKeyPrefix string) error {
-	for i := 1; i <= actionNegativeReviewsJoinersAmount; i++ {
-		routingKey := fmt.Sprintf("%v%d", accumulatedPercentileReviewsRoutingKeyPrefix, i)
-		err := m.AccumulatedPercentileExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
-		if err != nil {
-			return err
-		}
+func (m *Middleware) AckLastMessage() error {
+	err := m.AccumulatedReviewsQueue.AckLastMessages()
+	if err != nil {
+		return fmt.Errorf("failed to ack last message: %v", err)
 	}
+	m.logger.Infof("Acked last message")
 	return nil
 }
 

@@ -4,8 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-	"math/rand"
-	"time"
 )
 
 func CalculateShardingKey(appId string, numShards int) int {
@@ -23,13 +21,4 @@ func GetPartitioningKey(appId string, numPartitions int, prefix string) string {
 func GetPartitioningKeyFromInt(appId int, numPartitions int, prefix string) string {
 	appIdStr := fmt.Sprintf("%d", appId)
 	return GetPartitioningKey(appIdStr, numPartitions, prefix)
-}
-
-func GetRandomNumber(max int) int {
-
-	// Crear un nuevo generador de números aleatorios con una semilla basada en el tiempo
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	// rand.Intn devuelve un número entre 0 y max-min, así que sumamos min para ajustarlo al rango
-	return r.Intn(max+1-1) + 1
 }

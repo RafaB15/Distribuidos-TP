@@ -2,35 +2,50 @@ package utils
 
 import (
 	"errors"
-	"net"
+	"fmt"
+	"io"
+	"net/http"
 )
 
-func WriteExact(conn net.Conn, data []byte) error {
+func WriteExact(writer io.Writer, data []byte) error {
 	sentBytes := 0
 	for sentBytes < len(data) {
-		n, err := conn.Write(data[sentBytes:])
+		n, err := writer.Write(data[sentBytes:])
 		if err != nil {
 			return err
+		}
+		if n == 0 {
+			return errors.New("writer closed before writing expected amount of data")
 		}
 		sentBytes += n
 	}
 	return nil
 }
 
-func ReadExact(conn net.Conn, length int) ([]byte, error) {
+func ReadExact(reader io.Reader, length int) ([]byte, error) {
 	data := make([]byte, length)
 	readBytes := 0
 
 	for readBytes < length {
-		n, err := conn.Read(data[readBytes:])
+		n, err := reader.Read(data[readBytes:])
 		if err != nil {
 			return nil, err
 		}
 		if n == 0 {
-			return nil, errors.New("connection closed before reading expected amount of data")
+			return nil, errors.New("reader closed before reading expected amount of data")
 		}
 		readBytes += n
 	}
 
 	return data, nil
+}
+
+func HandlePing() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// fmt.Fprintln(w, "Pong")
+	})
+
+	if err := http.ListenAndServe(":80", nil); err != nil {
+		fmt.Printf("Error starting server: %v\n", err)
+	}
 }

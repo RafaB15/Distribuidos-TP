@@ -2,6 +2,7 @@ package middleware
 
 import (
 	sp "distribuidos-tp/internal/system_protocol"
+	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
 	u "distribuidos-tp/internal/utils"
 	mom "distribuidos-tp/middleware"
@@ -26,7 +27,7 @@ type Middleware struct {
 	Manager                *mom.MiddlewareManager
 	RawEnglishReviewsQueue *mom.Queue
 	EnglishReviewsExchange *mom.Exchange
-	Logger                 *logging.Logger
+	logger                 *logging.Logger
 }
 
 func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
@@ -54,73 +55,110 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 		Manager:                manager,
 		RawEnglishReviewsQueue: rawEnglishReviewsQueue,
 		EnglishReviewsExchange: englishReviewsExchange,
-		Logger:                 logger,
+		logger:                 logger,
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameReviews() (int, *r.RawReview, bool, error) {
-	m.Logger.Info("Waiting for message")
+func (m *Middleware) ReceiveGameReviews(messageTracker *n.MessageTracker) (clientID int, review *r.Review, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.RawEnglishReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("failed to consume message: %v", err)
+		return 0, nil, false, false, false, fmt.Errorf("failed to consume message: %v", err)
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("failed to deserialize message: %v", err)
+		return 0, nil, false, false, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
-	m.Logger.Infof("Received message from client %d", message.ClientID)
-	m.Logger.Infof("Received message type %d", message.Type)
-	m.Logger.Infof("Received message body %d", len(message.Body))
+
+	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
+	if err != nil {
+		return 0, nil, false, false, false, fmt.Errorf("failed to process message: %v", err)
+	}
+
+	if !newMessage {
+		return message.ClientID, nil, false, false, false, nil
+	}
 
 	switch message.Type {
 	case sp.MsgEndOfFile:
-		return message.ClientID, nil, true, nil
-	case sp.MsgRawReviewInformation:
-		m.Logger.Debugf("Received raw review information")
-		rawReview, err := sp.DeserializeMsgRawReviewInformation(message.Body)
-		m.Logger.Debugf("Deserialized raw review information")
+		m.logger.Infof("Received EOF from client %d", message.ClientID)
+		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, err
+			return message.ClientID, nil, false, false, false, err
 		}
-		return message.ClientID, rawReview, false, nil
+
+		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
+		if err != nil {
+			return message.ClientID, nil, false, false, false, err
+		}
+
+		return message.ClientID, nil, true, true, false, nil
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Received delete client message from client %d", message.ClientID)
+		return message.ClientID, nil, false, true, true, nil
+	case sp.MsgReviewInformation:
+		review, err := sp.DeserializeMsgReviewInformation(message.Body)
+		if err != nil {
+			return message.ClientID, nil, false, true, false, err
+		}
+		return message.ClientID, review, false, true, false, nil
 	default:
-		return message.ClientID, nil, false, fmt.Errorf("unexpected message type: %d", message.Type)
+		return message.ClientID, nil, false, false, false, fmt.Errorf("unexpected message type: %d", message.Type)
 	}
 }
 
-func (m *Middleware) SendEnglishReview(clientID int, review *r.Review, englishAccumulatorsAmount int) error {
-	routingKey := u.GetPartitioningKeyFromInt(int(review.AppId), englishAccumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
-	serializedReview := sp.SerializeMsgReviewInformation(clientID, review)
+func (m *Middleware) SendEnglishReview(clientID int, reducedReview *r.ReducedReview, englishAccumulatorsAmount int, messageTracker *n.MessageTracker) error {
+	routingKey := u.GetPartitioningKeyFromInt(int(reducedReview.AppId), englishAccumulatorsAmount, EnglishReviewsRoutingKeyPrefix)
+	serializedReview := sp.SerializeMsgReducedReviewInformation(clientID, reducedReview)
 
 	err := m.EnglishReviewsExchange.Publish(routingKey, serializedReview)
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %v", err)
 	}
 
-	m.Logger.Infof("Sent review for client %d", clientID)
+	messageTracker.RegisterSentMessage(clientID, routingKey)
+	m.logger.Infof("Sent review for client %d", clientID)
 
 	return nil
 }
 
-func (m *Middleware) SendEndOfFiles(clientID int, accumulatorsAmount int) error {
+func (m *Middleware) SendEndOfFiles(clientID int, senderID int, accumulatorsAmount int, messageTracker *n.MessageTracker) error {
+	messagesSent := messageTracker.GetSentMessages(clientID)
+
 	for i := 1; i <= accumulatorsAmount; i++ {
 		routingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, i)
-		err := m.EnglishReviewsExchange.Publish(routingKey, sp.SerializeMsgEndOfFile(clientID))
+		messagesSentToNode := messagesSent[routingKey]
+		serializedMsg := sp.SerializeMsgEndOfFile(clientID, senderID, messagesSentToNode)
+		err := m.EnglishReviewsExchange.Publish(routingKey, serializedMsg)
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %v", err)
 		}
+		m.logger.Infof("Sent EOF for client %d with routing key %s and expected messages: %d", clientID, routingKey, messagesSentToNode)
 	}
 
 	return nil
 }
 
 func (m *Middleware) AckLastMessage() error {
-	err := m.RawEnglishReviewsQueue.AckLastMessage()
+	err := m.RawEnglishReviewsQueue.AckLastMessages()
 	if err != nil {
 		return fmt.Errorf("failed to ack last message: %v", err)
 	}
-	m.Logger.Infof("Acked last message")
+	m.logger.Infof("Acked last message")
+	return nil
+}
+
+func (m *Middleware) SendDeleteClient(clientID int, accumulatorsAmount int) error {
+	for i := 1; i <= accumulatorsAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", EnglishReviewsRoutingKeyPrefix, i)
+		serializedMsg := sp.SerializeMsgDeleteClient(clientID)
+		err := m.EnglishReviewsExchange.Publish(routingKey, serializedMsg)
+		if err != nil {
+			return fmt.Errorf("failed to publish message: %v", err)
+		}
+		m.logger.Infof("Sent delete client for client %d with routing key %s", clientID, routingKey)
+	}
+
 	return nil
 }
 

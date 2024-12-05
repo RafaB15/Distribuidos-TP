@@ -2,23 +2,26 @@ package main
 
 import (
 	u "distribuidos-tp/internal/utils"
-	"os"
-	"os/signal"
-	"syscall"
-
 	l "distribuidos-tp/system/english_reviews_filter/logic"
 	m "distribuidos-tp/system/english_reviews_filter/middleware"
+	p "distribuidos-tp/system/english_reviews_filter/persistence"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	"github.com/op/go-logging"
 )
 
 const (
-	AccumulatorsAmountEnvironmentVariableName              = "ACCUMULATORS_AMOUNT"
-	IdEnvironmentVariableName                              = "ID"
-	NegativeReviewsPreFiltersAmountEnvironmentVariableName = "NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT"
+	AccumulatorsAmountEnvironmentVariableName        = "ACCUMULATORS_AMOUNT"
+	IdEnvironmentVariableName                        = "ID"
+	ActionReviewJoinersAmountEnvironmentVariableName = "ACTION_REVIEW_JOINERS_AMOUNT"
 )
 
 func main() {
+
+	go u.HandlePing()
 	var log = logging.MustGetLogger("log")
 
 	signalChannel := make(chan os.Signal, 1)
@@ -38,7 +41,7 @@ func main() {
 		return
 	}
 
-	negativeReviewsPreFiltersAmount, err := u.GetEnvInt(NegativeReviewsPreFiltersAmountEnvironmentVariableName)
+	actionReviewJoinersAmount, err := u.GetEnvInt(ActionReviewJoinersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -54,14 +57,19 @@ func main() {
 		middleware.ReceiveGameReviews,
 		middleware.SendEnglishReview,
 		middleware.SendEndOfFiles,
+		middleware.SendDeleteClient,
 		middleware.AckLastMessage,
 		log,
 	)
 
-	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
+
+	go u.HandleGracefulShutdownWithWaitGroup(&wg, middleware, signalChannel, doneChannel, log)
 
 	go func() {
-		englishReviewsFilter.Run(accumulatorsAmount, negativeReviewsPreFiltersAmount)
+		englishReviewsFilter.Run(id, accumulatorsAmount, actionReviewJoinersAmount, repository)
 		doneChannel <- true
 	}()
 

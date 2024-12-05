@@ -11,6 +11,7 @@ COPY system/os_final_accumulator ./system/os_final_accumulator
 COPY middleware ./middleware
 COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils
+COPY persistence ./persistence
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/os_final_accumulator ./system/os_final_accumulator
 

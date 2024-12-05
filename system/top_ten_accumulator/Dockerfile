@@ -9,6 +9,7 @@ RUN go mod download
 
 COPY system/top_ten_accumulator ./system/top_ten_accumulator
 COPY middleware ./middleware
+COPY persistence ./persistence
 COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils
 

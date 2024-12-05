@@ -90,26 +90,11 @@ En esta instancia (y las subsiguientes) el objetivo es la resolucion de estas co
 * Percentile Accumulator:
 
   Este servicio es el encargado de calcular el percentil 90 de aquellas reseñas con más reseñas negativas. Este servicio no escala ya que requerimos de todas la información completa en el mismo lugar para realizar el calculo. Ordena los datos y calcula el percentil correspondiente. Al obtenerlo envía por clave de particionamiento al siguiente servicio que será el Join de la consulta que corresponda. 
-  
-## Diagrama de Robustez
 
-![Link al Diagrama](./images/DiagramaDeRobustez.png)
 
-En este diagrama se pueden ver los distintos servicios mencionados en la seccion anterior pero con la conexión entre ellos. 
+## Mas Información
 
-## Diagrama de Paquetes
-
-![Link al Diagrama](./images/Paquetes.png)
-
-En este diagrama se refleja la organización del código a gran escala por como estan organizadas por sus funcionalidades similares.
-
-## DAG
-
-![Link al Diagrama](./images/DAG.png)
-
-En el DAG se pueden observar aquellos datos que son necesarios para procesar cada una de las consultas. Las consultas se pueden interpretar como los distintos caminos desde el entrypoint hasta el Post o Writer.
-
-Es importante destacar que en esta instancia el cliente debe primero enviar todos los datos de juegos y luego al finalizar enviará las reseñas.
+Para mas información consultar el [Informe de Tolerancia a Fallas](https://github.com/RafaB15/Distribuidos-TP/blob/persistence/Informe%20TP%20Tolerancia.pdf).
 
 
 Desarrollado por Rafael Berenguel, Franco Gazzola y Sofia Javes

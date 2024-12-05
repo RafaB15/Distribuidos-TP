@@ -9,6 +9,7 @@ RUN go mod download
 
 COPY system/decade_filter ./system/decade_filter
 COPY middleware ./middleware
+COPY persistence ./persistence
 COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils
 

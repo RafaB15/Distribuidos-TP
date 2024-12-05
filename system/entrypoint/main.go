@@ -1,24 +1,26 @@
 package main
 
 import (
-	u "distribuidos-tp/internal/utils"
+	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
+	e "distribuidos-tp/internal/system_protocol/entrypoint"
+	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/entrypoint/logic"
 	m "distribuidos-tp/system/entrypoint/middleware"
-	"fmt"
-	"net"
+	p "distribuidos-tp/system/entrypoint/persistence"
 
 	"github.com/op/go-logging"
 )
 
 const (
-	port                                                   = ":3000"
-	NegativeReviewsPreFiltersAmountEnvironmentVariableName = "NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT"
-	ReviewAccumulatorsAmountEnvironmentVariableName        = "REVIEW_ACCUMULATORS_AMOUNT"
+	port                                             = ":3000"
+	ActionReviewJoinersAmountEnvironmentVariableName = "ACTION_REVIEW_JOINERS_AMOUNT"
+	ReviewAccumulatorsAmountEnvironmentVariableName  = "REVIEW_ACCUMULATORS_AMOUNT"
 )
 
 var log = logging.MustGetLogger("log")
@@ -29,7 +31,7 @@ func main() {
 
 	var mainWG sync.WaitGroup
 
-	negativeReviewsPreFiltersAmount, err := u.GetEnvInt(NegativeReviewsPreFiltersAmountEnvironmentVariableName)
+	actionReviewJoinerAmount, err := u.GetEnvInt(ActionReviewJoinersAmountEnvironmentVariableName)
 	if err != nil {
 		log.Errorf("Failed to get environment variable: %v", err)
 		return
@@ -50,7 +52,12 @@ func main() {
 
 	go handleMainGracefulShutdown(listener, signalChannel, &mainWG)
 
-	clientID := 1
+	repository := p.NewRepository(&mainWG, log)
+	clientTracker := repository.LoadClientTracker()
+	deleteUnfinishedClients(clientTracker, actionReviewJoinerAmount, reviewAccumulatorsAmount)
+
+	var mu sync.Mutex
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -59,14 +66,16 @@ func main() {
 		}
 
 		mainWG.Add(1)
-		go handleConnection(conn, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount, clientID, &mainWG)
-		clientID++
+		mu.Lock()
+		currentClientId := clientTracker.AddClient()
+		mu.Unlock()
+		go handleConnection(conn, actionReviewJoinerAmount, reviewAccumulatorsAmount, currentClientId, &mainWG, clientTracker, repository, &mu)
 	}
 
 	mainWG.Wait()
 }
 
-func handleConnection(conn net.Conn, negativeReviewsPreFiltersAmount int, reviewAccumulatorsAmount int, clientID int, mainWG *sync.WaitGroup) {
+func handleConnection(conn net.Conn, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, clientID int, mainWG *sync.WaitGroup, clientTracker *e.ClientTracker, repository *p.Repository, mu *sync.Mutex) {
 	defer mainWG.Done()
 	defer conn.Close()
 
@@ -75,7 +84,7 @@ func handleConnection(conn net.Conn, negativeReviewsPreFiltersAmount int, review
 
 	doneChannel := make(chan bool)
 
-	middleware, err := m.NewMiddleware(clientID)
+	middleware, err := m.NewMiddleware(clientID, log)
 	if err != nil {
 		fmt.Printf("Error creating middleware: %v for client %d\n", err, clientID)
 		return
@@ -93,7 +102,7 @@ func handleConnection(conn net.Conn, negativeReviewsPreFiltersAmount int, review
 	go handleClientGracefulShutdown(clientID, conn, &clientWG, middleware, signalChannel, doneChannel)
 
 	go func() {
-		entryPoint.Run(conn, clientID, negativeReviewsPreFiltersAmount, reviewAccumulatorsAmount)
+		entryPoint.Run(conn, clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount, clientTracker, repository, mu)
 		doneChannel <- true
 	}()
 
@@ -128,4 +137,20 @@ func handleClientGracefulShutdown(clientID int, conn net.Conn, clientWG *sync.Wa
 	log.Infof("Graceful shutdown completed for client %d.", clientID)
 	clientWG.Done()
 	doneChannel <- true
+}
+
+func deleteUnfinishedClients(clientTracker *e.ClientTracker, actionReviewJoinersAmount int, reviewAccumulatorsAmount int) {
+	for clientID := range clientTracker.CurrentClients {
+		middleware, err := m.NewMiddleware(clientID, log)
+		if err != nil {
+			fmt.Printf("Error creating middleware: %v\n", err)
+			return
+		}
+		clientTracker.FinishClient(clientID)
+		err = middleware.SendDeleteClient(clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount)
+		if err != nil {
+			log.Errorf("Error sending delete client message for client %d: %v", clientID, err)
+		}
+		go middleware.EmptyQueryQueue()
+	}
 }

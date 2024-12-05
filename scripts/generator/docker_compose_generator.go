@@ -1,51 +1,24 @@
 package main
 
 import (
-	"encoding/json"
+	u "distribuidos-tp/internal/utils"
 	"flag"
 	"fmt"
 	"os"
 )
-
-type Config struct {
-	Rabbitmq                     int `json:"rabbitmq"`
-	Entrypoint                   int `json:"entrypoint"`
-	GameMapper                   int `json:"game_mapper"`
-	OSAccumulator                int `json:"os_accumulator"`
-	OSFinalAccumulator           int `json:"os_final_accumulator"`
-	TopTenAccumulator            int `json:"top_ten_accumulator"`
-	TopPositiveReviews           int `json:"top_positive_reviews"`
-	PercentileAccumulator        int `json:"percentile_accumulator"`
-	ReviewsAccumulator           int `json:"reviews_accumulator"`
-	DecadeFilter                 int `json:"decade_filter"`
-	NegativeReviewsPreFilter     int `json:"negative_reviews_pre_filter"`
-	EnglishFilter                int `json:"english_filter"`
-	EnglishReviewsAccumulator    int `json:"english_reviews_accumulator"`
-	NegativeReviewsFilter        int `json:"negative_reviews_filter"`
-	ActionEnglishReviewJoiner    int `json:"action_english_review_joiner"`
-	ActionPercentileReviewJoiner int `json:"action_percentile_review_joiner"`
-	IndieReviewJoiner            int `json:"indie_review_joiner"`
-	FinalEnglishJoiner           int `json:"final_english_joiner"`
-	FinalPercentileJoiner        int `json:"final_percentile_joiner"`
-}
 
 func main() {
 	configFile := flag.String("config", "config.json", "Configuration file")
 	outputFile := flag.String("output", "docker-compose-dev.yaml", "Output Docker Compose file")
 	flag.Parse()
 
-	config := Config{}
-	data, err := os.ReadFile(*configFile)
+	config, err := u.LoadConfig(*configFile)
 	if err != nil {
-		fmt.Printf("Error reading configuration file: %v\n", err)
+		fmt.Printf("Error loading configuration file: %v\n", err)
 		return
 	}
 
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		fmt.Printf("Error parsing configuration file: %v\n", err)
-		return
-	}
+	services := make(map[string]bool)
 
 	compose := `services:
 `
@@ -70,6 +43,7 @@ func main() {
       - distributed_network
 
 `, serviceName, serviceName)
+	services[serviceName] = true
 
 	// Entrypoint service
 	serviceName = "entrypoint"
@@ -78,7 +52,7 @@ func main() {
     image: entrypoint:latest
     entrypoint: /entrypoint
     environment:
-      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=%d
+      - ACTION_REVIEW_JOINERS_AMOUNT=%d
       - REVIEW_ACCUMULATORS_AMOUNT=%d
     depends_on:
       rabbitmq:
@@ -86,7 +60,8 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.NegativeReviewsPreFilter, config.ReviewsAccumulator)
+`, serviceName, serviceName, config.ActionReviewJoiner, config.ReviewsAccumulator)
+	services[serviceName] = true
 
 	// GameMapper service
 	serviceName = "game_mapper"
@@ -107,7 +82,8 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.OSAccumulator, config.DecadeFilter, config.IndieReviewJoiner, config.ActionEnglishReviewJoiner)
+`, serviceName, serviceName, config.OSAccumulator, config.DecadeFilter, config.IndieReviewJoiner, config.ActionReviewJoiner)
+	services[serviceName] = true
 
 	// OSAccumulator service
 	for i := 1; i <= config.OSAccumulator; i++ {
@@ -127,6 +103,7 @@ func main() {
       - distributed_network
 
 `, serviceName, serviceName, i)
+		services[serviceName] = true
 	}
 
 	// OSFinalAccumulator service
@@ -146,6 +123,7 @@ func main() {
       - distributed_network
 
 `, serviceName, serviceName, config.OSAccumulator)
+	services[serviceName] = true
 
 	// TopTenAccumulator service
 	serviceName = "top_ten_accumulator"
@@ -164,6 +142,7 @@ func main() {
       - distributed_network
 
 `, serviceName, serviceName, config.DecadeFilter)
+	services[serviceName] = true
 
 	// TopPositiveReviews service
 	serviceName = "top_positive_reviews"
@@ -182,6 +161,7 @@ func main() {
       - distributed_network
 
 `, serviceName, serviceName, config.IndieReviewJoiner)
+	services[serviceName] = true
 
 	// PercentileAccumulator service
 	serviceName = "percentile_accumulator"
@@ -190,7 +170,6 @@ func main() {
     image: percentile_accumulator:latest
     entrypoint: /percentile_accumulator
     environment:
-      - ACTION_NEGATIVE_REVIEWS_JOINERS_AMOUNT=%d
       - NUM_PREVIOUS_ACCUMULATORS=%d
     depends_on:
       game_mapper:
@@ -200,7 +179,8 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.ActionPercentileReviewJoiner, config.ReviewsAccumulator)
+`, serviceName, serviceName, config.ActionReviewAccumulator)
+	services[serviceName] = true
 
 	// ReviewsAccumulator service
 	for i := 1; i <= config.ReviewsAccumulator; i++ {
@@ -212,7 +192,6 @@ func main() {
     environment:
       - ID=%d
       - INDIE_REVIEW_JOINERS_AMOUNT=%d
-      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -221,7 +200,8 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.IndieReviewJoiner, config.NegativeReviewsPreFilter)
+`, serviceName, serviceName, i, config.IndieReviewJoiner)
+		services[serviceName] = true
 	}
 
 	// DecadeFilter service
@@ -231,6 +211,8 @@ func main() {
     container_name: %s
     image: decade_filter:latest
     entrypoint: /decade_filter
+    environment:
+      - ID=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -239,20 +221,21 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName)
+`, serviceName, serviceName, i)
+		services[serviceName] = true
 	}
 
-	//Negative Reviews Pre Filter service
-	for i := 1; i <= config.NegativeReviewsPreFilter; i++ {
-		serviceName := fmt.Sprintf("negative_reviews_pre_filter_%d", i)
+	//Action Review Joiner service
+	for i := 1; i <= config.ActionReviewJoiner; i++ {
+		serviceName := fmt.Sprintf("action_review_joiner_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: negative_reviews_pre_filter:latest
-    entrypoint: /negative_reviews_pre_filter
+    image: action_review_joiner:latest
+    entrypoint: /action_review_joiner
     environment:
       - ID=%d
       - ENGLISH_FILTERS_AMOUNT=%d
-      - ACCUMULATORS_AMOUNT=%d
+      - ACTION_REVIEWS_ACCUMULATORS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -261,7 +244,8 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.EnglishFilter, config.ReviewsAccumulator)
+`, serviceName, serviceName, i, config.EnglishFilter, config.ActionReviewAccumulator)
+		services[serviceName] = true
 	}
 
 	// EnglishFilter service
@@ -274,7 +258,7 @@ func main() {
     environment:
       - ID=%d
       - ACCUMULATORS_AMOUNT=%d
-      - NEGATIVE_REVIEWS_PRE_FILTERS_AMOUNT=%d
+      - ACTION_REVIEW_JOINERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -283,7 +267,8 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.EnglishReviewsAccumulator, config.NegativeReviewsPreFilter)
+`, serviceName, serviceName, i, config.EnglishReviewsAccumulator, config.ActionReviewJoiner)
+		services[serviceName] = true
 	}
 
 	// EnglishReviewsAccumulator service
@@ -296,7 +281,6 @@ func main() {
     environment:
       - ID=%d
       - FILTERS_AMOUNT=%d
-      - NEGATIVE_REVIEWS_FILTER_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -305,18 +289,18 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.EnglishFilter, config.NegativeReviewsFilter)
+`, serviceName, serviceName, i, config.EnglishFilter)
+		services[serviceName] = true
 	}
 
 	// NegativeReviewsFilter service
-	for i := 1; i <= config.NegativeReviewsFilter; i++ {
-		serviceName := fmt.Sprintf("negative_reviews_filter_%d", i)
-		compose += fmt.Sprintf(`  %s:
+
+	serviceName = "negative_reviews_filter"
+	compose += fmt.Sprintf(`  %s:
     container_name: %s
     image: negative_reviews_filter:latest
     entrypoint: /negative_reviews_filter
     environment:
-      - ACTION_ENGLISH_REVIEWS_JOINERS_AMOUNT=%d
       - ENGLISH_REVIEW_ACCUMULATORS_AMOUNT=%d
     depends_on:
       game_mapper:
@@ -326,19 +310,18 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, config.ActionEnglishReviewJoiner, config.EnglishReviewsAccumulator)
-	}
+`, serviceName, serviceName, config.EnglishReviewsAccumulator)
+	services[serviceName] = true
 
-	// ActionEnglishReviewJoiner service
-	for i := 1; i <= config.ActionEnglishReviewJoiner; i++ {
-		serviceName := fmt.Sprintf("action_positive_review_joiner_%d", i)
+	for i := 1; i <= config.ActionReviewAccumulator; i++ {
+		serviceName := fmt.Sprintf("action_reviews_accumulator_%d", i)
 		compose += fmt.Sprintf(`  %s:
     container_name: %s
-    image: action_english_review_joiner:latest
-    entrypoint: /action_english_review_joiner
+    image: action_reviews_accumulator:latest
+    entrypoint: /action_reviews_accumulator
     environment:
       - ID=%d
-      - NEGATIVE_REVIEWS_FILTERS_AMOUNT=%d
+      - ACTION_REVIEW_JOINERS_AMOUNT=%d
     depends_on:
       game_mapper:
         condition: service_started
@@ -347,62 +330,9 @@ func main() {
     networks:
       - distributed_network
 
-`, serviceName, serviceName, i, config.NegativeReviewsFilter)
+`, serviceName, serviceName, i, config.ActionReviewJoiner)
+		services[serviceName] = true
 	}
-
-	serviceName = "final_english_joiner"
-	compose += fmt.Sprintf(`  %s:
-    container_name: %s
-    image: final_english_joiner:latest
-    entrypoint: /final_english_joiner
-    environment:
-      - ACTION_ENGLISH_JOINERS_AMOUNT=%d
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-`, serviceName, serviceName, config.ActionEnglishReviewJoiner)
-
-	// ActionPercentileReviewJoiner service
-	for i := 1; i <= config.ActionPercentileReviewJoiner; i++ {
-		serviceName := fmt.Sprintf("action_percentile_review_joiner_%d", i)
-		compose += fmt.Sprintf(`  %s:
-    container_name: %s
-    image: action_percentile_review_joiner:latest
-    entrypoint: /action_percentile_review_joiner
-    environment:
-      - ID=%d
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-`, serviceName, serviceName, i)
-	}
-
-	serviceName = "final_percentile_joiner"
-	compose += fmt.Sprintf(`  %s:
-    container_name: %s
-    image: final_percentile_joiner:latest
-    entrypoint: /final_percentile_joiner
-    environment:
-      - ACTION_PERCENTILE_JOINERS_AMOUNT=%d
-    depends_on:
-      game_mapper:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - distributed_network
-
-`, serviceName, serviceName, config.ActionPercentileReviewJoiner)
 
 	// IndieReviewJoiner service
 	for i := 1; i <= config.IndieReviewJoiner; i++ {
@@ -423,7 +353,67 @@ func main() {
       - distributed_network
 
 `, serviceName, serviceName, i, config.ReviewsAccumulator)
+		services[serviceName] = true
 	}
+
+	// Watchdog3 service
+	serviceName = "watchdog3"
+	compose += fmt.Sprintf(`  %s:
+    container_name: %s
+    image: watchdog:latest
+    entrypoint: /watchdog
+    environment:
+      - WATCHDOG_HOST=3
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+`, serviceName, serviceName)
+	for dep := range services {
+		compose += fmt.Sprintf("      %s:\n        condition: service_started\n", dep)
+	}
+	compose += `    networks:
+      - distributed_network
+
+`
+	services[serviceName] = true
+
+	// Watchdog1 service
+	serviceName = "watchdog1"
+	compose += fmt.Sprintf(`  %s:
+    container_name: %s
+    image: watchdog:latest
+    entrypoint: /watchdog
+    environment:
+      - WATCHDOG_HOST=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      watchdog3:
+        condition: service_started
+    networks:
+      - distributed_network
+
+`, serviceName, serviceName)
+	services[serviceName] = true
+
+	// Watchdog2 service
+	serviceName = "watchdog2"
+	compose += fmt.Sprintf(`  %s:
+    container_name: %s
+    image: watchdog:latest
+    entrypoint: /watchdog
+    environment:
+      - WATCHDOG_HOST=2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      watchdog3:
+        condition: service_started
+    networks:
+      - distributed_network
+
+`, serviceName, serviceName)
+	services[serviceName] = true
 
 	compose += `networks:
   distributed_network:

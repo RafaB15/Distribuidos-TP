@@ -9,7 +9,9 @@ RUN go mod download
 
 COPY client ./client
 COPY internal/client_protocol ./internal/client_protocol
+COPY internal/compare_results ./internal/compare_results
 COPY internal/utils ./internal/utils
+
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/client ./client
 

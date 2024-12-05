@@ -9,8 +9,11 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', 100)
 
 # Load datasets
-reviews_df_cleaned = pd.read_csv('../client_data/steam_reviews_100k.csv')
+reviews_df_cleaned = pd.read_csv('../client_data/steam_reviews_6M.csv')
 games_df_cleaned = pd.read_csv('../client_data/games_90k.csv')
+
+def negative_score(score):
+    return 1 if score < 0 else 0
 
 """# Queries resolution
 
@@ -27,7 +30,7 @@ print("Linux: " + str(linux_supported_games.shape[0]))
 print("Windows: " + str(windows_supported_games.shape[0]))
 print("Mac: " + str(mac_supported_games.shape[0]))
 
-"""## Q2: Nombre del top 10 de juegos del género "Indie" publicados en la década del 2010 con más tiempo promedio histórico de juego"""
+"""##Q2: Nombre del top 10 de juegos del género "Indie" publicados en la década del 2010 con más tiempo promedio histórico de juego"""
 
 print("\nQuery 2:")
 
@@ -73,7 +76,7 @@ negative_reviews = reviews_df_cleaned[reviews_df_cleaned["review_score"] == -1]
 def detect_language(texto):
     language, _ = langid.classify(texto)
     return language
-#############################################
+############################################
 
 # Filtramos por lenguaje
 negative_reviews = negative_reviews.copy()  # Create a copy to avoid SettingWithCopyWarning
@@ -97,68 +100,29 @@ for index, row in games_with_5000_negative_reviews.iterrows():
     negative_review_count = row['negative_review_count']
     print(f"AppID: {app_id}, GameName: {game_name}, NegativeReviews: {negative_review_count}")
 
-"""
-# Juegos de acción
-games_action = games_df_cleaned[games_df_cleaned["Genres"].str.contains("action")]
-games_action_reduced = games_action[["AppID", "Name"]]
-
-reviews_q4 = reviews_df_cleaned.copy()
-
-# Reviews con mas de 5000 comentarios negativos
-
-
-reviews_q4["negative_score"] = reviews_q4["review_score"].apply(negative_score)
-reviews_q4_negatives = reviews_q4[reviews_q4["negative_score"] == 1].copy()
-reviews_count = reviews_q4_negatives.groupby('app_id').size().reset_index(name='count')
-reviews_count_more_than_5000 = reviews_count[reviews_count["count"] > 5000]
-
-# De las reviews con mas de 5000 comentarios negativos, nos quedamos con aquellas que sean sobre juegos de acción
-games_action_with_5000_negative_reviews = pd.merge(games_action_reduced, reviews_count_more_than_5000, left_on='AppID', right_on="app_id", how='inner')
-games_action_with_5000_negative_reviews = games_action_with_5000_negative_reviews[["AppID", "Name"]]
-
-# Enriquecemos con el texto de la review
-reviews_count_more_than_5000_with_text = pd.merge(reviews_q4, games_action_with_5000_negative_reviews, left_on='app_id', right_on="AppID", how='inner')
-reviews_count_more_than_5000_with_text = reviews_count_more_than_5000_with_text[["app_id", "review_text"]]
-
-# CPU INTENSIVE #############################
-def detect_language(texto):
-    language, _ = langid.classify(texto)
-    return language
-#############################################
-
-# Calculo del idioma sobre las reviews
-start_time = time.time()
-reviews_count_more_than_5000_with_text["review_language"] = reviews_count_more_than_5000_with_text['review_text'].apply(detect_language)
-elapsed_time = time.time() - start_time
-print(f"Execution time on {reviews_count_more_than_5000_with_text.shape[0]} rows: {elapsed_time:.2f} seconds")
-
-# Nos quedamos con aquellas reviews que estan en idioma inglés
-reviews_count_more_than_5000_with_text_english = reviews_count_more_than_5000_with_text[reviews_count_more_than_5000_with_text["review_language"] == "en"]
-
-# Nos quedamos con aquellos juegos que tengan mas de 5000 reseñas negativas en inglés
-q4_results_app_ids = reviews_count_more_than_5000_with_text_english.groupby('app_id').size().reset_index(name='count')
-q4_results_app_ids = q4_results_app_ids[q4_results_app_ids["count"] > 5000]
-
-# Enriquecemos con el nombre de esos juegos
-q4_results_games_names = pd.merge(q4_results_app_ids, games_action_with_5000_negative_reviews, left_on='app_id', right_on="AppID", how='inner')["Name"]
-print(q4_results_games_names)
-"""
-
 """## Q5: Nombre de juegos del género "action" dentro del percentil 90 en cantidad de reseñas negativas"""
 
 print("\nQuery 5:")
 
-def negative_score(score):
-    return 1 if score < 0 else 0
-
 # Calculate negative scores for all reviews
 reviews_q5 = reviews_df_cleaned.copy()
 reviews_q5 = reviews_q5[["app_id", "review_score"]]
+
+# Juegos de acción
+games_action = games_df_cleaned[games_df_cleaned["Genres"].str.contains("action")]
+games_action_reduced = games_action[["AppID", "Name"]]
+
+# Calcular una nueva columna `negative_score` aplicando la función `negative_score` a la columna `review_score`
 reviews_q5["negative_score"] = reviews_q5["review_score"].apply(negative_score)
+
+# Filtrar las reseñas con `negative_score` igual a 1
 reviews_q5_negative_score = reviews_q5[reviews_q5["negative_score"] == 1]
 
+# Realizar un merge entre las reseñas negativas y el DataFrame `games_action_reduced` para obtener solo los juegos del género "action"
+reviews_q5_negative_score_action = pd.merge(reviews_q5_negative_score, games_action_reduced, left_on='app_id', right_on="AppID", how='inner')
+
 # Group by app_id to get the count of negative reviews for each game
-reviews_q5_negative_score_by_app_id = reviews_q5_negative_score.groupby('app_id').size().reset_index(name='count')
+reviews_q5_negative_score_by_app_id = reviews_q5_negative_score_action.groupby('app_id').size().reset_index(name='count')
 
 # Sort the reviews by count
 reviews_q5_negative_score_by_app_id = reviews_q5_negative_score_by_app_id.sort_values(by='count')
@@ -175,10 +139,8 @@ print(f"90th Percentile: {percentil_90}")
 # Filter games that are in the 90th percentile or higher
 q5_result = reviews_q5_negative_score_by_app_id[reviews_q5_negative_score_by_app_id['count'] >= percentil_90]
 
-# Filter the games to only include those in the "action" genre
-games_action = games_df_cleaned[games_df_cleaned["Genres"].str.contains("action")]
-games_action_reduced = games_action[["AppID", "Name"]]
 
+# Merge again with games reduced to recover the game names
 q5_result_with_game_names = pd.merge(q5_result, games_action_reduced, left_on='app_id', right_on="AppID", how='inner')
 
 for index, row in q5_result_with_game_names.iterrows():

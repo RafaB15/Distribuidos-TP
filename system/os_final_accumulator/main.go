@@ -4,8 +4,10 @@ import (
 	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/os_final_accumulator/logic"
 	m "distribuidos-tp/system/os_final_accumulator/middleware"
+	p "distribuidos-tp/system/os_final_accumulator/persistence"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -16,6 +18,8 @@ const OSAccumulatorsAmountEnvironmentVariableName = "NUM_PREVIOUS_OS_ACCUMULATOR
 var log = logging.MustGetLogger("log")
 
 func main() {
+
+	go u.HandlePing()
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGTERM, syscall.SIGINT)
 
@@ -27,18 +31,27 @@ func main() {
 		return
 	}
 
-	middleware, err := m.NewMiddleware()
+	middleware, err := m.NewMiddleware(log)
 	if err != nil {
 		log.Errorf("Failed to create middleware: %v", err)
 		return
 	}
 
-	osAccumulator := l.NewOSFinalAccumulator(middleware.ReceiveGamesOSMetrics, middleware.SendFinalMetrics, osAccumulatorsAmount)
+	osAccumulator := l.NewOSFinalAccumulator(
+		middleware.ReceiveGamesOSMetrics,
+		middleware.SendFinalMetrics,
+		middleware.AckLastMessage,
+		log,
+	)
+
+	var wg sync.WaitGroup
+
+	repository := p.NewRepository(&wg, log)
 
 	go u.HandleGracefulShutdown(middleware, signalChannel, doneChannel)
 
 	go func() {
-		osAccumulator.Run()
+		osAccumulator.Run(osAccumulatorsAmount, repository)
 		doneChannel <- true
 	}()
 

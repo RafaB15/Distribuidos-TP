@@ -9,6 +9,7 @@ RUN go mod download
 
 COPY system/indie_review_joiner ./system/indie_review_joiner
 COPY middleware ./middleware
+COPY persistence ./persistence
 COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils
 

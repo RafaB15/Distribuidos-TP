@@ -10,20 +10,22 @@ import (
 )
 
 type RawReview struct {
+	ReviewId   uint32
 	AppId      uint32
 	Positive   bool
 	ReviewText string
 }
 
-func NewRawReview(appId uint32, positive bool, reviewText string) *RawReview {
+func NewRawReview(reviewId uint32, appId uint32, positive bool, reviewText string) *RawReview {
 	return &RawReview{
+		ReviewId:   reviewId,
 		AppId:      appId,
 		Positive:   positive,
 		ReviewText: reviewText,
 	}
 }
 
-func NewRawReviewFromStrings(appId string, reviewScore string, reviewText string) (*RawReview, error) {
+func NewRawReviewFromStrings(reviewId uint32, appId string, reviewScore string, reviewText string) (*RawReview, error) {
 	appIdUint, err := strconv.ParseUint(appId, 10, 32)
 	if err != nil {
 		return nil, err
@@ -32,6 +34,7 @@ func NewRawReviewFromStrings(appId string, reviewScore string, reviewText string
 	positive := reviewScore == "1"
 
 	return &RawReview{
+		ReviewId:   reviewId,
 		AppId:      uint32(appIdUint),
 		Positive:   positive,
 		ReviewText: reviewText,
@@ -39,57 +42,82 @@ func NewRawReviewFromStrings(appId string, reviewScore string, reviewText string
 }
 
 func (r *RawReview) Serialize() []byte {
+	reviewIdSize := 4
 	appIdSize := 4
 	amountSize := 4
 	boolSize := 1
 
-	rawReviewSize := appIdSize + boolSize + amountSize + len(r.ReviewText)
+	rawReviewSize := reviewIdSize + appIdSize + boolSize + amountSize + len(r.ReviewText)
+
+	offset := 0
 
 	buf := make([]byte, rawReviewSize)
-	binary.LittleEndian.PutUint32(buf[:appIdSize], r.AppId)
+
+	binary.LittleEndian.PutUint32(buf[offset:reviewIdSize], r.ReviewId)
+	offset += reviewIdSize
+
+	binary.LittleEndian.PutUint32(buf[offset:offset+appIdSize], r.AppId)
+	offset += appIdSize
+
 	if r.Positive {
-		buf[4] = 1
+		buf[offset] = 1
 	} else {
-		buf[4] = 0
+		buf[offset] = 0
 	}
 
+	offset += boolSize
+
 	amount := len(r.ReviewText)
-	binary.LittleEndian.PutUint32(buf[appIdSize+boolSize:appIdSize+boolSize+amountSize], uint32(amount))
-	copy(buf[appIdSize+boolSize+amountSize:], []byte(r.ReviewText))
+	binary.LittleEndian.PutUint32(buf[offset:offset+amountSize], uint32(amount))
+	offset += amountSize
+
+	copy(buf[offset:], r.ReviewText)
 
 	return buf
 }
 
 func DeserializeRawReview(buf []byte) (*RawReview, int, error) {
+	reviewIdSize := 4
 	appIdSize := 4
 	amountSize := 4
 	boolSize := 1
 
-	if len(buf) < appIdSize+boolSize+amountSize {
+	if len(buf) < reviewIdSize+appIdSize+boolSize+amountSize {
 		return nil, 0, errors.New("buffer too short")
 	}
 
-	appId := binary.LittleEndian.Uint32(buf[:appIdSize])
-	positive := buf[4] == 1
-	amount := binary.LittleEndian.Uint32(buf[appIdSize+boolSize : appIdSize+boolSize+amountSize])
+	offset := 0
 
-	if len(buf) < int(appIdSize+boolSize+amountSize+int(amount)) {
+	reviewId := binary.LittleEndian.Uint32(buf[offset : offset+reviewIdSize])
+	offset += reviewIdSize
+
+	appId := binary.LittleEndian.Uint32(buf[offset : offset+appIdSize])
+	offset += appIdSize
+
+	positive := buf[offset] == 1
+	offset += boolSize
+
+	amount := binary.LittleEndian.Uint32(buf[offset : offset+amountSize])
+	offset += amountSize
+
+	if len(buf) < offset+int(amount) {
 		return nil, 0, errors.New("buffer too short for review text")
 	}
 
-	reviewText := string(buf[9 : 9+amount])
-
-	totalRead := appIdSize + amountSize + boolSize + int(amount)
+	reviewText := string(buf[offset : offset+int(amount)])
+	offset += int(amount)
 
 	return &RawReview{
+		ReviewId:   reviewId,
 		AppId:      appId,
 		Positive:   positive,
 		ReviewText: reviewText,
-	}, totalRead, nil
+	}, offset, nil
 }
 
-func DeserializeRawReviewsBatchFromStrings(reviews []string, appIdIndex int, reviewScoreIndex int, reviewTextIndex int) ([]*RawReview, error) {
+func DeserializeRawReviewsBatchFromStrings(reviews []string, appIdIndex int, reviewScoreIndex int, reviewTextIndex int, currentReviewId int) ([]*RawReview, error) {
 	rawReviews := make([]*RawReview, 0)
+	reviewId := currentReviewId
 
 	for _, line := range reviews {
 		reader := csv.NewReader(strings.NewReader(line))
@@ -102,7 +130,8 @@ func DeserializeRawReviewsBatchFromStrings(reviews []string, appIdIndex int, rev
 			return nil, err
 		}
 
-		rawReview, err := NewRawReviewFromStrings(records[appIdIndex], records[reviewScoreIndex], records[reviewTextIndex])
+		rawReview, err := NewRawReviewFromStrings(uint32(reviewId), records[appIdIndex], records[reviewScoreIndex], records[reviewTextIndex])
+		reviewId++
 		if err != nil {
 			return nil, err
 		}
