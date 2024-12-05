@@ -40,7 +40,7 @@ func main() {
 		return
 	}
 
-	osAccumulator := l.NewOSAccumulator(middleware.ReceiveGameOS, middleware.SendMetrics, middleware.SendEof, middleware.AckLastMessage, log)
+	osAccumulator := l.NewOSAccumulator(middleware.ReceiveGameOS, middleware.SendMetrics, middleware.SendEof, middleware.SendDeleteClient, middleware.AckLastMessage, log)
 
 	var wg sync.WaitGroup
 

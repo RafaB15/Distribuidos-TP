@@ -13,32 +13,36 @@ const (
 	AckBatchSize     = 20
 )
 
-type ReceiveGamesOSFunc func(messageTracker *n.MessageTracker) (clientID int, gamesOS []*oa.GameOS, eof bool, newMessage bool, err error)
+type ReceiveGamesOSFunc func(messageTracker *n.MessageTracker) (clientID int, gamesOS []*oa.GameOS, eof bool, newMessage bool, delMessage bool, err error)
 type SendMetricsFunc func(clientID int, gameMetrics *oa.GameOSMetrics, messageTracker *n.MessageTracker) error
 type SendEofFunc func(clientID int, senderID int, messageTracker *n.MessageTracker) error
+type SendDeleteClientFunc func(clientID int) error
 type AckLastMessageFunc func() error
 
 type OSAccumulator struct {
-	ReceiveGamesOS ReceiveGamesOSFunc
-	SendMetrics    SendMetricsFunc
-	SendEof        SendEofFunc
-	AckLastMessage AckLastMessageFunc
-	logger         *logging.Logger
+	ReceiveGamesOS   ReceiveGamesOSFunc
+	SendMetrics      SendMetricsFunc
+	SendEof          SendEofFunc
+	SendDeleteClient SendDeleteClientFunc
+	AckLastMessage   AckLastMessageFunc
+	logger           *logging.Logger
 }
 
 func NewOSAccumulator(
 	receiveGamesOS ReceiveGamesOSFunc,
 	sendMetrics SendMetricsFunc,
 	sendEof SendEofFunc,
+	sendDeleteClient SendDeleteClientFunc,
 	ackLastMessage AckLastMessageFunc,
 	logger *logging.Logger,
 ) *OSAccumulator {
 	return &OSAccumulator{
-		ReceiveGamesOS: receiveGamesOS,
-		SendMetrics:    sendMetrics,
-		SendEof:        sendEof,
-		AckLastMessage: ackLastMessage,
-		logger:         logger,
+		ReceiveGamesOS:   receiveGamesOS,
+		SendMetrics:      sendMetrics,
+		SendEof:          sendEof,
+		SendDeleteClient: sendDeleteClient,
+		AckLastMessage:   ackLastMessage,
+		logger:           logger,
 	}
 }
 
@@ -53,7 +57,7 @@ func (o *OSAccumulator) Run(id int, repository *p.Repository) {
 
 	for {
 
-		clientID, gamesOS, eof, newMessage, err := o.ReceiveGamesOS(messageTracker)
+		clientID, gamesOS, eof, newMessage, delMessage, err := o.ReceiveGamesOS(messageTracker)
 		if err != nil {
 			o.logger.Errorf("failed to receive game os: %v", err)
 			return
@@ -65,11 +69,21 @@ func (o *OSAccumulator) Run(id int, repository *p.Repository) {
 			osMetricsMap.Set(clientID, clientOSMetrics)
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 			for _, gameOS := range gamesOS {
 				clientOSMetrics.AddGameOS(gameOS)
 			}
 			o.logger.Infof("Received Game Os Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
+		}
+
+		if delMessage {
+			o.logger.Infof("Received Delete Message for client: %v", clientID)
+			err = o.SendDeleteClient(clientID)
+			if err != nil {
+				o.logger.Errorf("failed to send delete message: %v", err)
+				return
+			}
+
 		}
 
 		if messageTracker.ClientFinished(clientID, o.logger) {
@@ -85,6 +99,10 @@ func (o *OSAccumulator) Run(id int, repository *p.Repository) {
 				o.logger.Errorf("failed to send EOF: %v", err)
 				return
 			}
+
+		}
+
+		if messageTracker.ClientFinished(clientID, o.logger) || delMessage {
 
 			messageTracker.DeleteClientInfo(clientID)
 			osMetricsMap.Delete(clientID)

@@ -69,24 +69,24 @@ func (m *Middleware) SendMetrics(clientID int, gameMetrics *oa.GameOSMetrics, me
 	return nil
 }
 
-func (m *Middleware) ReceiveGameOS(messageTracker *n.MessageTracker) (clientID int, gamesOS []*oa.GameOS, eof bool, newMessage bool, err error) {
+func (m *Middleware) ReceiveGameOS(messageTracker *n.MessageTracker) (clientID int, gamesOS []*oa.GameOS, eof bool, newMessage bool, delMessage bool, err error) {
 	rawMsg, err := m.OSGamesQueue.Consume()
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, false, fmt.Errorf("failed to deserialize message: %v", err)
+		return 0, nil, false, false, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
 	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
 	if err != nil {
-		return 0, nil, false, false, fmt.Errorf("failed to process message: %v", err)
+		return 0, nil, false, false, false, fmt.Errorf("failed to process message: %v", err)
 	}
 
 	if !newMessage {
-		return message.ClientID, nil, false, false, nil
+		return message.ClientID, nil, false, false, false, nil
 	}
 
 	switch message.Type {
@@ -95,25 +95,28 @@ func (m *Middleware) ReceiveGameOS(messageTracker *n.MessageTracker) (clientID i
 		m.logger.Infof("Received EOF from client %d", message.ClientID)
 		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize EOF: %v", err)
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to deserialize EOF: %v", err)
 		}
 
 		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
 		if err != nil {
-			return message.ClientID, nil, false, false, fmt.Errorf("failed to register EOF: %v", err)
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to register EOF: %v", err)
 		}
 
-		return message.ClientID, nil, true, true, nil
+		return message.ClientID, nil, true, true, false, nil
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Received delete client from client %d", message.ClientID)
+		return message.ClientID, nil, false, true, true, nil
 	case sp.MsgGameOSInformation:
 		gamesOs, err := sp.DeserializeMsgGameOSInformation(message.Body)
 
 		if err != nil {
-			return message.ClientID, nil, false, true, err
+			return message.ClientID, nil, false, true, false, err
 		}
 
-		return message.ClientID, gamesOs, false, true, nil
+		return message.ClientID, gamesOs, false, true, false, nil
 	default:
-		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, false, false, fmt.Errorf("unexpected message type: %v", message.Type)
 	}
 }
 
@@ -140,4 +143,15 @@ func (m *Middleware) AckLastMessage() error {
 
 func (m *Middleware) Close() error {
 	return m.Manager.CloseConnection()
+}
+
+func (m *Middleware) SendDeleteClient(clientID int) error {
+	serializedMessage := sp.SerializeMsgDeleteClient(clientID)
+	err := m.OSAccumulatorExchange.Publish(OSAccumulatorRoutingKey, serializedMessage)
+	if err != nil {
+		return err
+	}
+	m.logger.Infof("Sent delete client to Final accumulator for client %d", clientID)
+
+	return nil
 }
