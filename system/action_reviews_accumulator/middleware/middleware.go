@@ -58,24 +58,24 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveReview(messageTracker *n.MessageTracker) (clientID int, reducedReview *r.ReducedReview, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveReview(messageTracker *n.MessageTracker) (clientID int, reducedReview *r.ReducedReview, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.ActionReviewsAccumulatorQueue.Consume()
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, false, fmt.Errorf("failed to deserialize message: %v", err)
+		return 0, nil, false, false, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
 	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
 	if err != nil {
-		return 0, nil, false, false, fmt.Errorf("failed to process message: %v", err)
+		return 0, nil, false, false, false, fmt.Errorf("failed to process message: %v", err)
 	}
 
 	if !newMessage {
-		return message.ClientID, nil, false, false, nil
+		return message.ClientID, nil, false, false, false, nil
 	}
 
 	switch message.Type {
@@ -83,23 +83,26 @@ func (m *Middleware) ReceiveReview(messageTracker *n.MessageTracker) (clientID i
 		m.logger.Infof("Received EOF from client %d", message.ClientID)
 		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize EOF: %v", err)
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to deserialize EOF: %v", err)
 		}
 
 		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
 		if err != nil {
-			return message.ClientID, nil, false, false, fmt.Errorf("failed to register EOF: %v", err)
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to register EOF: %v", err)
 		}
 
-		return message.ClientID, nil, true, true, nil
+		return message.ClientID, nil, true, true, false, nil
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Receive delete client %d", message.ClientID)
+		return message.ClientID, nil, false, true, true, nil
 	case sp.MsgReducedReviewInformation:
 		review, err := sp.DeserializeMsgReducedReviewInformation(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize reducedReviews: %v", err)
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to deserialize reducedReviews: %v", err)
 		}
-		return message.ClientID, review, false, true, nil
+		return message.ClientID, review, false, true, false, nil
 	default:
-		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, false, false, fmt.Errorf("unexpected message type: %v", message.Type)
 	}
 }
 
@@ -127,6 +130,16 @@ func (m *Middleware) SendEndOfFiles(clientID int, senderID int, messageTracker *
 	if err != nil {
 		return fmt.Errorf("failed to publish end of file: %v", err)
 	}
+	return nil
+}
+
+func (m *Middleware) SendDeleteClient(clientID int) error {
+	serializedMessage := sp.SerializeMsgDeleteClient(clientID)
+	err := m.AccumulatedReviewsExchange.Publish(AccumulatedReviewsRoutingKey, serializedMessage)
+	if err != nil {
+		return err
+	}
+	m.logger.Infof("Sent delete client for client %d", clientID)
 	return nil
 }
 

@@ -13,15 +13,17 @@ const (
 	AckBatchSize = 200
 )
 
-type ReceiveReviewFunc func(messageTracker *n.MessageTracker) (clientID int, reducedReview *r.ReducedReview, eof bool, newMessage bool, e error)
+type ReceiveReviewFunc func(messageTracker *n.MessageTracker) (clientID int, reducedReview *r.ReducedReview, eof bool, newMessage bool, delMessage bool, e error)
 type SendAccumulatedReviewsFunc func(clientID int, metrics []*ra.NamedGameReviewsMetrics, messageTracker *n.MessageTracker) error
 type SendEndOfFilesFunc func(clientID int, senderID int, messageTracker *n.MessageTracker) error
+type SendDeleteClientFunc func(clientID int) error
 type AckLastMessageFunc func() error
 
 type ActionReviewsAccumulator struct {
 	ReceiveReview          ReceiveReviewFunc
 	SendAccumulatedReviews SendAccumulatedReviewsFunc
 	SendEndOfFiles         SendEndOfFilesFunc
+	SendDeleteClient       SendDeleteClientFunc
 	AckLastMessage         AckLastMessageFunc
 	logger                 *logging.Logger
 }
@@ -30,6 +32,7 @@ func NewActionReviewsAccumulator(
 	receiveReview ReceiveReviewFunc,
 	sendAccumulatedReviews SendAccumulatedReviewsFunc,
 	sendEndOfFiles SendEndOfFilesFunc,
+	sendDeleteClient SendDeleteClientFunc,
 	ackLastMessage AckLastMessageFunc,
 	logger *logging.Logger,
 ) *ActionReviewsAccumulator {
@@ -37,6 +40,7 @@ func NewActionReviewsAccumulator(
 		ReceiveReview:          receiveReview,
 		SendAccumulatedReviews: sendAccumulatedReviews,
 		SendEndOfFiles:         sendEndOfFiles,
+		SendDeleteClient:       sendDeleteClient,
 		AckLastMessage:         ackLastMessage,
 		logger:                 logger,
 	}
@@ -52,7 +56,7 @@ func (a *ActionReviewsAccumulator) Run(id int, actionReviewJoinersAmount int, re
 	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, reducedReview, eof, newMessage, err := a.ReceiveReview(messageTracker)
+		clientID, reducedReview, eof, newMessage, delMessage, err := a.ReceiveReview(messageTracker)
 		if err != nil {
 			a.logger.Errorf("Failed to receive reviews: %v", err)
 			return
@@ -64,7 +68,7 @@ func (a *ActionReviewsAccumulator) Run(id int, actionReviewJoinersAmount int, re
 			accumulatedReviews.Set(clientID, clientAccumulatedReviews)
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 			if metrics, exists := clientAccumulatedReviews.Get(int(reducedReview.AppId)); exists {
 				// a.logger.Info("Updating metrics for appID: ", reducedReview.AppId)
 				// Update existing metrics
@@ -75,6 +79,33 @@ func (a *ActionReviewsAccumulator) Run(id int, actionReviewJoinersAmount int, re
 				newMetrics := ra.NewNamedGameReviewsMetrics(reducedReview.AppId, reducedReview.Name)
 				newMetrics.UpdateWithReview(reducedReview)
 				clientAccumulatedReviews.Set(int(reducedReview.AppId), newMetrics)
+			}
+		}
+
+		if delMessage {
+			a.logger.Infof("Deleting client %d information", clientID)
+			err = a.SendDeleteClient(clientID)
+
+			if err != nil {
+				a.logger.Errorf("Failed to send delete client: %v", err)
+				return
+			}
+
+			messageTracker.DeleteClientInfo(clientID)
+			accumulatedReviews.Delete(clientID)
+
+			syncNumber++
+			err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
+			if err != nil {
+				a.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
+			err = a.AckLastMessage()
+			if err != nil {
+				a.logger.Errorf("Failed to ack last message: %v", err)
+				return
 			}
 		}
 
@@ -96,6 +127,7 @@ func (a *ActionReviewsAccumulator) Run(id int, actionReviewJoinersAmount int, re
 			}
 
 			messageTracker.DeleteClientInfo(clientID)
+			accumulatedReviews.Delete(clientID)
 
 			syncNumber++
 			err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
