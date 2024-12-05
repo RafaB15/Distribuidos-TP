@@ -55,24 +55,24 @@ func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 
 }
 
-func (m *Middleware) ReceiveGameReviewsMetrics(messageTracker *n.MessageTracker) (clientID int, namedReviews []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveGameReviewsMetrics(messageTracker *n.MessageTracker) (clientID int, namedReviews []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.AccumulatedReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	if !newMessage {
-		return message.ClientID, nil, false, false, nil
+		return message.ClientID, nil, false, false, false, nil
 	}
 
 	switch message.Type {
@@ -81,26 +81,29 @@ func (m *Middleware) ReceiveGameReviewsMetrics(messageTracker *n.MessageTracker)
 		m.logger.Infof("Received EOF from client %d", message.ClientID)
 		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, err
+			return message.ClientID, nil, false, false, false, err
 		}
 		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
 		if err != nil {
-			return message.ClientID, nil, false, false, err
+			return message.ClientID, nil, false, false, false, err
 		}
-		return message.ClientID, nil, true, true, nil
+		return message.ClientID, nil, true, true, false, nil
 
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Receive delete client %d", message.ClientID)
+		return message.ClientID, nil, false, true, true, nil
 	case sp.MsgNamedGameReviewsMetrics:
 
 		gameReviewsMetrics, err := sp.DeserializeMsgNamedGameReviewsMetricsBatch(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, err
+			return message.ClientID, nil, false, false, false, err
 		}
 
-		return message.ClientID, gameReviewsMetrics, false, true, nil
+		return message.ClientID, gameReviewsMetrics, false, true, false, nil
 
 	default:
 
-		return message.ClientID, nil, false, false, fmt.Errorf("received unexpected message type: %v", message.Type)
+		return message.ClientID, nil, false, false, false, fmt.Errorf("received unexpected message type: %v", message.Type)
 	}
 }
 

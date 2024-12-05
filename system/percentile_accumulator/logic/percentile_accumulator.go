@@ -15,7 +15,7 @@ const (
 	AckBatchSize = 1
 )
 
-type ReceiveGameReviewsMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, err error)
+type ReceiveGameReviewsMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, delMessage bool, err error)
 type SendQueryResultsFunc func(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) error
 type AckLastMessageFunc func() error
 
@@ -46,7 +46,7 @@ func (p *PercentileAccumulator) Run(previousAccumulators int, repository *p.Repo
 	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, gameReviewsMetrics, eof, newMessage, err := p.ReceiveGameReviewsMetrics(messageTracker)
+		clientID, gameReviewsMetrics, eof, newMessage, delMessage, err := p.ReceiveGameReviewsMetrics(messageTracker)
 		if err != nil {
 			p.logger.Errorf("Failed to receive game reviews metrics: %v", err)
 			return
@@ -59,7 +59,7 @@ func (p *PercentileAccumulator) Run(previousAccumulators int, repository *p.Repo
 
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 			percentileReviews, exists := percentileMap.Get(clientID)
 			if !exists {
 				p.logger.Errorf("Client %d does not exist in the map", clientID)
@@ -69,6 +69,30 @@ func (p *PercentileAccumulator) Run(previousAccumulators int, repository *p.Repo
 			percentileMap.Set(clientID, allReviews)
 			p.logger.Infof("Received game reviews metrics for client %d", clientID)
 			p.logger.Infof("Quantity of games: %d", len(allReviews))
+		}
+
+		if delMessage {
+			p.logger.Infof("Received delete message for client %d.", clientID)
+
+			messageTracker.DeleteClientInfo(clientID)
+			percentileMap.Delete(clientID)
+
+			syncNumber++
+			err = repository.SaveAll(percentileMap, messageTracker, syncNumber)
+			if err != nil {
+				p.logger.Errorf("failed to save data: %v", err)
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
+			err = p.AckLastMessage()
+			if err != nil {
+				p.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+
+			continue
+
 		}
 
 		if messageTracker.ClientFinished(clientID, p.logger) {
