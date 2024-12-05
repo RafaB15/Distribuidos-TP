@@ -70,7 +70,7 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID int, reviews []*r.RawReview, games []*g.Game, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID int, reviews []*r.RawReview, games []*g.Game, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.ActionReviewJoinerQueue.Consume()
 	if err != nil {
 		e = fmt.Errorf("failed to consume message: %v", err)
@@ -112,6 +112,9 @@ func (m *Middleware) ReceiveMessage(messageTracker *n.MessageTracker) (clientID 
 			return
 		}
 		eof = true
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Receive delete client %d", message.ClientID)
+		delMessage = true
 	case sp.MsgRawReviewInformationBatch:
 		reviews, err = sp.DeserializeMsgRawReviewInformationBatch(message.Body)
 		if err != nil {
@@ -175,6 +178,30 @@ func (m *Middleware) SendEndOfFile(clientID int, senderID int, englishFiltersAmo
 			return fmt.Errorf("failed to publish message: %v", err)
 		}
 		m.logger.Infof("Sent EOF to action reviews accumulator %d with routing key %s", i, routingKey)
+	}
+
+	return nil
+}
+
+func (m *Middleware) SendDeleteClient(clientID int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int) error {
+	for i := 1; i <= englishFiltersAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", RawEnglishReviewsRoutingKeyPrefix, i)
+		serializedMsg := sp.SerializeMsgDeleteClient(clientID)
+		err := m.RawEnglishReviewsExchange.Publish(routingKey, serializedMsg)
+		if err != nil {
+			return fmt.Errorf("failed to publish message: %v", err)
+		}
+		m.logger.Infof("Sent delete client to english filter %d with routing key %s", i, routingKey)
+	}
+
+	for i := 1; i <= actionReviewsAccumulatorsAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", ActionReviewsAccumulatorRoutingKeyPrefix, i)
+		serializedMsg := sp.SerializeMsgDeleteClient(clientID)
+		err := m.ActionReviewsAccumulatorExchange.Publish(routingKey, serializedMsg)
+		if err != nil {
+			return fmt.Errorf("failed to publish message: %v", err)
+		}
+		m.logger.Infof("Sent delete client to action reviews accumulator %d with routing key %s", i, routingKey)
 	}
 
 	return nil

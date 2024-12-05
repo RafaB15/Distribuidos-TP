@@ -58,6 +58,7 @@ func main() {
 	negativeReviewsPreFilter := l.NewActionReviewJoiner(
 		middleware.ReceiveMessage,
 		middleware.SendReview,
+		middleware.SendDeleteClient,
 		middleware.AckLastMessage,
 		middleware.SendEndOfFile,
 		log,

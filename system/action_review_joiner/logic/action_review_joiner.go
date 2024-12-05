@@ -16,32 +16,36 @@ const (
 	GameMapperAmount = 1
 )
 
-type ReceiveMessageFunc func(messageTracker *n.MessageTracker) (clientID int, reviews []*r.RawReview, games []*g.Game, eof bool, newMessage bool, e error)
+type ReceiveMessageFunc func(messageTracker *n.MessageTracker) (clientID int, reviews []*r.RawReview, games []*g.Game, eof bool, newMessage bool, delMessage bool, e error)
 type SendReviewFunc func(clientID int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int, review *r.Review, messageTracker *n.MessageTracker) error
+type SendDeleteClientFunc func(clientID int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int) error
 type AckLastMessageFunc func() error
 type SendEndOfFileFunc func(clientID int, senderID int, englishFiltersAmount int, actionReviewsAccumulatorsAmount int, messageTracker *n.MessageTracker) error
 
 type ActionReviewJoiner struct {
-	ReceiveMessage ReceiveMessageFunc
-	SendReview     SendReviewFunc
-	AckLastMessage AckLastMessageFunc
-	SendEndOfFile  SendEndOfFileFunc
-	logger         *logging.Logger
+	ReceiveMessage   ReceiveMessageFunc
+	SendReview       SendReviewFunc
+	SendDeleteClient SendDeleteClientFunc
+	AckLastMessage   AckLastMessageFunc
+	SendEndOfFile    SendEndOfFileFunc
+	logger           *logging.Logger
 }
 
 func NewActionReviewJoiner(
 	receiveMessage ReceiveMessageFunc,
 	sendReview SendReviewFunc,
+	sendDeleteClient SendDeleteClientFunc,
 	ackLastMessage AckLastMessageFunc,
 	sendEndOfFile SendEndOfFileFunc,
 	logger *logging.Logger,
 ) *ActionReviewJoiner {
 	return &ActionReviewJoiner{
-		ReceiveMessage: receiveMessage,
-		SendReview:     sendReview,
-		AckLastMessage: ackLastMessage,
-		SendEndOfFile:  sendEndOfFile,
-		logger:         logger,
+		ReceiveMessage:   receiveMessage,
+		SendReview:       sendReview,
+		SendDeleteClient: sendDeleteClient,
+		AckLastMessage:   ackLastMessage,
+		SendEndOfFile:    sendEndOfFile,
+		logger:           logger,
 	}
 }
 
@@ -55,13 +59,13 @@ func (f *ActionReviewJoiner) Run(id int, repository *p.Repository, englishFilter
 	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, reviews, games, eof, newMessage, err := f.ReceiveMessage(messageTracker)
+		clientID, reviews, games, eof, newMessage, delMessage, err := f.ReceiveMessage(messageTracker)
 		if err != nil {
 			f.logger.Errorf("Failed to receive message: %v", err)
 			return
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 
 			clientAccumulatedRawReviews, exists := accumulatedRawReviewsMap.Get(clientID)
 			if !exists {
@@ -90,6 +94,33 @@ func (f *ActionReviewJoiner) Run(id int, repository *p.Repository, englishFilter
 					f.logger.Errorf("Failed to handle game reviews metrics: %v", err)
 					return
 				}
+			}
+		}
+
+		if delMessage {
+			f.logger.Infof("Deleting client %d information", clientID)
+			err := f.SendDeleteClient(clientID, englishFiltersAmount, actionReviewsAccumulatorsAmount)
+			if err != nil {
+				f.logger.Errorf("Failed to send delete client: %v", err)
+				return
+			}
+
+			accumulatedRawReviewsMap.Delete(clientID)
+			gamesToSendMap.Delete(clientID)
+			messageTracker.DeleteClientInfo(clientID) //Sería mejor borrar toda la info
+
+			syncNumber++
+			err = repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, messageTracker, syncNumber)
+			if err != nil {
+				f.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
+			err = f.AckLastMessage()
+			if err != nil {
+				f.logger.Errorf("Failed to ack last message: %v", err)
+				return
 			}
 		}
 
@@ -172,7 +203,6 @@ func (f *ActionReviewJoiner) handleGames(clientId int, englishFiltersAmount int,
 		clientGamesToSend.Set(int(game.AppId), gameToSend)
 		if gameToSend.ShouldSend {
 			if reviews, exists := clientAccumulatedRawReviews.Get(int(gameToSend.AppId)); exists {
-				// Ver de mandar batches
 				for _, rawReview := range reviews {
 					review := r.NewReview(rawReview.ReviewId, rawReview.AppId, gameToSend.Name, rawReview.Positive, rawReview.ReviewText)
 					err := f.SendReview(clientId, englishFiltersAmount, actionReviewsAccumulatorsAmount, review, messageTracker)
