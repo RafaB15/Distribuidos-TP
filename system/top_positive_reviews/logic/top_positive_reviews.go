@@ -16,7 +16,7 @@ const (
 	TopPositiveNumber = 5
 )
 
-type ReceiveMsgFunc func(messageTracker *n.MessageTracker) (clientID int, reviews *j.JoinedPositiveGameReview, eof bool, newMessage bool, e error)
+type ReceiveMsgFunc func(messageTracker *n.MessageTracker) (clientID int, reviews *j.JoinedPositiveGameReview, eof bool, newMessage bool, delMessage bool, e error)
 type SendQueryResultsFunc func(clientID int, reviews []*j.JoinedPositiveGameReview) error
 type AckLastMessageFunc func() error
 type TopPositiveReviews struct {
@@ -45,7 +45,7 @@ func (t *TopPositiveReviews) Run(indieReviewJoinersAmount int, repository *p.Rep
 	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, msg, eof, newMessage, err := t.ReceiveMsg(messageTracker)
+		clientID, msg, eof, newMessage, delMessage, err := t.ReceiveMsg(messageTracker)
 		if err != nil {
 			t.logger.Errorf("Failed to receive message: %v", err)
 			return
@@ -57,7 +57,7 @@ func (t *TopPositiveReviews) Run(indieReviewJoinersAmount int, repository *p.Rep
 			topPositiveIndieGames.Set(clientID, clientTopPositiveIndieGames)
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 			t.logger.Infof("Received indie game with ID: %v", msg.AppId)
 			t.logger.Infof("Evaluating number of positive reviews and saving game")
 			clientTopPositiveIndieGames = append(clientTopPositiveIndieGames, msg)
@@ -72,6 +72,27 @@ func (t *TopPositiveReviews) Run(indieReviewJoinersAmount int, repository *p.Rep
 				topPositiveIndieGames.Set(clientID, clientTopPositiveIndieGames)
 			}
 
+		}
+
+		if delMessage {
+			t.logger.Infof("Received Delete Client Message. Deleting client %d", clientID)
+			messageTracker.DeleteClientInfo(clientID)
+			topPositiveIndieGames.Delete(clientID)
+
+			t.logger.Infof("Deleted all client %d information", clientID)
+			syncNumber++
+			err = repository.SaveAll(topPositiveIndieGames, messageTracker, syncNumber)
+			if err != nil {
+				t.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
+			err = t.AckLastMessage()
+			if err != nil {
+				t.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
 		}
 
 		if messageTracker.ClientFinished(clientID, t.logger) {
@@ -100,6 +121,7 @@ func (t *TopPositiveReviews) Run(indieReviewJoinersAmount int, repository *p.Rep
 				t.logger.Errorf("Failed to ack last message: %v", err)
 				return
 			}
+
 		}
 
 		if messagesUntilAck == 0 {

@@ -54,24 +54,24 @@ func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMsg(messageTracker *n.MessageTracker) (clientID int, reviews *j.JoinedPositiveGameReview, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveMsg(messageTracker *n.MessageTracker) (clientID int, reviews *j.JoinedPositiveGameReview, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.TopPositiveReviewsQueue.Consume()
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
 	if err != nil {
-		return message.ClientID, nil, false, false, nil
+		return message.ClientID, nil, false, false, false, nil
 	}
 
 	if !newMessage {
-		return message.ClientID, nil, false, false, nil
+		return message.ClientID, nil, false, false, false, nil
 	}
 
 	switch message.Type {
@@ -79,24 +79,28 @@ func (m *Middleware) ReceiveMsg(messageTracker *n.MessageTracker) (clientID int,
 		m.logger.Infof("Received EOF from client %d", message.ClientID)
 		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize EOF message: %v", err)
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to deserialize EOF message: %v", err)
 		}
 		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
 		if err != nil {
-			return message.ClientID, nil, false, false, fmt.Errorf("failed to register EOF: %v", err)
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to register EOF: %v", err)
 		}
-		return message.ClientID, nil, true, true, nil
+		return message.ClientID, nil, true, true, false, nil
+
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Received Delete Client for client %d", message.ClientID)
+		return message.ClientID, nil, false, true, true, nil
 
 	case sp.MsgJoinedPositiveGameReviews:
 		joinedGame, err := sp.DeserializeMsgJoinedPositiveGameReviews(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, err
+			return message.ClientID, nil, false, false, false, err
 		}
 
-		return message.ClientID, joinedGame, false, true, nil
+		return message.ClientID, joinedGame, false, true, false, nil
 
 	default:
-		return message.ClientID, nil, false, false, nil
+		return message.ClientID, nil, false, false, false, nil
 	}
 }
 
