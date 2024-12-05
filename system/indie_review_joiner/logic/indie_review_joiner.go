@@ -15,26 +15,29 @@ const (
 	GameMapperEOF = 1
 )
 
-type ReceiveMsgFunc func(messageTracker *n.MessageTracker) (clientID int, games []*games.GameName, reviews []*reviews_accumulator.GameReviewsMetrics, eof bool, newMessage bool, e error)
+type ReceiveMsgFunc func(messageTracker *n.MessageTracker) (clientID int, games []*games.GameName, reviews []*reviews_accumulator.GameReviewsMetrics, eof bool, newMessage bool, delMessage bool, e error)
 type SendMetricsFunc func(clientID int, metrics *j.JoinedPositiveGameReview, messageTracker *n.MessageTracker) error
 type SendEofFunc func(clientID int, senderID int, messageTracker *n.MessageTracker) error
+type SendDeleteClientFunc func(clientID int) error
 type AckLastMessageFunc func() error
 
 type IndieReviewJoiner struct {
-	ReceiveMsg     ReceiveMsgFunc
-	SendMetrics    SendMetricsFunc
-	SendEof        SendEofFunc
-	AckLastMessage AckLastMessageFunc
-	logger         *logging.Logger
+	ReceiveMsg       ReceiveMsgFunc
+	SendMetrics      SendMetricsFunc
+	SendEof          SendEofFunc
+	SendDeleteClient SendDeleteClientFunc
+	AckLastMessage   AckLastMessageFunc
+	logger           *logging.Logger
 }
 
-func NewIndieReviewJoiner(receiveMsg ReceiveMsgFunc, sendMetrics SendMetricsFunc, sendEof SendEofFunc, ackLastMessage AckLastMessageFunc, logger *logging.Logger) *IndieReviewJoiner {
+func NewIndieReviewJoiner(receiveMsg ReceiveMsgFunc, sendMetrics SendMetricsFunc, sendEof SendEofFunc, SendDeleteClient SendDeleteClientFunc, ackLastMessage AckLastMessageFunc, logger *logging.Logger) *IndieReviewJoiner {
 	return &IndieReviewJoiner{
-		ReceiveMsg:     receiveMsg,
-		SendMetrics:    sendMetrics,
-		SendEof:        sendEof,
-		AckLastMessage: ackLastMessage,
-		logger:         logger,
+		ReceiveMsg:       receiveMsg,
+		SendMetrics:      sendMetrics,
+		SendEof:          sendEof,
+		SendDeleteClient: SendDeleteClient,
+		AckLastMessage:   ackLastMessage,
+		logger:           logger,
 	}
 }
 
@@ -48,13 +51,13 @@ func (i *IndieReviewJoiner) Run(id int, repository *p.Repository, accumulatorsAm
 	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, games, reviews, eof, newMessage, err := i.ReceiveMsg(messageTracker)
+		clientID, games, reviews, eof, newMessage, delMessage, err := i.ReceiveMsg(messageTracker)
 		if err != nil {
 			i.logger.Errorf("Failed to receive message: %v", err)
 			return
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 
 			clientAccumulatedGameReviews, exists := accumulatedGameReviews.Get(clientID)
 			if !exists {
@@ -86,6 +89,17 @@ func (i *IndieReviewJoiner) Run(id int, repository *p.Repository, accumulatorsAm
 			}
 		}
 
+		if delMessage {
+			i.logger.Infof("Deleting client %d information", clientID)
+
+			err = i.SendDeleteClient(clientID)
+			if err != nil {
+				i.logger.Errorf("Failed to send delete client: %v", err)
+				return
+			}
+
+		}
+
 		if messageTracker.ClientFinished(clientID, i.logger) {
 			i.logger.Infof("Client %d finished", clientID)
 
@@ -95,6 +109,11 @@ func (i *IndieReviewJoiner) Run(id int, repository *p.Repository, accumulatorsAm
 				i.logger.Errorf("Failed to send EOF: %v", err)
 				return
 			}
+
+		}
+
+		if messageTracker.ClientFinished(clientID, i.logger) || delMessage {
+
 			accumulatedGameReviews.Delete(clientID)
 			gamesToSendMap.Delete(clientID)
 			messageTracker.DeleteClientInfo(clientID)
@@ -112,7 +131,6 @@ func (i *IndieReviewJoiner) Run(id int, repository *p.Repository, accumulatorsAm
 				i.logger.Errorf("Failed to ack last message: %v", err)
 				return
 			}
-
 		}
 
 		if messagesUntilAck == 0 {

@@ -47,7 +47,7 @@ func main() {
 		return
 	}
 
-	reviewJoiner := l.NewIndieReviewJoiner(middleware.ReceiveMsg, middleware.SendMetrics, middleware.SendEof, middleware.AckLastMessage, log)
+	reviewJoiner := l.NewIndieReviewJoiner(middleware.ReceiveMsg, middleware.SendMetrics, middleware.SendEof, middleware.SendDeleteClient, middleware.AckLastMessage, log)
 
 	var wg sync.WaitGroup
 

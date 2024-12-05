@@ -63,24 +63,24 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveMsg(messageTracker *n.MessageTracker) (clientID int, games []*games.GameName, reviews []*reviews_accumulator.GameReviewsMetrics, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveMsg(messageTracker *n.MessageTracker) (clientID int, games []*games.GameName, reviews []*reviews_accumulator.GameReviewsMetrics, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.IndieReviewJoinQueue.Consume()
 	if err != nil {
-		return 0, nil, nil, false, false, err
+		return 0, nil, nil, false, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, nil, false, false, err
+		return 0, nil, nil, false, false, false, err
 	}
 
 	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
 	if err != nil {
-		return message.ClientID, nil, nil, false, false, nil
+		return message.ClientID, nil, nil, false, false, false, nil
 	}
 
 	if !newMessage {
-		return message.ClientID, nil, nil, false, false, nil
+		return message.ClientID, nil, nil, false, false, false, nil
 	}
 
 	switch message.Type {
@@ -88,30 +88,35 @@ func (m *Middleware) ReceiveMsg(messageTracker *n.MessageTracker) (clientID int,
 		m.logger.Infof("Received EOF from client %d", message.ClientID)
 		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, nil, false, false, fmt.Errorf("failed to deserialize EOF: %v", err)
+			return message.ClientID, nil, nil, false, false, false, fmt.Errorf("failed to deserialize EOF: %v", err)
 		}
 
 		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
 		if err != nil {
-			return message.ClientID, nil, nil, false, false, fmt.Errorf("failed to register EOF: %v", err)
+			return message.ClientID, nil, nil, false, false, false, fmt.Errorf("failed to register EOF: %v", err)
 		}
-		return message.ClientID, nil, nil, true, true, nil
+		return message.ClientID, nil, nil, true, true, false, nil
+
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Received delete client for client %d", message.ClientID)
+		return message.ClientID, nil, nil, false, true, true, nil
+
 	case sp.MsgGameNames:
 		gamesNames, err := HandleGameNames(message.Body)
 		if err != nil {
-			return message.ClientID, nil, nil, false, false, err
+			return message.ClientID, nil, nil, false, false, false, err
 		}
-		return message.ClientID, gamesNames, nil, false, true, nil
+		return message.ClientID, gamesNames, nil, false, true, false, nil
 
 	case sp.MsgGameReviewsMetrics:
 		reviews, err := HandleGameReviewMetrics(message.Body)
 		if err != nil {
-			return message.ClientID, nil, nil, false, false, err
+			return message.ClientID, nil, nil, false, false, false, err
 		}
-		return message.ClientID, nil, reviews, false, true, err
+		return message.ClientID, nil, reviews, false, true, false, err
 
 	default:
-		return message.ClientID, nil, nil, false, false, fmt.Errorf("unknown type msg")
+		return message.ClientID, nil, nil, false, false, false, fmt.Errorf("unknown type msg")
 	}
 
 }
@@ -166,4 +171,13 @@ func (m *Middleware) AckLastMessage() error {
 
 func (m *Middleware) Close() error {
 	return m.Manager.CloseConnection()
+}
+
+func (m *Middleware) SendDeleteClient(clientID int) error {
+	serializedMsg := sp.SerializeMsgDeleteClient(clientID)
+	err := m.PositiveReviewsExchange.Publish(TopPositiveReviewsRoutingKey, serializedMsg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
