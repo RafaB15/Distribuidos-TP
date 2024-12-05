@@ -12,8 +12,8 @@ const (
 	AckBatchSize = 20
 )
 
-type ReceiveGamesOSMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, gamesOS *oa.GameOSMetrics, eof bool, newMessage bool, err error)
-type SendFinalMetricsFunc func(int, *oa.GameOSMetrics) error
+type ReceiveGamesOSMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, gamesOS *oa.GameOSMetrics, eof bool, newMessage bool, delMessage bool, err error)
+type SendFinalMetricsFunc func(clientID int, games *oa.GameOSMetrics) error
 type AckLastMessageFunc func() error
 
 type OSFinalAccumulator struct {
@@ -48,7 +48,7 @@ func (o *OSFinalAccumulator) Run(osAccumulatorsAmount int, repository *p.Reposit
 	messageUntilAck := AckBatchSize
 
 	for {
-		clientID, gamesOSMetrics, eof, newMessage, err := o.ReceiveGamesOSMetrics(messageTracker)
+		clientID, gamesOSMetrics, eof, newMessage, delMessage, err := o.ReceiveGamesOSMetrics(messageTracker)
 		if err != nil {
 			o.logger.Errorf("failed to receive game os metrics: %v", err)
 			return
@@ -60,9 +60,30 @@ func (o *OSFinalAccumulator) Run(osAccumulatorsAmount int, repository *p.Reposit
 			osMetricsMap.Set(clientID, clientOSMetrics)
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 			clientOSMetrics.Merge(gamesOSMetrics)
 			o.logger.Infof("Received Game Os Metrics Information. Updated osMetrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
+		}
+
+		if delMessage {
+			o.logger.Infof("Received Delete Client Message. Deleting client %d", clientID)
+			messageTracker.DeleteClientInfo(clientID)
+			osMetricsMap.Delete(clientID)
+
+			o.logger.Infof("Deleted all client %d information", clientID)
+			syncNumber++
+			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
+			if err != nil {
+				o.logger.Errorf("failed to save data: %v", err)
+				return
+			}
+
+			messageUntilAck = AckBatchSize
+			err = o.AckLastMessage()
+			if err != nil {
+				o.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
 		}
 
 		if messageTracker.ClientFinished(clientID, o.logger) {

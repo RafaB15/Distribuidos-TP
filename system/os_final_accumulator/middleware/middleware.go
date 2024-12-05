@@ -54,7 +54,7 @@ func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveGamesOSMetrics(messageTracker *n.MessageTracker) (clientID int, gamesOS *oa.GameOSMetrics, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveGamesOSMetrics(messageTracker *n.MessageTracker) (clientID int, gamesOS *oa.GameOSMetrics, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.OSAccumulatorQueue.Consume()
 	if err != nil {
 		e = fmt.Errorf("failed to consume message: %v", err)
@@ -67,6 +67,7 @@ func (m *Middleware) ReceiveGamesOSMetrics(messageTracker *n.MessageTracker) (cl
 		return
 	}
 
+	delMessage = false
 	clientID = message.ClientID
 
 	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
@@ -94,6 +95,10 @@ func (m *Middleware) ReceiveGamesOSMetrics(messageTracker *n.MessageTracker) (cl
 			return
 		}
 		eof = true
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Received Delete Client message for client %d", message.ClientID)
+		delMessage = true
+		return
 	case sp.MsgAccumulatedGameOSInformation:
 		gamesOS, e = sp.DeserializeMsgAccumulatedGameOSInformationV2(message.Body)
 	default:
