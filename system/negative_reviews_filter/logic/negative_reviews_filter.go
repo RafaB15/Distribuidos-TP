@@ -4,6 +4,7 @@ import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	n "distribuidos-tp/internal/system_protocol/node"
 	p "distribuidos-tp/system/negative_reviews_filter/persistence"
+
 	"github.com/op/go-logging"
 )
 
@@ -13,7 +14,7 @@ const (
 	AckBatchSize = 1
 )
 
-type ReceiveGameReviewsMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, err error)
+type ReceiveGameReviewsMetricsFunc func(messageTracker *n.MessageTracker) (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, delMessage bool, err error)
 type SendQueryResultsFunc func(clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics) error
 type AckLastMessageFunc func() error
 
@@ -49,7 +50,7 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 
 	for {
 
-		clientID, gameReviewsMetrics, eof, newMessage, err := f.ReceiveGameReviewsMetrics(messageTracker)
+		clientID, gameReviewsMetrics, eof, newMessage, delMessage, err := f.ReceiveGameReviewsMetrics(messageTracker)
 		if err != nil {
 			f.logger.Errorf("Failed to receive game reviews metrics: %v", err)
 			return
@@ -61,7 +62,7 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 			negativeReviewsMap.Set(clientID, clientNegativeReviews)
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 			f.logger.Infof("Received game reviews metrics for client %d", clientID)
 			for _, currentGameReviewsMetrics := range gameReviewsMetrics {
 				f.logger.Infof("Received review with negative reviews: %d", currentGameReviewsMetrics.NegativeReviews)
@@ -73,6 +74,28 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 			}
 
 			negativeReviewsMap.Set(clientID, clientNegativeReviews)
+		}
+
+		if delMessage {
+			f.logger.Infof("Received Delete Client Message. Deleting client %d", clientID)
+			messageTracker.DeleteClientInfo(clientID)
+			negativeReviewsMap.Delete(clientID)
+
+			f.logger.Infof("Deleted all client %d information", clientID)
+			syncNumber++
+			err = repository.SaveAll(negativeReviewsMap, messageTracker, syncNumber)
+			if err != nil {
+				f.logger.Errorf("Failed to save data: %v", err)
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
+			err = f.AckLastMessage()
+			if err != nil {
+				f.logger.Errorf("Failed to ack last message: %v", err)
+				return
+			}
+
 		}
 
 		if messageTracker.ClientFinished(clientID, f.logger) {

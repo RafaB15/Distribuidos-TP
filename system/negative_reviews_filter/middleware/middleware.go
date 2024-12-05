@@ -6,6 +6,7 @@ import (
 	n "distribuidos-tp/internal/system_protocol/node"
 	mom "distribuidos-tp/middleware"
 	"fmt"
+
 	"github.com/op/go-logging"
 )
 
@@ -53,7 +54,7 @@ func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameReviewsMetrics(messageTracker *n.MessageTracker) (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveGameReviewsMetrics(messageTracker *n.MessageTracker) (clientID int, namedGameReviewsMetricsBatch []*ra.NamedGameReviewsMetrics, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.AccumulatedEnglishReviewsQueue.Consume()
 	if err != nil {
 		e = fmt.Errorf("failed to consume message: %v", err)
@@ -72,6 +73,7 @@ func (m *Middleware) ReceiveGameReviewsMetrics(messageTracker *n.MessageTracker)
 		return
 	}
 
+	delMessage = false
 	clientID = message.ClientID
 
 	if !newMessage {
@@ -92,6 +94,10 @@ func (m *Middleware) ReceiveGameReviewsMetrics(messageTracker *n.MessageTracker)
 			e = fmt.Errorf("failed to register EOF: %v", err)
 			return
 		}
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Received Delete Client Message. Deleting client %d", message.ClientID)
+		delMessage = true
+		return
 	case sp.MsgNamedGameReviewsMetrics:
 		namedGameReviewsMetricsBatch, e = sp.DeserializeMsgNamedGameReviewsMetricsBatch(message.Body)
 	default:
