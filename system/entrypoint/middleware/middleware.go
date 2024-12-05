@@ -12,6 +12,7 @@ import (
 	mom "distribuidos-tp/middleware"
 	"fmt"
 	"github.com/op/go-logging"
+	"time"
 )
 
 const (
@@ -211,7 +212,7 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, actionReviewJoinersAmoun
 	return nil
 }
 
-func (m *Middleware) ReceiveQueryResponse(querysArrived map[int]bool) ([]byte, bool, error) {
+func (m *Middleware) ReceiveQueryResponse(queriesArrived map[int]bool) ([]byte, bool, error) {
 	rawMsg, err := m.QueryResultsQueue.Consume()
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to consume message: %v", err)
@@ -223,11 +224,11 @@ func (m *Middleware) ReceiveQueryResponse(querysArrived map[int]bool) ([]byte, b
 		return nil, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
-	if querysArrived[int(queryResponseMessage.Type)] {
+	if queriesArrived[int(queryResponseMessage.Type)] {
 		return nil, true, nil
 	}
 
-	querysArrived[int(queryResponseMessage.Type)] = true
+	queriesArrived[int(queryResponseMessage.Type)] = true
 
 	// fmt.Printf("Received query response of type: %d\n", queryResponseMessage.Type)
 	switch queryResponseMessage.Type {
@@ -358,4 +359,32 @@ func (m *Middleware) SendDeleteClient(clientID int, actionReviewJoinersAmount in
 	}
 
 	return nil
+}
+
+func (m *Middleware) EmptyQueryQueue() {
+	var queriesArrived = make(map[int]bool)
+
+	for i := 0; i < 5; i++ {
+		resultChan := make(chan struct {
+			data     []byte
+			repeated bool
+			err      error
+		}, 1)
+
+		go func() {
+			data, repeated, err := m.ReceiveQueryResponse(queriesArrived)
+			resultChan <- struct {
+				data     []byte
+				repeated bool
+				err      error
+			}{data, repeated, err}
+		}()
+
+		select {
+		case result := <-resultChan:
+			m.logger.Infof("Emptied old query response: %v", result)
+		case <-time.After(1 * time.Second):
+			continue
+		}
+	}
 }

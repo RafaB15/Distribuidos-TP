@@ -140,17 +140,17 @@ func handleClientGracefulShutdown(clientID int, conn net.Conn, clientWG *sync.Wa
 }
 
 func deleteUnfinishedClients(clientTracker *e.ClientTracker, actionReviewJoinersAmount int, reviewAccumulatorsAmount int) {
-	middleware, err := m.NewMiddleware(0, log)
-	if err != nil {
-		fmt.Printf("Error creating middleware: %v\n", err)
-		return
-	}
-
 	for clientID := range clientTracker.CurrentClients {
+		middleware, err := m.NewMiddleware(clientID, log)
+		if err != nil {
+			fmt.Printf("Error creating middleware: %v\n", err)
+			return
+		}
 		clientTracker.FinishClient(clientID)
-		err := middleware.SendDeleteClient(clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount)
+		err = middleware.SendDeleteClient(clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount)
 		if err != nil {
 			log.Errorf("Error sending delete client message for client %d: %v", clientID, err)
 		}
+		middleware.EmptyQueryQueue()
 	}
 }
