@@ -14,21 +14,34 @@ const (
 	AckBatchSize = 10
 )
 
-var log = logging.MustGetLogger("log")
+type ReceiveYearAvgPtfFunc func(messageTracker *n.MessageTracker) (int, []*df.GameYearAndAvgPtf, bool, bool, bool, error)
+type SendFilteredYearAvgPtfFunc func(clientID int, gameMetrics []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error
+type SendEofFunc func(clientID int, senderID int, messageTracker *n.MessageTracker) error
+type SendDeleteClientFunc func(clientID int) error
+type AckLastMessageFunc func() error
 
 type DecadeFilter struct {
-	ReceiveYearAvgPtf      func(messageTracker *n.MessageTracker) (int, []*df.GameYearAndAvgPtf, bool, bool, error)
-	SendFilteredYearAvgPtf func(clientID int, gameMetrics []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error
-	SendEof                func(clientID int, senderID int, messageTracker *n.MessageTracker) error
-	AckLastMessage         func() error
+	ReceiveYearAvgPtf      ReceiveYearAvgPtfFunc
+	SendFilteredYearAvgPtf SendFilteredYearAvgPtfFunc
+	SendEof                SendEofFunc
+	SendDeleteClient       SendDeleteClientFunc
+	AckLastMessage         AckLastMessageFunc
 	logger                 *logging.Logger
 }
 
-func NewDecadeFilter(receiveYearAvgPtf func(messageTracker *n.MessageTracker) (int, []*df.GameYearAndAvgPtf, bool, bool, error), sendFilteredYearAvgPtf func(clientID int, gameMetrics []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error, sendEof func(clientID int, senderID int, messageTracker *n.MessageTracker) error, ackLastMessage func() error, logger *logging.Logger) *DecadeFilter {
+func NewDecadeFilter(
+	receiveYearAvgPtf ReceiveYearAvgPtfFunc,
+	sendFilteredYearAvgPtf SendFilteredYearAvgPtfFunc,
+	sendEof SendEofFunc,
+	sendDeleteClient SendDeleteClientFunc,
+	ackLastMessage AckLastMessageFunc,
+	logger *logging.Logger,
+) *DecadeFilter {
 	return &DecadeFilter{
 		ReceiveYearAvgPtf:      receiveYearAvgPtf,
 		SendFilteredYearAvgPtf: sendFilteredYearAvgPtf,
 		SendEof:                sendEof,
+		SendDeleteClient:       sendDeleteClient,
 		AckLastMessage:         ackLastMessage,
 		logger:                 logger,
 	}
@@ -39,32 +52,53 @@ func (d *DecadeFilter) Run(senderID int, repository *p.Repository) {
 	messagesUntilAck := AckBatchSize
 	for {
 
-		clientID, yearAvgPtfSlice, eof, newMessage, err := d.ReceiveYearAvgPtf(messageTracker)
+		clientID, yearAvgPtfSlice, eof, newMessage, delMessage, err := d.ReceiveYearAvgPtf(messageTracker)
 
 		if err != nil {
-			log.Errorf("failed to receive year and avg ptf: %v", err)
+			d.logger.Errorf("failed to receive year and avg ptf: %v", err)
 			return
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 
 			yearsAvgPtfFiltered := df.FilterByDecade(yearAvgPtfSlice, DECADE)
 
 			if len(yearsAvgPtfFiltered) > 0 {
 				err = d.SendFilteredYearAvgPtf(clientID, yearsAvgPtfFiltered, messageTracker)
 				if err != nil {
-					log.Errorf("failed to send filtered year and avg ptf: %v", err)
+					d.logger.Errorf("failed to send filtered year and avg ptf: %v", err)
 					return
 				}
 			}
 
 		}
 
+		if delMessage {
+			d.logger.Infof("Deleting client %d information", clientID)
+			err = d.SendDeleteClient(clientID)
+
+			messageTracker.DeleteClientInfo(clientID)
+
+			syncNumber++
+			err = repository.SaveMessageTracker(messageTracker, syncNumber)
+			if err != nil {
+				d.logger.Errorf("Failed to save message tracker: %v", err)
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
+			err = d.AckLastMessage()
+			if err != nil {
+				d.logger.Errorf("failed to ack last message: %v", err)
+				return
+			}
+		}
+
 		if messageTracker.ClientFinished(clientID, d.logger) {
-			log.Infof("Received client %d EOF. Sending EOF to top ten accumulator", clientID)
+			d.logger.Infof("Received client %d EOF. Sending EOF to top ten accumulator", clientID)
 			err = d.SendEof(clientID, senderID, messageTracker)
 			if err != nil {
-				log.Errorf("failed to send EOF: %v", err)
+				d.logger.Errorf("failed to send EOF: %v", err)
 				return
 			}
 
@@ -80,10 +114,9 @@ func (d *DecadeFilter) Run(senderID int, repository *p.Repository) {
 			messagesUntilAck = AckBatchSize
 			err = d.AckLastMessage()
 			if err != nil {
-				log.Errorf("failed to ack last message: %v", err)
+				d.logger.Errorf("failed to ack last message: %v", err)
 				return
 			}
-
 		}
 
 		if messagesUntilAck == 0 {

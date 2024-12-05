@@ -37,7 +37,13 @@ func main() {
 		return
 	}
 
-	decadeFilter := l.NewDecadeFilter(middleware.ReceiveYearAvgPtf, middleware.SendFilteredYearAvgPtf, middleware.SendEof, middleware.AckLastMessage, log)
+	decadeFilter := l.NewDecadeFilter(
+		middleware.ReceiveYearAvgPtf,
+		middleware.SendFilteredYearAvgPtf,
+		middleware.SendEof,
+		middleware.SendDeleteClient,
+		middleware.AckLastMessage,
+		log)
 
 	var wg sync.WaitGroup
 

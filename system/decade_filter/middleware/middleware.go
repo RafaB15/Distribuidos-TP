@@ -56,26 +56,26 @@ func NewMiddleware(id int, logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveYearAvgPtf(messageTracker *n.MessageTracker) (clientID int, gamesMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveYearAvgPtf(messageTracker *n.MessageTracker) (clientID int, gamesMetrics []*df.GameYearAndAvgPtf, eof bool, newMessage bool, delMessage bool, e error) {
 
 	rawMsg, err := m.YearAvgPtfQueue.Consume()
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	if !newMessage {
-		return 0, nil, false, false, nil
+		return 0, nil, false, false, false, nil
 	}
 
 	switch message.Type {
@@ -84,25 +84,28 @@ func (m *Middleware) ReceiveYearAvgPtf(messageTracker *n.MessageTracker) (client
 		m.logger.Infof("Received EOF from client %d", message.ClientID)
 		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, fmt.Errorf("failed to deserialize EOF: %v", err)
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to deserialize EOF: %v", err)
 		}
 
 		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
 		if err != nil {
-			return message.ClientID, nil, false, false, fmt.Errorf("failed to register EOF: %v", err)
+			return message.ClientID, nil, false, false, false, fmt.Errorf("failed to register EOF: %v", err)
 		}
 
-		return message.ClientID, nil, true, true, nil
+		return message.ClientID, nil, true, true, false, nil
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Receive delete client %d", message.ClientID)
+		return message.ClientID, nil, false, true, true, nil
 	case sp.MsgGameYearAndAvgPtfInformation:
 		gamesYearsAvgPtfs, err := sp.DeserializeMsgGameYearAndAvgPtf(message.Body)
 
 		if err != nil {
-			return message.ClientID, nil, false, false, err
+			return message.ClientID, nil, false, false, false, err
 		}
 
-		return message.ClientID, gamesYearsAvgPtfs, false, true, nil
+		return message.ClientID, gamesYearsAvgPtfs, false, true, false, nil
 	default:
-		return message.ClientID, nil, false, false, nil
+		return message.ClientID, nil, false, false, false, nil
 	}
 
 }
@@ -139,6 +142,16 @@ func (m *Middleware) AckLastMessage() error {
 	if err != nil {
 		return fmt.Errorf("failed to ack last message: %v", err)
 	}
+	return nil
+}
+
+func (m *Middleware) SendDeleteClient(clientID int) error {
+	serializedMessage := sp.SerializeMsgDeleteClient(clientID)
+	err := m.TopTenAccumulatorExchange.Publish(TopTenAccumulatorRoutingKey, serializedMessage)
+	if err != nil {
+		return err
+	}
+	m.logger.Infof("Sent delete client for client %d", clientID)
 	return nil
 }
 
