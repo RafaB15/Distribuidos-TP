@@ -98,9 +98,13 @@ func (i *IndieReviewJoiner) Run(id int, repository *p.Repository, accumulatorsAm
 				return
 			}
 
+			accumulatedGameReviews.Delete(clientID)
+			gamesToSendMap.Delete(clientID)
+			messageTracker.DeleteClientInfo(clientID)
 		}
 
-		if messageTracker.ClientFinished(clientID, i.logger) {
+		clientFinished := messageTracker.ClientFinished(clientID, i.logger)
+		if clientFinished {
 			i.logger.Infof("Client %d finished", clientID)
 
 			i.logger.Info("Sending EOFs")
@@ -110,30 +114,12 @@ func (i *IndieReviewJoiner) Run(id int, repository *p.Repository, accumulatorsAm
 				return
 			}
 
-		}
-
-		if messageTracker.ClientFinished(clientID, i.logger) || delMessage {
-
 			accumulatedGameReviews.Delete(clientID)
 			gamesToSendMap.Delete(clientID)
 			messageTracker.DeleteClientInfo(clientID)
-
-			syncNumber++
-			err := repository.SaveAll(accumulatedGameReviews, gamesToSendMap, messageTracker, syncNumber)
-			if err != nil {
-				i.logger.Errorf("Failed to save data: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = i.AckLastMessage()
-			if err != nil {
-				i.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messagesUntilAck == 0 {
+		if messagesUntilAck == 0 || delMessage || clientFinished {
 			syncNumber++
 			err := repository.SaveAll(accumulatedGameReviews, gamesToSendMap, messageTracker, syncNumber)
 			if err != nil {

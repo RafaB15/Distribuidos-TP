@@ -71,22 +71,10 @@ func (o *OSFinalAccumulator) Run(osAccumulatorsAmount int, repository *p.Reposit
 			osMetricsMap.Delete(clientID)
 
 			o.logger.Infof("Deleted all client %d information", clientID)
-			syncNumber++
-			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
-			if err != nil {
-				o.logger.Errorf("failed to save data: %v", err)
-				return
-			}
-
-			messageUntilAck = AckBatchSize
-			err = o.AckLastMessage()
-			if err != nil {
-				o.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messageTracker.ClientFinished(clientID, o.logger) {
+		clientFinished := messageTracker.ClientFinished(clientID, o.logger)
+		if clientFinished {
 
 			o.logger.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
 			err = o.SendFinalMetrics(clientID, clientOSMetrics)
@@ -96,23 +84,9 @@ func (o *OSFinalAccumulator) Run(osAccumulatorsAmount int, repository *p.Reposit
 			}
 			messageTracker.DeleteClientInfo(clientID)
 			osMetricsMap.Delete(clientID)
-
-			syncNumber++
-			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
-			if err != nil {
-				o.logger.Errorf("failed to save data: %v", err)
-				return
-			}
-
-			messageUntilAck = AckBatchSize
-			err = o.AckLastMessage()
-			if err != nil {
-				o.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messageUntilAck == 0 {
+		if messageUntilAck == 0 || delMessage || clientFinished {
 			syncNumber++
 			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
 			if err != nil {

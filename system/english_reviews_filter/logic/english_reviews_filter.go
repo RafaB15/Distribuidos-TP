@@ -78,23 +78,10 @@ func (f *EnglishReviewsFilter) Run(id int, accumulatorsAmount int, actionReviewJ
 			}
 
 			messageTracker.DeleteClientInfo(clientID)
-
-			syncNumber++
-			err = repository.SaveMessageTracker(messageTracker, syncNumber)
-			if err != nil {
-				f.logger.Errorf("Failed to save message tracker: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = f.AckLastMessage()
-			if err != nil {
-				f.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messageTracker.ClientFinished(clientID, f.logger) {
+		clientFinished := messageTracker.ClientFinished(clientID, f.logger)
+		if clientFinished {
 			f.logger.Infof("Client %d finished", clientID)
 
 			f.logger.Info("Sending EOFs")
@@ -105,23 +92,9 @@ func (f *EnglishReviewsFilter) Run(id int, accumulatorsAmount int, actionReviewJ
 			}
 
 			messageTracker.DeleteClientInfo(clientID)
-
-			syncNumber++
-			err = repository.SaveMessageTracker(messageTracker, syncNumber)
-			if err != nil {
-				f.logger.Errorf("Failed to save message tracker: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = f.AckLastMessage()
-			if err != nil {
-				f.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messagesUntilAck == 0 {
+		if messagesUntilAck == 0 || delMessage || clientFinished {
 			syncNumber++
 			err = repository.SaveMessageTracker(messageTracker, syncNumber)
 			if err != nil {

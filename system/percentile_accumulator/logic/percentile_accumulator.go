@@ -76,26 +76,10 @@ func (p *PercentileAccumulator) Run(previousAccumulators int, repository *p.Repo
 
 			messageTracker.DeleteClientInfo(clientID)
 			percentileMap.Delete(clientID)
-
-			syncNumber++
-			err = repository.SaveAll(percentileMap, messageTracker, syncNumber)
-			if err != nil {
-				p.logger.Errorf("failed to save data: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = p.AckLastMessage()
-			if err != nil {
-				p.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
-
-			continue
-
 		}
 
-		if messageTracker.ClientFinished(clientID, p.logger) {
+		clientFinished := messageTracker.ClientFinished(clientID, p.logger)
+		if clientFinished {
 			p.logger.Infof("Client %d finished sending data", clientID)
 			abovePercentile, err := getTop10PercentByNegativeReviews(percentileReviews, p.logger)
 			if err != nil {
@@ -113,25 +97,9 @@ func (p *PercentileAccumulator) Run(previousAccumulators int, repository *p.Repo
 			}
 			messageTracker.DeleteClientInfo(clientID)
 			percentileMap.Delete(clientID)
-
-			syncNumber++
-			err = repository.SaveAll(percentileMap, messageTracker, syncNumber)
-			if err != nil {
-				p.logger.Errorf("failed to save data: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = p.AckLastMessage()
-			if err != nil {
-				p.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
-
-			continue
 		}
 
-		if messagesUntilAck == 0 {
+		if messagesUntilAck == 0 || delMessage || clientFinished {
 			syncNumber++
 			err = repository.SaveAll(percentileMap, messageTracker, syncNumber)
 			if err != nil {

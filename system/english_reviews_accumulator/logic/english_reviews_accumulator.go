@@ -90,23 +90,10 @@ func (a *EnglishReviewsAccumulator) Run(id int, englishFiltersAmount int, reposi
 
 			messageTracker.DeleteClientInfo(clientID)
 			accumulatedReviews.Delete(clientID)
-
-			syncNumber++
-			err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
-			if err != nil {
-				a.logger.Errorf("Failed to save data: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = a.AckLastMessage()
-			if err != nil {
-				a.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messageTracker.ClientFinished(clientID, a.logger) {
+		clientFinished := messageTracker.ClientFinished(clientID, a.logger)
+		if clientFinished {
 			a.logger.Infof("Client %d finished", clientID)
 
 			metrics := clientAccumulatedReviews.Values()
@@ -125,23 +112,9 @@ func (a *EnglishReviewsAccumulator) Run(id int, englishFiltersAmount int, reposi
 
 			messageTracker.DeleteClientInfo(clientID)
 			accumulatedReviews.Delete(clientID)
-
-			syncNumber++
-			err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
-			if err != nil {
-				a.logger.Errorf("Failed to save data: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = a.AckLastMessage()
-			if err != nil {
-				a.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messagesUntilAck == 0 {
+		if messagesUntilAck == 0 || delMessage || clientFinished {
 			syncNumber++
 			err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
 			if err != nil {

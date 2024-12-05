@@ -8,8 +8,8 @@ services:
       - distributed_network
     environment:
       - GAME_FILE_PATH=./client_data/games_90k.csv
-      - REVIEW_FILE_PATH=./client_data/steam_reviews_1M.csv
-      - FILE_SIZE=1M
+      - REVIEW_FILE_PATH=./client_data/steam_reviews_6M.csv
+      - FILE_SIZE=6M
 
   client2:
     image: client:latest
@@ -20,8 +20,8 @@ services:
       - distributed_network
     environment:
       - GAME_FILE_PATH=./client_data/games_90k.csv
-      - REVIEW_FILE_PATH=./client_data/steam_reviews_100k.csv
-      - FILE_SIZE=100k
+      - REVIEW_FILE_PATH=./client_data/steam_reviews_1M.csv
+      - FILE_SIZE=1M
 
   client3:
     image: client:latest

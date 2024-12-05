@@ -11,7 +11,7 @@ containers_file = "config.json"
 interval = 10  # Cambia este valor según sea necesario
 
 # Porcentaje de probabilidad de detener un contenedor
-stop_probability = 0.5  # 50% de probabilidad
+stop_probability = 0.3  # 30% de probabilidad
 
 def get_container_names(container_data):
     """Genera los nombres de los contenedores según el formato."""

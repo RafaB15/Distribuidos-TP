@@ -63,23 +63,10 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, repository *p.Repository
 
 			messageTracker.DeleteClientInfo(clientID)
 			topTenGamesMap.Delete(clientID)
-			syncNumber++
-
-			err = repository.SaveAll(topTenGamesMap, messageTracker, syncNumber)
-			if err != nil {
-				log.Errorf("failed to save data: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = t.AckLastMessage()
-			if err != nil {
-				t.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messageTracker.ClientFinished(clientID, log) {
+		clientFinished := messageTracker.ClientFinished(clientID, log)
+		if clientFinished {
 			t.logger.Infof("Received all EOFs of client %d. Sending final metrics", clientID)
 			err = t.SendMsg(clientID, clientTopTenGames)
 			if err != nil {
@@ -89,24 +76,9 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, repository *p.Repository
 
 			messageTracker.DeleteClientInfo(clientID)
 			topTenGamesMap.Delete(clientID)
-			syncNumber++
-
-			err = repository.SaveAll(topTenGamesMap, messageTracker, syncNumber)
-			if err != nil {
-				log.Errorf("failed to save data: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = t.AckLastMessage()
-			if err != nil {
-				t.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
-
 		}
 
-		if messagesUntilAck == 0 {
+		if messagesUntilAck == 0 || delMessage || clientFinished {
 
 			syncNumber++
 			err = repository.SaveAll(topTenGamesMap, messageTracker, syncNumber)

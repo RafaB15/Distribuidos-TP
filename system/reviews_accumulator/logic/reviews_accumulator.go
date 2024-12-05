@@ -90,9 +90,13 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, reposito
 			ra.SendDeleteClient(clientID, indieReviewJoinersAmount)
 
 			ra.logger.Infof("Deleted all client %d information", clientID)
+
+			messageTracker.DeleteClientInfo(clientID)
+			accumulatedReviewsMap.Delete(clientID)
 		}
 
-		if messageTracker.ClientFinished(clientID, ra.logger) {
+		clientFinished := messageTracker.ClientFinished(clientID, ra.logger)
+		if clientFinished {
 			ra.logger.Infof("Received all EOFs of client %d. Sending accumulated reviews", clientID)
 			err = ra.SendAccumulatedReviews(clientID, clientAccumulatedReviews, indieReviewJoinersAmount, messageTracker)
 			if err != nil {
@@ -108,29 +112,11 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, reposito
 			}
 			ra.logger.Infof("Sent EOFs of client %d", clientID)
 
-		}
-
-		if messageTracker.ClientFinished(clientID, ra.logger) || delMessage {
 			messageTracker.DeleteClientInfo(clientID)
 			accumulatedReviewsMap.Delete(clientID)
-
-			syncNumber++
-			err = repository.SaveAll(accumulatedReviewsMap, messageTracker, syncNumber)
-			if err != nil {
-				ra.logger.Errorf("Failed to save data: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = ra.AckLastMessage()
-			if err != nil {
-				ra.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
-
 		}
 
-		if messagesUntilAck == 0 {
+		if messagesUntilAck == 0 || delMessage || clientFinished {
 			syncNumber++
 			err = repository.SaveAll(accumulatedReviewsMap, messageTracker, syncNumber)
 			if err != nil {

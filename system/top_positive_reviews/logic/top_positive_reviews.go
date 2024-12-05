@@ -80,22 +80,10 @@ func (t *TopPositiveReviews) Run(indieReviewJoinersAmount int, repository *p.Rep
 			topPositiveIndieGames.Delete(clientID)
 
 			t.logger.Infof("Deleted all client %d information", clientID)
-			syncNumber++
-			err = repository.SaveAll(topPositiveIndieGames, messageTracker, syncNumber)
-			if err != nil {
-				t.logger.Errorf("Failed to save data: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = t.AckLastMessage()
-			if err != nil {
-				t.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messageTracker.ClientFinished(clientID, t.logger) {
+		clientFinished := messageTracker.ClientFinished(clientID, t.logger)
+		if clientFinished {
 			t.logger.Infof("Client %d finished", clientID)
 			t.logger.Infof("Sending Query Results to client %d", clientID)
 
@@ -107,24 +95,9 @@ func (t *TopPositiveReviews) Run(indieReviewJoinersAmount int, repository *p.Rep
 			t.logger.Infof("Sent Top 5 positive reviews to client %d", clientID)
 			messageTracker.DeleteClientInfo(clientID)
 			topPositiveIndieGames.Delete(clientID)
-
-			syncNumber++
-			err = repository.SaveAll(topPositiveIndieGames, messageTracker, syncNumber)
-			if err != nil {
-				t.logger.Errorf("Failed to save data: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = t.AckLastMessage()
-			if err != nil {
-				t.logger.Errorf("Failed to ack last message: %v", err)
-				return
-			}
-
 		}
 
-		if messagesUntilAck == 0 {
+		if messagesUntilAck == 0 || delMessage || clientFinished {
 			syncNumber++
 			err = repository.SaveAll(topPositiveIndieGames, messageTracker, syncNumber)
 			if err != nil {

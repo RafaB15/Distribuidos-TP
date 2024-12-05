@@ -162,23 +162,10 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 			}
 
 			messageTracker.DeleteClientInfo(clientID)
-
-			syncNumber++
-			err = repository.SaveMessageTracker(messageTracker, syncNumber)
-			if err != nil {
-				log.Errorf("Failed to save message tracker: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = gm.AckLastMessage()
-			if err != nil {
-				log.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messageTracker.ClientFinished(clientID, log) {
+		clientFinished := messageTracker.ClientFinished(clientID, log)
+		if clientFinished {
 			log.Infof("Client %d finished", clientID)
 
 			log.Info("Sending EOFs")
@@ -189,23 +176,9 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 			}
 
 			messageTracker.DeleteClientInfo(clientID)
-
-			syncNumber++
-			err = repository.SaveMessageTracker(messageTracker, syncNumber)
-			if err != nil {
-				log.Errorf("Failed to save message tracker: %v", err)
-				return
-			}
-
-			messagesUntilAck = AckBatchSize
-			err = gm.AckLastMessage()
-			if err != nil {
-				log.Errorf("Failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messagesUntilAck == 0 {
+		if messagesUntilAck == 0 || delMessage || clientFinished {
 			syncNumber++
 			err = repository.SaveMessageTracker(messageTracker, syncNumber)
 			if err != nil {

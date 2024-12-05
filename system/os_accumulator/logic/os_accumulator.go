@@ -84,9 +84,12 @@ func (o *OSAccumulator) Run(id int, repository *p.Repository) {
 				return
 			}
 
+			messageTracker.DeleteClientInfo(clientID)
+			osMetricsMap.Delete(clientID)
 		}
 
-		if messageTracker.ClientFinished(clientID, o.logger) {
+		clientFinished := messageTracker.ClientFinished(clientID, o.logger)
+		if clientFinished {
 			o.logger.Infof("Received EOF. Sending metrics: Windows: %v, Mac: %v, Linux: %v", clientOSMetrics.Windows, clientOSMetrics.Mac, clientOSMetrics.Linux)
 			err = o.SendMetrics(clientID, clientOSMetrics, messageTracker)
 			if err != nil {
@@ -100,29 +103,11 @@ func (o *OSAccumulator) Run(id int, repository *p.Repository) {
 				return
 			}
 
-		}
-
-		if messageTracker.ClientFinished(clientID, o.logger) || delMessage {
-
 			messageTracker.DeleteClientInfo(clientID)
 			osMetricsMap.Delete(clientID)
-
-			syncNumber++
-			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
-			if err != nil {
-				o.logger.Errorf("failed to save data: %v", err)
-				return
-			}
-
-			messageUntilAck = AckBatchSize
-			err = o.AckLastMessage()
-			if err != nil {
-				o.logger.Errorf("failed to ack last message: %v", err)
-				return
-			}
 		}
 
-		if messageUntilAck == 0 {
+		if messageUntilAck == 0 || delMessage || clientFinished {
 			syncNumber++
 			err = repository.SaveAll(osMetricsMap, messageTracker, syncNumber)
 			if err != nil {
