@@ -9,6 +9,7 @@ RUN go mod download
 
 COPY system/entrypoint ./system/entrypoint
 COPY middleware ./middleware
+COPY persistence ./persistence
 COPY internal/client_protocol ./internal/client_protocol
 COPY internal/system_protocol ./internal/system_protocol
 COPY internal/utils ./internal/utils

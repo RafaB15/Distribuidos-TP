@@ -91,24 +91,24 @@ func NewMiddleware(logger *logging.Logger) (*Middleware, error) {
 	}, nil
 }
 
-func (m *Middleware) ReceiveGameBatch(messageTracker *n.MessageTracker) (clientID int, gameLines []string, eof bool, newMessage bool, e error) {
+func (m *Middleware) ReceiveGameBatch(messageTracker *n.MessageTracker) (clientID int, gameLines []string, eof bool, newMessage bool, delMessage bool, e error) {
 	rawMsg, err := m.RawGamesQueue.Consume()
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	message, err := sp.DeserializeMessage(rawMsg)
 	if err != nil {
-		return 0, nil, false, false, err
+		return 0, nil, false, false, false, err
 	}
 
 	newMessage, err = messageTracker.ProcessMessage(message.ClientID, message.Body)
 	if err != nil {
-		return 0, nil, false, false, fmt.Errorf("failed to process message: %v", err)
+		return 0, nil, false, false, false, fmt.Errorf("failed to process message: %v", err)
 	}
 
 	if !newMessage {
-		return message.ClientID, nil, false, false, nil
+		return message.ClientID, nil, false, false, false, nil
 	}
 
 	switch message.Type {
@@ -116,23 +116,26 @@ func (m *Middleware) ReceiveGameBatch(messageTracker *n.MessageTracker) (clientI
 		m.logger.Infof("Received EOF from client %d", message.ClientID)
 		endOfFile, err := sp.DeserializeMsgEndOfFile(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, err
+			return message.ClientID, nil, false, false, false, err
 		}
 
 		err = messageTracker.RegisterEOF(message.ClientID, endOfFile, m.logger)
 		if err != nil {
-			return message.ClientID, nil, false, false, err
+			return message.ClientID, nil, false, false, false, err
 		}
 
-		return message.ClientID, nil, true, true, nil
+		return message.ClientID, nil, true, true, false, nil
+	case sp.MsgDeleteClient:
+		m.logger.Infof("Received delete client message from client %d", message.ClientID)
+		return message.ClientID, nil, false, true, true, nil
 	case sp.MsgBatch:
 		lines, err := sp.DeserializeMsgBatch(message.Body)
 		if err != nil {
-			return message.ClientID, nil, false, false, err
+			return message.ClientID, nil, false, false, false, err
 		}
-		return message.ClientID, lines, false, true, nil
+		return message.ClientID, lines, false, true, false, nil
 	default:
-		return message.ClientID, nil, false, false, fmt.Errorf("unexpected message type: %d", message.Type)
+		return message.ClientID, nil, false, false, false, fmt.Errorf("unexpected message type: %d", message.Type)
 	}
 }
 
@@ -282,4 +285,47 @@ func (m *Middleware) AckLastMessages() error {
 
 func (m *Middleware) Close() error {
 	return m.Manager.CloseConnection()
+}
+
+func (m *Middleware) SendDeleteClient(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int) error {
+	serializedMessage := sp.SerializeMsgDeleteClient(clientID)
+
+	for i := 1; i <= osAccumulatorsAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", OSGamesRoutingKeyPrefix, i)
+		err := m.OSGamesExchange.Publish(routingKey, serializedMessage)
+		if err != nil {
+			m.logger.Errorf("Failed to publish delete client message to routing key %s: %v", routingKey, err)
+			return err
+		}
+	}
+
+	for i := 1; i <= decadeFilterAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", YearAndAvgPtfRoutingKeyPrefix, i)
+		err := m.YearAndAvgPtfExchange.Publish(routingKey, serializedMessage)
+		if err != nil {
+			m.logger.Errorf("Failed to publish delete client message to routing key %s: %v", routingKey, err)
+			return err
+		}
+	}
+
+	for i := 1; i <= indieReviewJoinersAmount; i++ {
+		routingKey := u.GetPartitioningKeyFromInt(i, indieReviewJoinersAmount, IndieReviewJoinRoutingKeyPrefix)
+		err := m.IndieReviewJoinExchange.Publish(routingKey, serializedMessage)
+		if err != nil {
+			m.logger.Errorf("Failed to publish delete client message to routing key %s: %v", routingKey, err)
+			return err
+		}
+	}
+
+	for i := 1; i <= actionReviewJoinersAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, i)
+		err := m.ActionReviewJoinExchange.Publish(routingKey, serializedMessage)
+		if err != nil {
+			m.logger.Errorf("Failed to publish delete client message to routing key %s: %v", routingKey, err)
+			return err
+		}
+	}
+
+	m.logger.Infof("Published delete client message for client %d", clientID)
+	return nil
 }

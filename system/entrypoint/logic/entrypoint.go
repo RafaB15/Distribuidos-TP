@@ -3,6 +3,7 @@ package entrypoint
 import (
 	e "distribuidos-tp/internal/system_protocol/entrypoint"
 	n "distribuidos-tp/internal/system_protocol/node"
+	p "distribuidos-tp/system/entrypoint/persistence"
 	"net"
 	"sync"
 
@@ -21,7 +22,7 @@ type SendGamesBatchFunc func(clientID int, data []byte, messageTracker *n.Messag
 type SendReviewsBatchFunc func(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, data []byte, currentReviewId int, messageTracker *n.MessageTracker) (sentReviewsAmount int, e error)
 type SendGamesEndOfFileFunc func(clientID int, messageTracker *n.MessageTracker) error
 type SendReviewsEndOfFileFunc func(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, messageTracker *n.MessageTracker) error
-type ReceiveQueryResultFunc func(clientTracker *e.ClientTracker) (rawMessage []byte, repeated bool, e error)
+type ReceiveQueryResultFunc func(queriesArrived map[int]bool) (rawMessage []byte, repeated bool, e error)
 
 type EntryPoint struct {
 	SendGamesBatch       SendGamesBatchFunc
@@ -47,7 +48,16 @@ func NewEntryPoint(
 	}
 }
 
-func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, clientTracker *e.ClientTracker, mu *sync.Mutex) {
+func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, clientTracker *e.ClientTracker, repository *p.Repository, mu *sync.Mutex) {
+	mu.Lock()
+	err := repository.SaveClientTracker(clientTracker)
+	if err != nil {
+		log.Errorf("Error saving client tracker: %v", err)
+		mu.Unlock()
+		return
+	}
+	mu.Unlock()
+
 	eofGames := false
 	eofReviews := false
 
@@ -93,12 +103,11 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount 
 		}
 	}
 
-	mu.Lock()
-	clientTracker.StartAwaiting(clientID)
-	mu.Unlock()
+	remainingQueries := QueriesAmount
+	queriesArrived := make(map[int]bool)
 
-	for !clientTracker.IsFinished(clientID, QueriesAmount) {
-		result, repeated, err := e.ReceiveQueryResult(clientTracker)
+	for remainingQueries > 0 {
+		result, repeated, err := e.ReceiveQueryResult(queriesArrived)
 		if err != nil {
 			log.Errorf("Error receiving query result for client %d: %v", clientID, err)
 			return
@@ -119,10 +128,18 @@ func (e *EntryPoint) Run(conn net.Conn, clientID int, actionReviewJoinersAmount 
 			}
 			totalWritten += n
 		}
+
+		remainingQueries--
 	}
 
 	mu.Lock()
-	clientTracker.Finish(clientID)
+	clientTracker.FinishClient(clientID)
+	err = repository.SaveClientTracker(clientTracker)
+	if err != nil {
+		log.Errorf("Error saving client tracker: %v", err)
+		mu.Unlock()
+		return
+	}
 	mu.Unlock()
 
 	log.Infof("Client %d finished", clientID)

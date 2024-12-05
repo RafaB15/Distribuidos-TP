@@ -5,7 +5,6 @@ import (
 	oa "distribuidos-tp/internal/system_protocol/accumulator/os_accumulator"
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	df "distribuidos-tp/internal/system_protocol/decade_filter"
-	e "distribuidos-tp/internal/system_protocol/entrypoint"
 	j "distribuidos-tp/internal/system_protocol/joiner"
 	n "distribuidos-tp/internal/system_protocol/node"
 	r "distribuidos-tp/internal/system_protocol/reviews"
@@ -212,7 +211,7 @@ func (m *Middleware) SendReviewsEndOfFile(clientID int, actionReviewJoinersAmoun
 	return nil
 }
 
-func (m *Middleware) ReceiveQueryResponse(clientTracker *e.ClientTracker) ([]byte, bool, error) {
+func (m *Middleware) ReceiveQueryResponse(querysArrived map[int]bool) ([]byte, bool, error) {
 	rawMsg, err := m.QueryResultsQueue.Consume()
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to consume message: %v", err)
@@ -224,11 +223,11 @@ func (m *Middleware) ReceiveQueryResponse(clientTracker *e.ClientTracker) ([]byt
 		return nil, false, fmt.Errorf("failed to deserialize message: %v", err)
 	}
 
-	if clientTracker.IsQueryReceived(queryResponseMessage.ClientID, int(queryResponseMessage.Type)) {
+	if querysArrived[int(queryResponseMessage.Type)] {
 		return nil, true, nil
 	}
 
-	clientTracker.AddQuery(queryResponseMessage.ClientID, int(queryResponseMessage.Type))
+	querysArrived[int(queryResponseMessage.Type)] = true
 
 	// fmt.Printf("Received query response of type: %d\n", queryResponseMessage.Type)
 	switch queryResponseMessage.Type {
@@ -329,4 +328,34 @@ func handleMsgTopTenResolvedQuery(clientID int, message []byte) ([]byte, error) 
 
 func (m *Middleware) Close() error {
 	return m.Manager.CloseConnection()
+}
+
+func (m *Middleware) SendDeleteClient(clientID int, actionReviewJoinersAmount int, reviewAccumulatorsAmount int) error {
+	serializedMessage := sp.SerializeMsgDeleteClient(clientID)
+
+	err := m.RawGamesExchange.Publish(RawGamesRoutingKey, serializedMessage)
+	if err != nil {
+		return fmt.Errorf("failed to publish message: %v", err)
+	}
+	m.logger.Infof("Sent delete client to game mapper")
+
+	for i := 1; i <= actionReviewJoinersAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", ActionReviewJoinerRoutingKeyPrefix, i)
+		err := m.ActionReviewJoinerExchange.Publish(routingKey, serializedMessage)
+		if err != nil {
+			return fmt.Errorf("failed to publish message: %v", err)
+		}
+		m.logger.Infof("Sent delete client to negative pre filter %d", i)
+	}
+
+	for i := 1; i <= reviewAccumulatorsAmount; i++ {
+		routingKey := fmt.Sprintf("%s%d", ReviewsRoutingKeyPrefix, i)
+		err := m.ReviewsExchange.Publish(routingKey, serializedMessage)
+		if err != nil {
+			return fmt.Errorf("failed to publish message: %v", err)
+		}
+		m.logger.Infof("Sent delete client to review accumulator %d", i)
+	}
+
+	return nil
 }

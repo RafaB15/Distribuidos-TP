@@ -68,6 +68,7 @@ func main() {
 		middleware.SendIndieGamesNames,
 		middleware.SendActionGames,
 		middleware.SendEndOfFiles,
+		middleware.SendDeleteClient,
 		middleware.AckLastMessages,
 		log,
 	)

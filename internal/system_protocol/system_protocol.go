@@ -29,6 +29,7 @@ const (
 	MsgGameNames
 	MsgGames
 	MsgJoinedPositiveGameReviews
+	MsgDeleteClient
 )
 
 func SerializeMsgEndOfFile(clientId int, senderID int, messagesSent int) []byte {
@@ -422,4 +423,11 @@ func AssembleFinalQueryMsg(clientID byte, messageType byte, body []byte) []byte 
 	copy(msg[4:], body)
 
 	return msg
+}
+
+// --------------------------------------------------------
+// Message Delete Client
+
+func SerializeMsgDeleteClient(clientID int) []byte {
+	return SerializeMessage(MsgDeleteClient, clientID, nil)
 }

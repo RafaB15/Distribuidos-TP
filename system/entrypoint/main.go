@@ -1,17 +1,18 @@
 package main
 
 import (
-	e "distribuidos-tp/internal/system_protocol/entrypoint"
-	u "distribuidos-tp/internal/utils"
+	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
+	e "distribuidos-tp/internal/system_protocol/entrypoint"
+	u "distribuidos-tp/internal/utils"
 	l "distribuidos-tp/system/entrypoint/logic"
 	m "distribuidos-tp/system/entrypoint/middleware"
-	"fmt"
-	"net"
+	p "distribuidos-tp/system/entrypoint/persistence"
 
 	"github.com/op/go-logging"
 )
@@ -51,8 +52,12 @@ func main() {
 
 	go handleMainGracefulShutdown(listener, signalChannel, &mainWG)
 
+	repository := p.NewRepository(&mainWG, log)
+	clientTracker := repository.LoadClientTracker()
+	deleteUnfinishedClients(clientTracker, actionReviewJoinerAmount, reviewAccumulatorsAmount)
+
 	var mu sync.Mutex
-	clientTracker := e.NewClientTracker()
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -64,13 +69,13 @@ func main() {
 		mu.Lock()
 		currentClientId := clientTracker.AddClient()
 		mu.Unlock()
-		go handleConnection(conn, actionReviewJoinerAmount, reviewAccumulatorsAmount, currentClientId, &mainWG, clientTracker, mu)
+		go handleConnection(conn, actionReviewJoinerAmount, reviewAccumulatorsAmount, currentClientId, &mainWG, clientTracker, repository, &mu)
 	}
 
 	mainWG.Wait()
 }
 
-func handleConnection(conn net.Conn, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, clientID int, mainWG *sync.WaitGroup, clientTracker *e.ClientTracker, mu sync.Mutex) {
+func handleConnection(conn net.Conn, actionReviewJoinersAmount int, reviewAccumulatorsAmount int, clientID int, mainWG *sync.WaitGroup, clientTracker *e.ClientTracker, repository *p.Repository, mu *sync.Mutex) {
 	defer mainWG.Done()
 	defer conn.Close()
 
@@ -97,7 +102,7 @@ func handleConnection(conn net.Conn, actionReviewJoinersAmount int, reviewAccumu
 	go handleClientGracefulShutdown(clientID, conn, &clientWG, middleware, signalChannel, doneChannel)
 
 	go func() {
-		entryPoint.Run(conn, clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount, clientTracker, &mu)
+		entryPoint.Run(conn, clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount, clientTracker, repository, mu)
 		doneChannel <- true
 	}()
 
@@ -132,4 +137,20 @@ func handleClientGracefulShutdown(clientID int, conn net.Conn, clientWG *sync.Wa
 	log.Infof("Graceful shutdown completed for client %d.", clientID)
 	clientWG.Done()
 	doneChannel <- true
+}
+
+func deleteUnfinishedClients(clientTracker *e.ClientTracker, actionReviewJoinersAmount int, reviewAccumulatorsAmount int) {
+	middleware, err := m.NewMiddleware(0, log)
+	if err != nil {
+		fmt.Printf("Error creating middleware: %v\n", err)
+		return
+	}
+
+	for clientID := range clientTracker.CurrentClients {
+		clientTracker.FinishClient(clientID)
+		err := middleware.SendDeleteClient(clientID, actionReviewJoinersAmount, reviewAccumulatorsAmount)
+		if err != nil {
+			log.Errorf("Error sending delete client message for client %d: %v", clientID, err)
+		}
+	}
 }

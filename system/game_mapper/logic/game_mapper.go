@@ -34,12 +34,13 @@ const (
 
 var log = logging.MustGetLogger("log")
 
-type ReceiveGameBatchFunc func(messageTracker *n.MessageTracker) (clientID int, gameLines []string, eof bool, newMessage bool, e error)
+type ReceiveGameBatchFunc func(messageTracker *n.MessageTracker) (clientID int, gameLines []string, eof bool, newMessage bool, delMessage bool, e error)
 type SendGamesOSFunc func(clientID int, osAccumulatorsAmount int, gamesOS []*oa.GameOS, messageTracker *n.MessageTracker) error
 type SendGameYearAndAvgPtfFunc func(clientID int, decadeFilterAmount int, gameYearAndAvgPtf []*df.GameYearAndAvgPtf, messageTracker *n.MessageTracker) error
 type SendIndieGamesNamesFunc func(clientID int, indieGamesNames map[int][]*g.GameName, messageTracker *n.MessageTracker) error
 type SendActionGamesFunc func(clientID int, actionGames []*g.Game, actionReviewJoinerAmount int, messageTracker *n.MessageTracker) error
 type SendEndOfFileFunc func(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int, messageTracker *n.MessageTracker) error
+type SendDeleteClientFunc func(clientID int, osAccumulatorsAmount int, decadeFilterAmount int, indieReviewJoinersAmount int, actionReviewJoinersAmount int) error
 type AckLastMessageFunc func() error
 
 type GameMapper struct {
@@ -49,6 +50,7 @@ type GameMapper struct {
 	SendIndieGamesNames   SendIndieGamesNamesFunc
 	SendActionGames       SendActionGamesFunc
 	SendEndOfFile         SendEndOfFileFunc
+	SendDeleteClient      SendDeleteClientFunc
 	AckLastMessage        AckLastMessageFunc
 	logger                *logging.Logger
 }
@@ -60,6 +62,7 @@ func NewGameMapper(
 	sendIndieGamesNames SendIndieGamesNamesFunc,
 	sendActionGames SendActionGamesFunc,
 	sendEndOfFile SendEndOfFileFunc,
+	deleteClient SendDeleteClientFunc,
 	ackLastMessage AckLastMessageFunc,
 	logger *logging.Logger,
 ) *GameMapper {
@@ -70,6 +73,7 @@ func NewGameMapper(
 		SendIndieGamesNames:   sendIndieGamesNames,
 		SendActionGames:       sendActionGames,
 		SendEndOfFile:         sendEndOfFile,
+		SendDeleteClient:      deleteClient,
 		AckLastMessage:        ackLastMessage,
 		logger:                logger,
 	}
@@ -87,13 +91,13 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 		indieGamesNames := make(map[int][]*g.GameName)
 		actionGames := make([]*g.Game, 0)
 
-		clientID, games, eof, newMessage, err := gm.ReceiveGameBatch(messageTracker)
+		clientID, games, eof, newMessage, delMessage, err := gm.ReceiveGameBatch(messageTracker)
 		if err != nil {
 			log.Errorf("Failed to receive game batch: %v", err)
 			return
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 
 			for _, game := range games {
 				records, err := getRecords(game)
@@ -144,6 +148,32 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 			err = gm.SendActionGames(clientID, actionGames, actionReviewJoinersAmount, messageTracker)
 			if err != nil {
 				log.Errorf("Failed to send action games names: %v", err)
+				return
+			}
+		}
+
+		if delMessage {
+			gm.logger.Infof("Deleting client %d information", clientID)
+
+			err = gm.SendDeleteClient(clientID, osAccumulatorsAmount, decadeFilterAmount, indieReviewJoinersAmount, actionReviewJoinersAmount)
+			if err != nil {
+				log.Errorf("Failed to send delete client: %v", err)
+				return
+			}
+
+			messageTracker.DeleteClientInfo(clientID)
+
+			syncNumber++
+			err = repository.SaveMessageTracker(messageTracker, syncNumber)
+			if err != nil {
+				log.Errorf("Failed to save message tracker: %v", err)
+				return
+			}
+
+			messagesUntilAck = AckBatchSize
+			err = gm.AckLastMessage()
+			if err != nil {
+				log.Errorf("Failed to ack last message: %v", err)
 				return
 			}
 		}
