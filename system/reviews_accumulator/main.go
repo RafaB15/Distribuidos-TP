@@ -45,7 +45,7 @@ func main() {
 		return
 	}
 
-	reviewsAccumulator := l.NewReviewsAccumulator(middleware.ReceiveReviews, middleware.SendAccumulatedReviews, middleware.AckLastMessage, middleware.SendEof, log)
+	reviewsAccumulator := l.NewReviewsAccumulator(middleware.ReceiveReviews, middleware.SendAccumulatedReviews, middleware.SendDeleteClient, middleware.AckLastMessage, middleware.SendEof, log)
 
 	var wg sync.WaitGroup
 

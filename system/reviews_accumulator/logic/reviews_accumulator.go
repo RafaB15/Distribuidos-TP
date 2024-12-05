@@ -15,14 +15,16 @@ const (
 	expectedEOFs = 1
 )
 
-type ReceiveReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, rawReviews []*reviews.ReducedRawReview, eof bool, newMessage bool, e error)
+type ReceiveReviewsFunc func(messageTracker *n.MessageTracker) (clientID int, rawReviews []*reviews.ReducedRawReview, eof bool, newMessage bool, delMessage bool, e error)
 type SendAccumulatedReviewsFunc func(clientID int, accumulatedReviews *n.IntMap[*r.GameReviewsMetrics], indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error
+type SendDeleteClientFunc func(clientID int, indieReviewJoinersAmount int) error
 type AckLastMessageFunc func() error
 type SendEofFunc func(clientID int, senderID int, indieReviewJoinersAmount int, messageTracker *n.MessageTracker) error
 
 type ReviewsAccumulator struct {
 	ReceiveReviews         ReceiveReviewsFunc
 	SendAccumulatedReviews SendAccumulatedReviewsFunc
+	SendDeleteClient       SendDeleteClientFunc
 	AckLastMessage         AckLastMessageFunc
 	SendEof                SendEofFunc
 	logger                 *logging.Logger
@@ -31,6 +33,7 @@ type ReviewsAccumulator struct {
 func NewReviewsAccumulator(
 	receiveReviews ReceiveReviewsFunc,
 	sendAccumulatedReviews SendAccumulatedReviewsFunc,
+	sendDeleteClient SendDeleteClientFunc,
 	ackLastMessage AckLastMessageFunc,
 	sendEof SendEofFunc,
 	logger *logging.Logger,
@@ -38,6 +41,7 @@ func NewReviewsAccumulator(
 	return &ReviewsAccumulator{
 		ReceiveReviews:         receiveReviews,
 		SendAccumulatedReviews: sendAccumulatedReviews,
+		SendDeleteClient:       sendDeleteClient,
 		AckLastMessage:         ackLastMessage,
 		SendEof:                sendEof,
 		logger:                 logger,
@@ -53,7 +57,7 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, reposito
 	messagesUntilAck := AckBatchSize
 
 	for {
-		clientID, rawReviews, eof, newMessage, err := ra.ReceiveReviews(messageTracker)
+		clientID, rawReviews, eof, newMessage, delMessage, err := ra.ReceiveReviews(messageTracker)
 		if err != nil {
 			ra.logger.Error("Error receiving reviews: ", err)
 			return
@@ -65,7 +69,7 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, reposito
 			accumulatedReviewsMap.Set(clientID, clientAccumulatedReviews)
 		}
 
-		if newMessage && !eof {
+		if newMessage && !eof && !delMessage {
 			ra.logger.Infof("Received reviews from client %d", clientID)
 
 			for _, review := range rawReviews {
@@ -79,6 +83,13 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, reposito
 					clientAccumulatedReviews.Set(int(review.AppId), newMetrics)
 				}
 			}
+		}
+
+		if delMessage {
+			ra.logger.Infof("Received Delete Client Message. Deleting client %d", clientID)
+			ra.SendDeleteClient(clientID, indieReviewJoinersAmount)
+
+			ra.logger.Infof("Deleted all client %d information", clientID)
 		}
 
 		if messageTracker.ClientFinished(clientID, ra.logger) {
@@ -97,7 +108,11 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, reposito
 			}
 			ra.logger.Infof("Sent EOFs of client %d", clientID)
 
+		}
+
+		if messageTracker.ClientFinished(clientID, ra.logger) || delMessage {
 			messageTracker.DeleteClientInfo(clientID)
+			accumulatedReviewsMap.Delete(clientID)
 
 			syncNumber++
 			err = repository.SaveAll(accumulatedReviewsMap, messageTracker, syncNumber)
@@ -112,6 +127,7 @@ func (ra *ReviewsAccumulator) Run(id int, indieReviewJoinersAmount int, reposito
 				ra.logger.Errorf("Failed to ack last message: %v", err)
 				return
 			}
+
 		}
 
 		if messagesUntilAck == 0 {
