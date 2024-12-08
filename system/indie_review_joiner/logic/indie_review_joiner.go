@@ -120,11 +120,18 @@ func (i *IndieReviewJoiner) Run(id int, repository *p.Repository, accumulatorsAm
 		}
 
 		if messagesUntilAck == 0 || delMessage || clientFinished {
-			syncNumber++
-			err := repository.SaveAll(accumulatedGameReviews, gamesToSendMap, messageTracker, syncNumber)
-			if err != nil {
-				i.logger.Errorf("Failed to save data: %v", err)
-				return
+			saves := 1
+			if delMessage || clientFinished {
+				saves = 2
+			}
+
+			for j := 0; j < saves; j++ {
+				syncNumber++
+				err := repository.SaveAll(accumulatedGameReviews, gamesToSendMap, messageTracker, syncNumber)
+				if err != nil {
+					i.logger.Errorf("Failed to save data: %v", err)
+					return
+				}
 			}
 
 			err = i.AckLastMessage()

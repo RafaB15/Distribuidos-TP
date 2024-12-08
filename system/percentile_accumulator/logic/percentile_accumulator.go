@@ -100,11 +100,18 @@ func (p *PercentileAccumulator) Run(previousAccumulators int, repository *p.Repo
 		}
 
 		if messagesUntilAck == 0 || delMessage || clientFinished {
-			syncNumber++
-			err = repository.SaveAll(percentileMap, messageTracker, syncNumber)
-			if err != nil {
-				p.logger.Errorf("failed to save data: %v", err)
-				return
+			saves := 1
+			if delMessage || clientFinished {
+				saves = 2
+			}
+
+			for i := 0; i < saves; i++ {
+				syncNumber++
+				err = repository.SaveAll(percentileMap, messageTracker, syncNumber)
+				if err != nil {
+					p.logger.Errorf("failed to save data: %v", err)
+					return
+				}
 			}
 
 			messagesUntilAck = AckBatchSize

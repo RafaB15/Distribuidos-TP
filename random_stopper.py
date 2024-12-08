@@ -8,7 +8,7 @@ import random  # Add import for random
 containers_file = "config.json"
 
 # Intervalo en segundos
-interval = 10  # Cambia este valor según sea necesario
+interval = 30  # Cambia este valor según sea necesario
 
 # Porcentaje de probabilidad de detener un contenedor
 stop_probability = 0.3  # 30% de probabilidad

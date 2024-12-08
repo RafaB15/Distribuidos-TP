@@ -115,11 +115,18 @@ func (a *EnglishReviewsAccumulator) Run(id int, englishFiltersAmount int, reposi
 		}
 
 		if messagesUntilAck == 0 || delMessage || clientFinished {
-			syncNumber++
-			err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
-			if err != nil {
-				a.logger.Errorf("Failed to save data: %v", err)
-				return
+			saves := 1
+			if delMessage || clientFinished {
+				saves = 2
+			}
+
+			for i := 0; i < saves; i++ {
+				syncNumber++
+				err = repository.SaveAll(accumulatedReviews, messageTracker, syncNumber)
+				if err != nil {
+					a.logger.Errorf("Failed to save data: %v", err)
+					return
+				}
 			}
 
 			err = a.AckLastMessage()

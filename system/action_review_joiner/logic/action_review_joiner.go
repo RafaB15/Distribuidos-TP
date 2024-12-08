@@ -127,11 +127,18 @@ func (f *ActionReviewJoiner) Run(id int, repository *p.Repository, englishFilter
 		}
 
 		if messagesUntilAck == 0 || delMessage || clientFinished {
-			syncNumber++
-			err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, messageTracker, syncNumber)
-			if err != nil {
-				f.logger.Errorf("Failed to save data: %v", err)
-				return
+			saves := 1
+			if delMessage || clientFinished {
+				saves = 2
+			}
+
+			for i := 0; i < saves; i++ {
+				syncNumber++
+				err := repository.SaveAll(accumulatedRawReviewsMap, gamesToSendMap, messageTracker, syncNumber)
+				if err != nil {
+					f.logger.Errorf("Failed to save data: %v", err)
+					return
+				}
 			}
 
 			err = f.AckLastMessage()

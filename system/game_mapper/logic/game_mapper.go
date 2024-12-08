@@ -179,11 +179,18 @@ func (gm *GameMapper) Run(osAccumulatorsAmount int, decadeFilterAmount int, indi
 		}
 
 		if messagesUntilAck == 0 || delMessage || clientFinished {
-			syncNumber++
-			err = repository.SaveMessageTracker(messageTracker, syncNumber)
-			if err != nil {
-				gm.logger.Errorf("Failed to save message tracker: %v", err)
-				return
+			saves := 1
+			if delMessage || clientFinished {
+				saves = 2
+			}
+
+			for i := 0; i < saves; i++ {
+				syncNumber++
+				err = repository.SaveMessageTracker(messageTracker, syncNumber)
+				if err != nil {
+					gm.logger.Errorf("Failed to save message tracker: %v", err)
+					return
+				}
 			}
 
 			err = gm.AckLastMessage()

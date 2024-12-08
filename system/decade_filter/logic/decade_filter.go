@@ -93,11 +93,18 @@ func (d *DecadeFilter) Run(senderID int, repository *p.Repository) {
 		}
 
 		if messagesUntilAck == 0 || delMessage || clientFinished {
-			syncNumber++
-			err = repository.SaveMessageTracker(messageTracker, syncNumber)
-			if err != nil {
-				d.logger.Errorf("Failed to save message tracker: %v", err)
-				return
+			saves := 1
+			if delMessage || clientFinished {
+				saves = 2
+			}
+
+			for i := 0; i < saves; i++ {
+				syncNumber++
+				err = repository.SaveMessageTracker(messageTracker, syncNumber)
+				if err != nil {
+					d.logger.Errorf("Failed to save message tracker: %v", err)
+					return
+				}
 			}
 
 			err = d.AckLastMessage()

@@ -4,7 +4,6 @@ import (
 	ra "distribuidos-tp/internal/system_protocol/accumulator/reviews_accumulator"
 	n "distribuidos-tp/internal/system_protocol/node"
 	p "distribuidos-tp/system/negative_reviews_filter/persistence"
-
 	"github.com/op/go-logging"
 )
 
@@ -101,11 +100,18 @@ func (f *NegativeReviewsFilter) Run(englishReviewAccumulatorsAmount int, minNega
 		}
 
 		if messagesUntilAck == 0 || delMessage || clientFinished {
-			syncNumber++
-			err = repository.SaveAll(negativeReviewsMap, messageTracker, syncNumber)
-			if err != nil {
-				f.logger.Errorf("Failed to save data: %v", err)
-				return
+			saves := 1
+			if delMessage || clientFinished {
+				saves = 2
+			}
+
+			for i := 0; i < saves; i++ {
+				syncNumber++
+				err = repository.SaveAll(negativeReviewsMap, messageTracker, syncNumber)
+				if err != nil {
+					f.logger.Errorf("Failed to save data: %v", err)
+					return
+				}
 			}
 
 			messagesUntilAck = AckBatchSize

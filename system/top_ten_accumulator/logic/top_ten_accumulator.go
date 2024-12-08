@@ -79,12 +79,18 @@ func (t *TopTenAccumulator) Run(decadeFilterAmount int, repository *p.Repository
 		}
 
 		if messagesUntilAck == 0 || delMessage || clientFinished {
+			saves := 1
+			if delMessage || clientFinished {
+				saves = 2
+			}
 
-			syncNumber++
-			err = repository.SaveAll(topTenGamesMap, messageTracker, syncNumber)
-			if err != nil {
-				log.Errorf("failed to save data: %v", err)
-				return
+			for i := 0; i < saves; i++ {
+				syncNumber++
+				err = repository.SaveAll(topTenGamesMap, messageTracker, syncNumber)
+				if err != nil {
+					log.Errorf("failed to save data: %v", err)
+					return
+				}
 			}
 
 			messagesUntilAck = AckBatchSize
